@@ -1,9 +1,15 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { leaveController } from '../controllers/leaveController';
 import { authMiddleware } from '../middleware/authMiddleware';
 import { roleMiddleware } from '../middleware/roleMiddleware';
 
 const router = Router();
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
 
 router.use(authMiddleware);
 
@@ -11,6 +17,13 @@ router.use(authMiddleware);
 router.get('/', leaveController.getHolidays);
 
 // Admin-only endpoints
+router.get('/import/template', roleMiddleware('Admin'), leaveController.downloadHolidayImportTemplate);
+router.post(
+  '/import/upload',
+  roleMiddleware('Admin'),
+  upload.single('file'),
+  leaveController.importHolidaysFromExcel,
+);
 router.post('/', roleMiddleware('Admin'), leaveController.createHoliday);
 router.put('/:id', roleMiddleware('Admin'), leaveController.updateHoliday);
 router.patch('/:id/skip', roleMiddleware('Admin'), leaveController.skipHoliday);

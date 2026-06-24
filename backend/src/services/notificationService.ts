@@ -3,6 +3,7 @@ import { readFileSync } from 'fs';
 import { getDB } from '../config/db';
 import { Notification, CreateNotificationPayload } from '../models/Notification';
 import { getEmployeeOfficialEmail, resolveEmployeeForAuthUser } from '../utils/employeeAuth';
+import { employeeHasPortalAdmin } from '../utils/portalAccess';
 import { normalizeApiRole } from '../utils/generateToken';
 import * as emailService from './emailService';
 
@@ -55,6 +56,8 @@ async function createIndexes(): Promise<void> {
       { spec: { recipientId: 1 }, options: { name: 'recipientId_1' } },
       { spec: { recipientId: 1, isRead: 1 }, options: { name: 'recipientId_1_isRead_1' } },
       { spec: { recipientId: 1, type: 1 }, options: { name: 'recipientId_1_type_1' } },
+      { spec: { recipientId: 1, recipientType: 1 }, options: { name: 'recipientId_1_recipientType_1' } },
+      { spec: { recipientId: 1, recipientType: 1, isRead: 1 }, options: { name: 'recipientId_1_recipientType_1_isRead_1' } },
       { spec: { createdAt: -1 }, options: { name: 'createdAt_-1' } },
       { spec: { recipientId: 1, createdAt: -1 }, options: { name: 'recipientId_1_createdAt_-1' } },
     ];
@@ -74,29 +77,64 @@ async function createIndexes(): Promise<void> {
   }
 }
 
-/** Create the same in-app notification for every admin user. */
-export async function notifyAllAdmins(
-  payload: Omit<CreateNotificationPayload, 'recipientId' | 'recipientType'>
-): Promise<void> {
+export type AdminNotificationRecipient = {
+  recipientId: string;
+  recipientName?: string;
+  recipientEmail?: string;
+};
+
+/**
+ * Resolve every admin inbox recipient once (system admin + Employee+Admin portal users).
+ * Uses employee.id for portal admins so notifications align with the active admin session.
+ */
+export async function listAdminNotificationRecipients(): Promise<AdminNotificationRecipient[]> {
   const db = getDB();
-  const admins = await db.collection('users').find({ role: 'Admin' }).toArray();
-  for (const admin of admins) {
-    await createNotification({
-      ...payload,
-      recipientId: String(admin.id),
-      recipientType: 'Admin',
+  const seen = new Set<string>();
+  const recipients: AdminNotificationRecipient[] = [];
+
+  const systemAdmins = await db.collection('users').find({ role: 'Admin' }).toArray();
+  for (const admin of systemAdmins) {
+    const recipientId = String(admin.id);
+    if (!recipientId || seen.has(recipientId)) continue;
+    seen.add(recipientId);
+    recipients.push({
+      recipientId,
+      recipientName: admin.name || 'Admin',
+      recipientEmail: admin.email,
     });
   }
 
   const portalAdmins = await db.collection('employees').find({
-    portalAccess: 'Employee+Admin',
+    $or: [{ portalAccess: 'Employee+Admin' }, { role: 'Admin' }],
     status: { $in: ['Active', 'Notice Period'] },
   }).toArray();
 
   for (const employee of portalAdmins) {
+    if (!employeeHasPortalAdmin(employee)) continue;
+    const recipientId = String(employee.id);
+    if (!recipientId || seen.has(recipientId)) continue;
+    seen.add(recipientId);
+    recipients.push({
+      recipientId,
+      recipientName:
+        [employee.firstName, employee.middleName, employee.lastName].filter(Boolean).join(' ').trim() ||
+        'Admin',
+      recipientEmail: getEmployeeOfficialEmail(employee) || undefined,
+    });
+  }
+
+  return recipients;
+}
+
+/** Create the same in-app notification for every admin user. */
+export async function notifyAllAdmins(
+  payload: Omit<CreateNotificationPayload, 'recipientId' | 'recipientType'>
+): Promise<void> {
+  const recipients = await listAdminNotificationRecipients();
+  for (const recipient of recipients) {
     await createNotification({
       ...payload,
-      recipientId: String(employee.id),
+      recipientId: recipient.recipientId,
       recipientType: 'Admin',
     });
   }
@@ -107,7 +145,10 @@ export async function notifyAllEmployees(
   payload: Omit<CreateNotificationPayload, 'recipientId' | 'recipientType'>
 ): Promise<void> {
   try {
-    const employees = await getDB().collection('employees').find({ status: 'Active' }).toArray();
+    const employees = await getDB()
+      .collection('employees')
+      .find({ status: { $in: ['Active', 'Notice Period'] } })
+      .toArray();
     await Promise.all(
       employees.map((emp) =>
         createNotification({
@@ -159,14 +200,27 @@ export async function resolveNotificationRecipient(
   const portal = normalizeApiRole(activeRole);
 
   if (portal === 'admin') {
+    if (employee && employeeHasPortalAdmin(employee)) {
+      return {
+        recipientId: String(employee.id),
+        recipientType: 'Admin',
+      };
+    }
     return {
-      recipientId: employee?.id ? String(employee.id) : userId,
+      recipientId: userId,
       recipientType: 'Admin',
     };
   }
 
+  if (employee?.id) {
+    return {
+      recipientId: String(employee.id),
+      recipientType: 'Employee',
+    };
+  }
+
   return {
-    recipientId: employee?.id ? String(employee.id) : userId,
+    recipientId: userId,
     recipientType: 'Employee',
   };
 }
@@ -177,7 +231,7 @@ function recipientFilter(recipient: NotificationRecipient): Record<string, unkno
   }
   return {
     recipientId: recipient.recipientId,
-    $or: [{ recipientType: 'Employee' }, { recipientType: { $exists: false } }, { recipientType: null }],
+    recipientType: 'Employee',
   };
 }
 

@@ -15,6 +15,7 @@ import { PMAuditLogModel } from '../models/PMAuditLog';
 import { PMNotificationModel } from '../models/PMNotification';
 import { pmService, LAYOUT_STAGES } from '../services/pmService';
 import { resolveEmployeeForAuthUser } from '../../../utils/employeeAuth';
+import { resolveNotificationRecipient } from '../../../services/notificationService';
 import { ChecklistResponseModel } from '../models/ChecklistResponse';
 import { EmployeeAuditLogModel } from '../models/EmployeeAuditLog';
 import { AdminAuditLogModel } from '../models/AdminAuditLog';
@@ -1368,21 +1369,15 @@ export const pmController = {
         return;
       }
 
-      let recipientId = authUser.email;
-      let recipientType: 'Admin' | 'Employee' = 'Employee';
-
-      if (authUser.role === 'admin') {
-        recipientId = 'admin';
-        recipientType = 'Admin';
-      } else {
-        const employee = await resolveEmployeeForAuthUser(authUser.id || '', authUser.email);
-        recipientId = employee?.id || authUser.id;
-        recipientType = 'Employee';
-      }
+      const recipient = await resolveNotificationRecipient(
+        authUser.id || '',
+        authUser.email,
+        authUser.role || 'employee',
+      );
 
       const notifications = await PMNotificationModel.find({
-        recipientId,
-        recipientType
+        recipientId: recipient.recipientId,
+        recipientType: recipient.recipientType === 'Manager' ? 'Admin' : recipient.recipientType,
       }).sort({ createdAt: -1 }).limit(50);
 
       res.json(notifications);

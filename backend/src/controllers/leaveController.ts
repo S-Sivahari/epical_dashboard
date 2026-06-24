@@ -4,6 +4,13 @@ import * as notificationService from '../services/notificationService';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { isAdminRole, isEmployeeRole } from '../utils/generateToken';
 import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
+import {
+  buildHolidayImportTemplate,
+  expandHolidayDates,
+  formatHolidaySummaryDate,
+  holidayTypeToLabel,
+  parseHolidayImportWorkbook,
+} from '../utils/holidayImportExcel';
 
 const VALID_HOLIDAY_TYPES = ['National', 'Company', 'Optional', 'Company Event'] as const;
 
@@ -194,6 +201,94 @@ export const leaveController = {
     } catch (error: unknown) {
       res.status(400).json({
         error: error instanceof Error ? error.message : 'Failed to adjust leave balance',
+      });
+    }
+  },
+
+  // GET /api/leaves/year-balances?year=2026 (Admin only)
+  getYearBalances: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user || !isAdminRole(req.user.role)) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
+        return;
+      }
+
+      const yearParam = req.query.year;
+      const year =
+        yearParam !== undefined && yearParam !== ''
+          ? Number(Array.isArray(yearParam) ? yearParam[0] : yearParam)
+          : new Date().getFullYear();
+
+      const data = await leaveService.getAllEmployeesYearLeaveBalances(year);
+      res.json(data);
+    } catch (error: unknown) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Failed to fetch year leave balances',
+      });
+    }
+  },
+
+  // PATCH /api/leaves/employee/:employeeId/year-balances (Admin only)
+  updateYearBalances: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user || !isAdminRole(req.user.role)) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
+        return;
+      }
+
+      const employeeId = Array.isArray(req.params.employeeId)
+        ? req.params.employeeId[0]
+        : req.params.employeeId;
+
+      if (!employeeId) {
+        res.status(400).json({ error: 'employeeId is required' });
+        return;
+      }
+
+      const { year, balances } = req.body as {
+        year?: number;
+        balances?: leaveService.YearLeaveBalanceUpdate[];
+      };
+
+      const calendarYear =
+        year !== undefined && year !== null ? Number(year) : new Date().getFullYear();
+
+      if (!Array.isArray(balances) || balances.length === 0) {
+        res.status(400).json({ error: 'balances array is required' });
+        return;
+      }
+
+      const row = await leaveService.updateEmployeeYearLeaveBalances(
+        employeeId,
+        calendarYear,
+        balances,
+        (req.user as { name?: string; email?: string })?.name ||
+          (req.user as { name?: string; email?: string })?.email ||
+          'Admin',
+      );
+      res.json(row);
+    } catch (error: unknown) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Failed to update year leave balances',
+      });
+    }
+  },
+
+  // GET /api/leaves/allocation-activities?from=&to= (Admin only)
+  getAllocationActivities: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user || !isAdminRole(req.user.role)) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
+        return;
+      }
+
+      const from = typeof req.query.from === 'string' ? req.query.from : undefined;
+      const to = typeof req.query.to === 'string' ? req.query.to : undefined;
+      const activities = await leaveService.getLeaveAllocationActivities(from, to);
+      res.json(activities);
+    } catch (error: unknown) {
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to fetch leave allocation activities',
       });
     }
   },
@@ -675,6 +770,77 @@ export const leaveController = {
       res.json(updated);
     } catch {
       res.status(500).json({ error: 'Failed to toggle holiday skip status' });
+    }
+  },
+
+  downloadHolidayImportTemplate: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const buffer = await buildHolidayImportTemplate();
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader('Content-Disposition', 'attachment; filename="holiday_import_template.xlsx"');
+      res.send(buffer);
+    } catch (error) {
+      console.error('Error building holiday import template:', error);
+      res.status(500).json({ error: 'Failed to generate holiday import template' });
+    }
+  },
+
+  importHolidaysFromExcel: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!isAdminRole(req.user?.role ?? '')) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
+      if (!req.file?.buffer) {
+        res.status(400).json({ error: 'No file uploaded' });
+        return;
+      }
+
+      const parsedRows = await parseHolidayImportWorkbook(req.file.buffer);
+      const rowErrors = parsedRows
+        .filter((row) => row.errors.length > 0)
+        .map((row) => ({ rowNumber: row.rowNumber, errors: row.errors }));
+
+      const validRows = parsedRows
+        .filter((row) => row.errors.length === 0)
+        .map((row) => ({
+          rowNumber: row.rowNumber,
+          fromDate: row.fromDate,
+          toDate: row.toDate,
+          title: row.title,
+          type: row.type,
+        }));
+
+      if (validRows.length === 0) {
+        res.status(400).json({
+          error: 'No valid holiday rows found in the uploaded file',
+          rowErrors,
+          created: [],
+          skipped: [],
+        });
+        return;
+      }
+
+      const result = await leaveService.bulkImportHolidays(validRows, expandHolidayDates);
+
+      const summary = result.summary.map((item) => ({
+        title: item.title,
+        typeLabel: holidayTypeToLabel(item.type),
+        dateLabel: formatHolidaySummaryDate(item.fromDate, item.toDate),
+      }));
+
+      res.status(result.created.length > 0 ? 201 : 400).json({
+        created: result.created,
+        skipped: result.skipped,
+        rowErrors,
+        summary,
+      });
+    } catch (error: any) {
+      console.error('Error importing holidays from Excel:', error);
+      res.status(400).json({ error: error?.message || 'Failed to import holidays from Excel' });
     }
   },
 };

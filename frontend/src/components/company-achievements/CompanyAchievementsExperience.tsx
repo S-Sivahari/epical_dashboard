@@ -240,6 +240,9 @@ export function CompanyAchievementsExperience({
 
   const defaultSectionTitle = 'Our achievements'
   const employeeSectionSubtitle = 'Celebrating milestones, recognition, and team wins.'
+  // For employee presentation, always use the stable default to avoid a flicker from
+  // the async pageMeta load overriding the initial title.
+  const displaySectionTitleOverride = ep ? defaultSectionTitle : undefined
 
   const [addOpen, setAddOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<CompanyAchievementRow | null>(null)
@@ -361,7 +364,7 @@ export function CompanyAchievementsExperience({
     }
   }
 
-  const displaySectionTitle = pageMeta?.title?.trim() || defaultSectionTitle
+  const displaySectionTitle = displaySectionTitleOverride ?? (pageMeta?.title?.trim() || defaultSectionTitle)
   const hasActiveFilters = !!(searchQuery || filterCategory || filterYear || filterMonth)
 
   const clearFilters = () => {

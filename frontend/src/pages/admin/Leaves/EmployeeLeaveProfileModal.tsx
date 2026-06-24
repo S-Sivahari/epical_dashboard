@@ -52,11 +52,13 @@ export function EmployeeLeaveProfileModal({
   isOpen,
   employeeId,
   employeeName,
+  focusSection = 'balances',
   onClose,
 }: {
   isOpen: boolean
   employeeId: string | null
   employeeName: string
+  focusSection?: 'balances' | 'history'
   onClose: () => void
 }) {
   const [summary, setSummary] = useState<EmployeeLeaveSummary | null>(null)
@@ -189,8 +191,9 @@ export function EmployeeLeaveProfileModal({
     {
       key: 'reason',
       header: 'Reason',
+      className: 'whitespace-normal min-w-[8rem] max-w-[16rem]',
       render: (l) => (
-        <span className="max-w-[180px] truncate text-sm text-muted" title={l.reason}>
+        <span className="text-sm text-muted break-words">
           {l.reason}
         </span>
       ),
@@ -216,7 +219,7 @@ export function EmployeeLeaveProfileModal({
         title={profileTitle}
         onClose={onClose}
         size="xl"
-        className="flex max-h-[min(90vh,40rem)] min-h-0 flex-col overflow-hidden"
+        className="flex max-h-[min(90vh,44rem)] min-h-0 flex-col overflow-hidden"
       >
         {loading ? (
           <div className="flex min-h-[200px] flex-1 items-center justify-center">
@@ -224,6 +227,7 @@ export function EmployeeLeaveProfileModal({
           </div>
         ) : summary ? (
           <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden">
+            {focusSection === 'balances' ? (
             <section className="shrink-0">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h3 className="text-sm font-semibold text-ink">Leave balances</h3>
@@ -284,6 +288,7 @@ export function EmployeeLeaveProfileModal({
                   })}
               </div>
             </section>
+            ) : null}
 
             <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <h3 className="mb-3 shrink-0 text-sm font-semibold text-ink">Leave history</h3>

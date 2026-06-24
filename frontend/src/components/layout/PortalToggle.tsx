@@ -20,6 +20,7 @@ export function PortalToggle({ className }: PortalToggleProps) {
   const switchPortal = useAuthStore((s) => s.switchPortal)
   const clearNotifications = useNotificationStore((s) => s.clearNotifications)
   const fetchUnreadCount = useNotificationStore((s) => s.fetchUnreadCount)
+  const fetchNotificationsSilent = useNotificationStore((s) => s.fetchNotificationsSilent)
   const navigate = useNavigate()
   const [switching, setSwitching] = useState(false)
 
@@ -31,7 +32,8 @@ export function PortalToggle({ className }: PortalToggleProps) {
     try {
       await switchPortal(target)
       clearNotifications()
-      void fetchUnreadCount()
+      await fetchUnreadCount()
+      void fetchNotificationsSilent()
       navigate(target === 'admin' ? '/admin' : '/employee', { replace: true })
     } catch (err: unknown) {
       const message =
