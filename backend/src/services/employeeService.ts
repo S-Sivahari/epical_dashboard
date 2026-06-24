@@ -910,15 +910,21 @@ export async function bulkUpdateStatus(
 export type DailyActivityLogEntry = {
   id: string;
   userName: string;
-  message: string;
-  time: string;
+  checkInTime: string;
+  checkOutTime: string | null;
+  worked: string | null;
+  checkOutType: 'manual' | 'auto' | null;
 };
 
-function formatAttendanceWorkedHours(checkInTime: Date, checkOutTime: Date): string {
+function formatWorkedDuration(checkInTime: Date, checkOutTime: Date): string {
   const diffMs = checkOutTime.getTime() - checkInTime.getTime();
-  if (diffMs <= 0) return '0h';
-  const hours = Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10;
-  return `${hours}h`;
+  if (diffMs <= 0) return '0m';
+  const totalMinutes = Math.floor(diffMs / (1000 * 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${minutes}m`;
 }
 
 function isAutoCheckOut(attendance: {
@@ -951,31 +957,43 @@ export async function getDailyActivityLog(dateStr: string): Promise<DailyActivit
     const userName = (attendance.employeeName as string) || 'Employee';
     const attendanceId = String(attendance._id);
     const checkIn = new Date(attendance.checkInTime);
+    if (Number.isNaN(checkIn.getTime())) continue;
 
-    if (!Number.isNaN(checkIn.getTime()) && checkIn >= start && checkIn <= end) {
-      entries.push({
-        id: `att-in-${attendanceId}`,
-        userName,
-        message: 'Checked in',
-        time: checkIn.toISOString(),
-        sortAt: checkIn.getTime(),
-      });
-    }
+    const checkOut = attendance.checkOutTime ? new Date(attendance.checkOutTime) : null;
+    const checkInOnDay = checkIn >= start && checkIn <= end;
+    const checkOutOnDay =
+      checkOut != null &&
+      !Number.isNaN(checkOut.getTime()) &&
+      checkOut >= start &&
+      checkOut <= end;
 
-    if (attendance.checkOutTime) {
-      const checkOut = new Date(attendance.checkOutTime);
-      if (!Number.isNaN(checkOut.getTime()) && checkOut >= start && checkOut <= end) {
-        const checkoutLabel = isAutoCheckOut(attendance) ? 'auto check-out' : 'manual check-out';
-        const worked = formatAttendanceWorkedHours(checkIn, checkOut);
-        entries.push({
-          id: `att-out-${attendanceId}`,
-          userName,
-          message: `Checked out (${checkoutLabel}) · worked ${worked}`,
-          time: checkOut.toISOString(),
-          sortAt: checkOut.getTime(),
-        });
-      }
-    }
+    if (!checkInOnDay && !checkOutOnDay) continue;
+
+    const checkOutType =
+      checkOut != null && !Number.isNaN(checkOut.getTime())
+        ? isAutoCheckOut(attendance)
+          ? 'auto'
+          : 'manual'
+        : null;
+
+    const worked =
+      checkOut != null && !Number.isNaN(checkOut.getTime())
+        ? formatWorkedDuration(checkIn, checkOut)
+        : null;
+
+    const sortAt =
+      checkOutOnDay && checkOut != null ? checkOut.getTime() : checkIn.getTime();
+
+    entries.push({
+      id: `att-session-${attendanceId}`,
+      userName,
+      checkInTime: checkIn.toISOString(),
+      checkOutTime:
+        checkOut != null && !Number.isNaN(checkOut.getTime()) ? checkOut.toISOString() : null,
+      worked,
+      checkOutType,
+      sortAt,
+    });
   }
 
   entries.sort((a, b) => b.sortAt - a.sortAt);

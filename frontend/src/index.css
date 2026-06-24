@@ -5619,7 +5619,7 @@
   display: flex;
   align-items: flex-start;
   gap: 0.375rem;
-  padding: 0 0 0.5rem 0.75rem;
+  padding: 0 0 0.75rem 0.75rem;
 }
 
 .dashboard-activity-dot {
@@ -5657,6 +5657,56 @@
   font-weight: 500;
   line-height: 1.4;
   color: #334155;
+}
+
+.dashboard-activity-session {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.dashboard-activity-session-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  min-width: 0;
+  font-size: calc(0.75rem * var(--dashboard-font-scale));
+  line-height: 1.4;
+}
+
+.dashboard-activity-session-row dt {
+  flex-shrink: 0;
+  margin: 0;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.dashboard-activity-session-row dt::after {
+  content: ':';
+}
+
+.dashboard-activity-session-row dd {
+  margin: 0;
+  min-width: 0;
+  font-weight: 500;
+  color: #334155;
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-activity-session-checkout {
+  display: inline-block;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.dashboard-activity-session-auto {
+  white-space: nowrap;
+}
+
+.dashboard-activity-session-value--pending {
+  color: #0f766e;
+  font-style: italic;
 }
 
 .dashboard-activity-time {
