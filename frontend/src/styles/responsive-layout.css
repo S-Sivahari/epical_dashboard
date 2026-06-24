@@ -17,6 +17,9 @@
 .overflow-y-auto,
 .admin-analytics-comparison-chart-scroll,
 .emp-timesheet-history-scroll,
+.admin-dashboard-view[data-admin-dashboard] .dashboard-activity-body,
+.admin-dashboard-view[data-admin-dashboard] .dashboard-approvals-panel .dashboard-insight-panel-body,
+.admin-dashboard-view[data-admin-dashboard] .dashboard-center-stack,
 .admin-documents-view .admin-doc-table-wrap,
 .admin-training-view .admin-training-catalog-scroll,
 .admin-training-view .admin-training-panel-scroll,
@@ -38,6 +41,8 @@
 .overflow-y-auto::-webkit-scrollbar,
 .admin-analytics-comparison-chart-scroll::-webkit-scrollbar,
 .emp-timesheet-history-scroll::-webkit-scrollbar,
+.admin-dashboard-view[data-admin-dashboard] .dashboard-activity-body::-webkit-scrollbar,
+.admin-dashboard-view[data-admin-dashboard] .dashboard-approvals-panel .dashboard-insight-panel-body::-webkit-scrollbar,
 .admin-documents-view .admin-doc-table-wrap::-webkit-scrollbar,
 .admin-training-view .admin-training-catalog-scroll::-webkit-scrollbar,
 .admin-training-view .admin-training-panel-scroll::-webkit-scrollbar,
@@ -59,6 +64,8 @@
 .overflow-y-auto::-webkit-scrollbar-thumb,
 .admin-analytics-comparison-chart-scroll::-webkit-scrollbar-thumb,
 .emp-timesheet-history-scroll::-webkit-scrollbar-thumb,
+.admin-dashboard-view[data-admin-dashboard] .dashboard-activity-body::-webkit-scrollbar-thumb,
+.admin-dashboard-view[data-admin-dashboard] .dashboard-approvals-panel .dashboard-insight-panel-body::-webkit-scrollbar-thumb,
 .admin-documents-view .admin-doc-table-wrap::-webkit-scrollbar-thumb,
 .admin-training-view .admin-training-catalog-scroll::-webkit-scrollbar-thumb,
 .admin-training-view .admin-training-panel-scroll::-webkit-scrollbar-thumb,
@@ -368,11 +375,22 @@
     height: auto;
   }
 
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-stack > .dashboard-workspace-panel.dashboard-activity-panel {
+    overflow: hidden;
+    min-height: 14rem;
+  }
+
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-approvals,
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-activity {
-    flex: none;
+    flex: 1 1 auto;
     max-height: none;
     min-height: 11rem;
+    overflow: hidden;
+  }
+
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-activity-body {
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   .admin-portal .admin-training-shell,
@@ -459,19 +477,18 @@
   }
 }
 
-/* Admin dashboard — page scroll on desktop; min-height keeps columns filling the viewport */
+/* Admin dashboard — viewport-fit on desktop; page scroll when viewport is short/zoomed */
 @media (min-width: 1024px) {
   .admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]) {
     overflow-x: hidden;
-    overflow-y: auto;
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
+    overflow-y: hidden;
+    min-height: 0;
   }
 }
 
-/* ── Short-viewport fallback (desktop widths but ≤ 820 px tall) ──
-   Tighten spacing; page scrolls so zoomed / short laptops can reach all content. */
-@media (min-width: 1024px) and (max-height: 820px) {
+/* ── Short-viewport fallback (desktop widths but ≤ 940 px tall) ──
+   Page scrolls so 80%/90% zoom and short laptops can reach all dashboard content. */
+@media (min-width: 1024px) and (max-height: 940px) {
   .admin-portal.cmd-portal .cmd-main:has([data-admin-dashboard]),
   .employee-portal.cmd-portal .cmd-main:has([data-employee-timesheet]) {
     overflow-x: hidden;

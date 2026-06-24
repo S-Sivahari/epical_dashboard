@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ImageIcon, Loader2, Pencil, Plus, Search, Trophy } from 'lucide-react'
+import { ImageIcon, Loader2, Plus, Search, Trophy } from 'lucide-react'
 import { Button } from '@components/ui/Button'
 import { Modal } from '@components/ui/Modal'
 import { Input } from '@components/ui/Input'
@@ -15,7 +15,6 @@ import {
   getAchievementPageMeta,
   listAchievementCategories,
   listCompanyAchievements,
-  updateAchievementPage,
   updateCompanyAchievement,
 } from '@services/companyAchievementsService'
 import { toast } from 'sonner'
@@ -242,37 +241,6 @@ export function CompanyAchievementsExperience({
   const defaultSectionTitle = 'Our achievements'
   const employeeSectionSubtitle = 'Celebrating milestones, recognition, and team wins.'
 
-  const [pageEditOpen, setPageEditOpen] = useState(false)
-  const [pageTitle, setPageTitle] = useState('')
-  const [pageSaving, setPageSaving] = useState(false)
-
-  useEffect(() => {
-    if (pageEditOpen && pageMeta) {
-      setPageTitle(pageMeta.title?.trim() || defaultSectionTitle)
-    }
-  }, [pageEditOpen, pageMeta, defaultSectionTitle])
-
-  const savePageContent = async () => {
-    if (!pageTitle.trim()) {
-      toast.error('Page title is required')
-      return
-    }
-    setPageSaving(true)
-    try {
-      const next = await updateAchievementPage(pageTitle.trim())
-      setPageMeta(next)
-      setPageEditOpen(false)
-      toast.success('Page title saved')
-    } catch (e: unknown) {
-      const msg =
-        (e as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        'Failed to save page title'
-      toast.error(msg)
-    } finally {
-      setPageSaving(false)
-    }
-  }
-
   const [addOpen, setAddOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<CompanyAchievementRow | null>(null)
   const [aTitle, setATitle] = useState('')
@@ -441,10 +409,7 @@ export function CompanyAchievementsExperience({
           )}
         >
           <div className={cn(ep && 'mx-auto max-w-2xl')}>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#e6f9ec] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#047a24]">
-              <Trophy className="h-3.5 w-3.5" />
-              Achievements Feed
-            </div>
+            
             <h2
               className={cn(
                 adminHub
@@ -470,15 +435,6 @@ export function CompanyAchievementsExperience({
                 ep ? 'mx-auto justify-center' : 'justify-start sm:justify-end'
               )}
             >
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setPageEditOpen(true)}
-                className={adminHub ? 'admin-achievements-secondary-btn' : undefined}
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit page
-              </Button>
               <Button
                 type="button"
                 onClick={openAdd}
@@ -621,35 +577,6 @@ export function CompanyAchievementsExperience({
           ) : null}
         </div>
       )}
-
-      <Modal
-        isOpen={pageEditOpen}
-        onClose={() => setPageEditOpen(false)}
-        title="Edit achievements page"
-        size="md"
-      >
-        <div className="grid gap-4">
-          <Input
-            label="Page title"
-            value={pageTitle}
-            onChange={(e) => setPageTitle(e.target.value)}
-          />
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" type="button" onClick={() => setPageEditOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={pageSaving}
-              onClick={() => void savePageContent()}
-              className={adminHub ? 'admin-achievements-primary-btn border-0' : undefined}
-            >
-              {pageSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Save
-            </Button>
-          </div>
-        </div>
-      </Modal>
 
       <Modal
         isOpen={addOpen}
