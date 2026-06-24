@@ -1533,6 +1533,75 @@ export async function createHoliday(payload: { title: string; date: string; desc
   return holiday as Holiday;
 }
 
+export type BulkHolidayImportSkipped = {
+  rowNumber: number;
+  date: string;
+  title: string;
+  reason: string;
+};
+
+export async function bulkImportHolidays(
+  rows: Array<{
+    rowNumber: number;
+    fromDate: string;
+    toDate: string | null;
+    title: string;
+    type: HolidayType;
+  }>,
+  expandDates: (fromDate: string, toDate: string | null) => string[],
+): Promise<{
+  created: Holiday[];
+  skipped: BulkHolidayImportSkipped[];
+  summary: Array<{ title: string; type: HolidayType; fromDate: string; toDate: string | null }>;
+}> {
+  const col = getHolidayCol();
+  const created: Holiday[] = [];
+  const skipped: BulkHolidayImportSkipped[] = [];
+  const summary: Array<{ title: string; type: HolidayType; fromDate: string; toDate: string | null }> = [];
+
+  for (const row of rows) {
+    const dates = expandDates(row.fromDate, row.toDate);
+    let rowCreated = 0;
+
+    for (const date of dates) {
+      const isDuplicate = await checkDuplicateHoliday(date);
+      if (isDuplicate) {
+        skipped.push({
+          rowNumber: row.rowNumber,
+          date,
+          title: row.title,
+          reason: 'Holiday already exists on this date',
+        });
+        continue;
+      }
+
+      const id = `H-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const holiday: Holiday = {
+        id,
+        title: row.title,
+        date,
+        type: row.type,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      await col.insertOne(holiday);
+      created.push(holiday);
+      rowCreated += 1;
+    }
+
+    if (rowCreated > 0) {
+      summary.push({
+        title: row.title,
+        type: row.type,
+        fromDate: row.fromDate,
+        toDate: row.toDate,
+      });
+    }
+  }
+
+  return { created, skipped, summary };
+}
+
 export async function updateHoliday(id: string, payload: { title?: string; date?: string; description?: string; type?: HolidayType; skipped?: boolean; skippedReason?: string }): Promise<Holiday | null> {
   const col = getHolidayCol();
   const result = await col.findOneAndUpdate(

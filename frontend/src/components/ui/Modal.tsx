@@ -32,11 +32,14 @@ export function Modal({
   className,
   children,
   theme = 'light',
+  headerActions,
 }: {
   isOpen: boolean
   title: string
   onClose: () => void
   size?: 'sm' | 'md' | 'lg' | 'xl'
+  /** Rendered to the left of the close button in the modal header. */
+  headerActions?: ReactNode
   /** Stack above another open modal (e.g. override form over project tasks). */
   elevated?: boolean
   /** Trap focus and block background interaction (recommended for forms). */
@@ -114,7 +117,9 @@ export function Modal({
             )}>
               {title}
             </Dialog.Title>
-            <Dialog.Close
+            <div className="flex items-center gap-2">
+              {headerActions}
+              <Dialog.Close
               className={cn(
                 "rounded-lg p-1 transition-colors",
                 isDark 
@@ -125,6 +130,7 @@ export function Modal({
             >
               <X className="h-5 w-5" />
             </Dialog.Close>
+            </div>
           </div>
           {children}
         </Dialog.Content>

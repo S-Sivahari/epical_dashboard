@@ -8,6 +8,7 @@ import type {
   YearLeaveBalanceUpdate,
 } from '@/types'
 import api from '@services/api'
+import { downloadWithAuth } from '@/utils/downloadWithAuth'
 
 export async function getLeaves() {
   const response = await api.get('/leaves')
@@ -137,6 +138,24 @@ export async function skipHoliday(id: string, reason?: string) {
 export async function getHolidays() {
   const response = await api.get('/holidays')
   return response.data as Holiday[]
+}
+
+export async function downloadHolidayImportTemplate() {
+  await downloadWithAuth('/holidays/import/template', 'holiday_import_template.xlsx')
+}
+
+export type HolidayImportResult = {
+  created: Holiday[]
+  skipped: Array<{ rowNumber: number; date: string; title: string; reason: string }>
+  rowErrors: Array<{ rowNumber: number; errors: string[] }>
+  summary: Array<{ title: string; typeLabel: string; dateLabel: string }>
+}
+
+export async function importHolidaysFromExcel(file: File): Promise<HolidayImportResult> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await api.post('/holidays/import/upload', formData)
+  return response.data as HolidayImportResult
 }
 
 export interface TeamLeaveEntry {
