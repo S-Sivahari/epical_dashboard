@@ -14568,7 +14568,6 @@
 .admin-leaves-view .admin-leaves-hub-header {
   overflow: hidden;
   border-radius: 0.875rem;
-  background: var(--dash-forest-header, #2f6b4f);
   box-shadow: 0 4px 14px rgba(47, 107, 79, 0.28);
 }
 

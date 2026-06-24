@@ -310,8 +310,8 @@ export function LeaveRequests({
   return (
     <Tooltip.Provider delayDuration={300}>
       <div className="admin-leaves-center-panel">
-        <div className="admin-leaves-status-tabs">
-          <div className="admin-leaves-status-tab-list">
+        <div className="admin-leaves-status-tabs admin-leaves-status-tabs--hub">
+          <nav className="admin-leaves-status-tab-rail admin-leaves-tab-rail" aria-label="Leave status">
             {(['Pending', 'Approved', 'Rejected'] as StatusType[]).map((status) => {
               const count = statusCounts[status]
               const active = filters.status === status
@@ -321,15 +321,18 @@ export function LeaveRequests({
                   type="button"
                   data-status={status}
                   onClick={() => setFilters({ ...filters, status })}
-                  className={cn('admin-leaves-status-tab', active && 'admin-leaves-status-tab--active')}
+                  className={cn(
+                    'admin-leaves-tab-btn admin-leaves-status-tab-btn',
+                    active ? 'admin-leaves-tab-btn--active' : 'admin-leaves-tab-btn--inactive',
+                  )}
                 >
-                  {status}
+                  <span>{status}</span>
                   <span className="admin-leaves-status-tab-count">{count}</span>
                 </button>
               )
             })}
-          </div>
-          <span className="admin-leaves-month-label">{monthLabel}</span>
+          </nav>
+          <span className="admin-leaves-status-month-label">{monthLabel}</span>
         </div>
 
         <div className="admin-leaves-scroll flex-1 min-h-0">

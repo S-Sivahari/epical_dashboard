@@ -184,12 +184,7 @@ export function YearLeaveBalancesPanel({
   return (
     <div className="admin-leaves-year-balances-panel">
       <div className="admin-leaves-year-balances-toolbar">
-        <div className="admin-leaves-year-balances-toolbar-main">
-          <h3 className="admin-leaves-col-panel-title">View balance</h3>
-          <p className="admin-leaves-year-balances-caption">
-            Calendar year · resets every January. Adjust annual totals using +/−.
-          </p>
-        </div>
+        <h3 className="admin-leaves-year-balances-title">View Balance</h3>
         <div className="admin-leaves-year-balances-toolbar-actions">
           <label className="admin-leaves-year-balances-year">
             <span>Year</span>
