@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useLeaves } from '@hooks/useLeaves'
 import {
   format,
@@ -17,7 +17,7 @@ import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { DateInput } from '@components/shared/DateInput'
 import { getCalendarEntryBounds, validateIsoInRange } from '@/utils/dateValidation'
-import { Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Edit2, Trash2, ChevronLeft, ChevronRight, Download, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { formatDate } from '@/utils/formatDate'
@@ -77,6 +77,15 @@ const CAL_SIDEBAR_DELETE_BTN = cn(
   'admin-cal-delete-btn border border-red-600 bg-red-600 text-white hover:bg-red-700 hover:border-red-700',
 )
 
+function expandHolidayDateRange(from: string, to: string): string[] {
+  if (!from) return []
+  if (!to || to === from) return [from]
+  const start = parseISO(from)
+  const end = parseISO(to)
+  if (end < start) return []
+  return eachDayOfInterval({ start, end }).map((day) => format(day, 'yyyy-MM-dd'))
+}
+
 export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const isEmployeeCal = variant === 'employee'
   const isAdminCal = variant === 'admin'
@@ -97,7 +106,6 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
       )
       .catch(() => {})
   }, [isEmployeeCal])
-  const addHoliday = useLeaveStore((s) => s.addHoliday)
   const updateHoliday = useLeaveStore((s) => s.updateHoliday)
   const deleteHoliday = useLeaveStore((s) => s.deleteHoliday)
   const fetchHolidays = useLeaveStore((s) => s.fetchHolidays)
@@ -118,6 +126,9 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingKind, setEditingKind] = useState<'holiday' | 'calendarEvent' | null>(null)
   const [holidayToDelete, setHolidayToDelete] = useState<Holiday | null>(null)
+  const holidayImportInputRef = useRef<HTMLInputElement>(null)
+  const [downloadingHolidayTemplate, setDownloadingHolidayTemplate] = useState(false)
+  const [uploadingHolidayImport, setUploadingHolidayImport] = useState(false)
 
   const dbSidebarEvents = useMemo(
     (): CalendarSidebarEvent[] =>
@@ -132,7 +143,8 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
 
   // Holiday form state
   const [title, setTitle] = useState('')
-  const [date, setDate] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [time, setTime] = useState('')
   const [type, setType] = useState<'National' | 'Company' | 'Optional' | 'Company Event'>('National')
 
@@ -213,7 +225,8 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
 
   const resetHolidayForm = () => {
     setTitle('')
-    setDate('')
+    setFromDate('')
+    setToDate('')
     setTime('')
     setType('National')
     setEditingId(null)
@@ -251,16 +264,83 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
 
   const calendarBounds = getCalendarEntryBounds()
 
+  const handleDownloadHolidayTemplate = async () => {
+    try {
+      setDownloadingHolidayTemplate(true)
+      await leaveService.downloadHolidayImportTemplate()
+      toast.success('Holiday import template downloaded')
+    } catch {
+      toast.error('Failed to download holiday template')
+    } finally {
+      setDownloadingHolidayTemplate(false)
+    }
+  }
+
+  const handleHolidayImportFileChange = async (fileList: FileList | null) => {
+    const file = fileList?.[0]
+    if (!file) return
+
+    try {
+      setUploadingHolidayImport(true)
+      const result = await leaveService.importHolidaysFromExcel(file)
+      await fetchHolidays()
+
+      if (result.created.length > 0) {
+        const firstCreated = result.created[0]
+        if (firstCreated?.date) {
+          setCurrentDate(startOfMonth(parseISO(firstCreated.date)))
+        }
+        toast.success(
+          `Imported ${result.created.length} holiday${result.created.length === 1 ? '' : 's'} successfully`,
+        )
+        setIsHolidayFormOpen(false)
+        resetHolidayForm()
+      } else {
+        toast.error('No new holidays were added')
+      }
+
+      if (result.skipped.length > 0) {
+        toast.message(`${result.skipped.length} date(s) skipped (already on calendar)`)
+      }
+      if (result.rowErrors.length > 0) {
+        const first = result.rowErrors[0]
+        toast.error(`Row ${first.rowNumber}: ${first.errors.join(', ')}`)
+      }
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        (err instanceof Error ? err.message : 'Failed to import holidays')
+      toast.error(message)
+    } finally {
+      setUploadingHolidayImport(false)
+      if (holidayImportInputRef.current) holidayImportInputRef.current.value = ''
+    }
+  }
+
   const handleAddHoliday = async () => {
-    if (!title.trim() || !date) {
-      toast.error(`Please fill ${isEventForm ? 'event' : 'holiday'} name and date`)
+    const usesDateRange = !editingId && !isEventForm
+
+    if (!title.trim() || !fromDate || (usesDateRange && toDate && toDate < fromDate)) {
+      if (usesDateRange && fromDate && toDate && toDate < fromDate) {
+        toast.error('To Date cannot be earlier than From Date')
+        return
+      }
+      toast.error(
+        `Please fill ${isEventForm ? 'event' : 'holiday'} name and ${usesDateRange ? 'from date' : 'date'}`,
+      )
       return
     }
 
-    const dateCheck = validateIsoInRange(date, calendarBounds.min, calendarBounds.max)
-    if (!dateCheck.valid) {
-      toast.error(dateCheck.error)
-      return
+    const datesToSave = usesDateRange
+      ? expandHolidayDateRange(fromDate, toDate.trim())
+      : [fromDate]
+
+    for (const isoDate of datesToSave) {
+      const dateCheck = validateIsoInRange(isoDate, calendarBounds.min, calendarBounds.max)
+      if (!dateCheck.valid) {
+        toast.error(dateCheck.error)
+        return
+      }
     }
 
     try {
@@ -268,23 +348,49 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
         if (editingKind === 'calendarEvent') {
           await updateCompanyCalendarEvent(editingId, {
             title,
-            date,
+            date: fromDate,
             time: time.trim() || undefined,
           })
         } else {
-          await updateHoliday(editingId, { title, date, type })
+          await updateHoliday(editingId, { title, date: fromDate, type })
         }
       } else if (type === 'Company Event') {
         await addCompanyCalendarEvent({
           title,
-          date,
+          date: fromDate,
           time: time.trim() || undefined,
         })
       } else {
-        await addHoliday({ title, date, type })
+        const existingDates = new Set(holidays.map((h) => h.date))
+        let created = 0
+        let skipped = 0
+
+        for (const isoDate of datesToSave) {
+          if (existingDates.has(isoDate)) {
+            skipped += 1
+            continue
+          }
+          await leaveService.addHoliday({ title, date: isoDate, type })
+          existingDates.add(isoDate)
+          created += 1
+        }
+
+        if (created === 0) {
+          toast.error(
+            skipped > 0
+              ? 'No new holidays added — selected date(s) already exist on the calendar'
+              : 'No holidays were added',
+          )
+          return
+        }
+
+        if (skipped > 0) {
+          toast.message(`${skipped} date(s) skipped (already on calendar)`)
+        }
       }
+
       await fetchHolidays()
-      setCurrentDate(startOfMonth(parseISO(date)))
+      setCurrentDate(startOfMonth(parseISO(fromDate)))
       resetHolidayForm()
       setIsHolidayFormOpen(false)
       toast.success(editingId ? 'Updated successfully' : 'Saved successfully')
@@ -295,7 +401,8 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
 
   const handleEditHoliday = (holiday: Holiday) => {
     setTitle(holiday.title)
-    setDate(holiday.date)
+    setFromDate(holiday.date)
+    setToDate('')
     setType(holiday.type)
     setTime('')
     setEditingId(holiday.id)
@@ -305,7 +412,8 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
 
   const handleEditEvent = (event: CalendarSidebarEvent) => {
     setTitle(event.title)
-    setDate(event.date)
+    setFromDate(event.date)
+    setToDate('')
     setTime(event.time || '')
     setType('Company Event')
     setEditingId(event.id)
@@ -748,7 +856,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
           >
             <header
               className={cn(
-                'flex-shrink-0 border-b px-3 py-2',
+                'flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2',
                 useAdminLayout
                   ? 'admin-cal-side-unified-title'
                   : 'border-border',
@@ -762,12 +870,28 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
               >
                 {format(currentDate, 'MMMM yyyy')}
               </h2>
+              {canManage ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className={cn(
+                    'h-7 shrink-0 px-2 text-[10px] font-semibold',
+                    useAdminLayout && 'admin-cal-template-btn',
+                  )}
+                  disabled={downloadingHolidayTemplate}
+                  onClick={() => void handleDownloadHolidayTemplate()}
+                >
+                  <Download className="mr-1 h-3 w-3 shrink-0" />
+                  {downloadingHolidayTemplate ? 'Downloading…' : 'Download Template'}
+                </Button>
+              ) : null}
             </header>
 
             <div
               className={cn(
-                'flex min-h-0 flex-1 flex-col gap-2 overflow-hidden',
-                useAdminLayout ? 'admin-cal-side-unified-body' : 'p-3',
+                'flex min-h-0 flex-1 flex-col gap-2',
+                useAdminLayout ? 'admin-cal-side-unified-body overflow-x-hidden' : 'overflow-hidden p-3',
               )}
             >
               {/* Holidays */}
@@ -831,7 +955,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                   <div
                     className={cn(
                       'space-y-1 overflow-y-auto pr-1 custom-scrollbar',
-                      useAdminLayout ? 'admin-cal-side-section-list' : 'max-h-28',
+                      useAdminLayout ? 'admin-cal-side-section-list' : 'admin-cal-side-section-list max-h-[6.75rem]',
                     )}
                   >
                     {[...sidebarHolidays]
@@ -972,7 +1096,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                   <div
                     className={cn(
                       'space-y-1 overflow-y-auto pr-1 custom-scrollbar',
-                      useAdminLayout ? 'admin-cal-side-section-list' : 'max-h-28',
+                      useAdminLayout ? 'admin-cal-side-section-list' : 'admin-cal-side-section-list max-h-[6.75rem]',
                     )}
                   >
                     {[...sidebarEvents]
@@ -1064,7 +1188,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                   'flex min-h-0 flex-col rounded-lg',
                   sidebarLeaves.length > 0 &&
                     (useAdminLayout
-                      ? 'admin-cal-side-section--active admin-cal-side-section--active-leaves admin-cal-side-section--fills'
+                      ? 'admin-cal-side-section--active admin-cal-side-section--active-leaves admin-cal-side-section--scroll'
                       : 'border border-lime-100/90 bg-lime-50/50 px-2 py-1.5'),
                 )}
               >
@@ -1093,7 +1217,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                   <div
                     className={cn(
                       'min-h-0 space-y-1 overflow-y-auto pr-1 custom-scrollbar',
-                      useAdminLayout ? 'admin-cal-side-section-list admin-cal-side-section-list--fills' : 'max-h-36',
+                      useAdminLayout ? 'admin-cal-side-section-list' : 'admin-cal-side-section-list max-h-[6.75rem]',
                     )}
                   >
                     {sidebarLeaves.map((leave) => {
@@ -1295,10 +1419,38 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
 
       {/* Holiday Form Modal */}
       {canManage && isHolidayFormOpen && (
-        <Modal isOpen={isHolidayFormOpen} onClose={() => {
-          setIsHolidayFormOpen(false)
-          resetHolidayForm()
-        }} title={formTitle}>
+        <Modal
+          isOpen={isHolidayFormOpen}
+          onClose={() => {
+            setIsHolidayFormOpen(false)
+            resetHolidayForm()
+          }}
+          title={formTitle}
+          headerActions={
+            !editingId && !isEventForm ? (
+              <>
+                <input
+                  ref={holidayImportInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                  className="hidden"
+                  onChange={(e) => void handleHolidayImportFileChange(e.target.files)}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="h-8 px-2.5 text-xs"
+                  disabled={uploadingHolidayImport}
+                  onClick={() => holidayImportInputRef.current?.click()}
+                >
+                  <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                  {uploadingHolidayImport ? 'Uploading…' : 'Upload Excel'}
+                </Button>
+              </>
+            ) : undefined
+          }
+        >
           <div className="space-y-4">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink">
@@ -1311,16 +1463,47 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                 className="h-10"
               />
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-ink">Date <span className="text-red-500">*</span></label>
-              <DateInput
-                value={date}
-                onChange={setDate}
-                minDate={calendarBounds.min}
-                maxDate={calendarBounds.max}
-                placeholder="dd/mm/yyyy"
-              />
-            </div>
+            {!editingId && !isEventForm ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-ink">
+                    From Date <span className="text-red-500">*</span>
+                  </label>
+                  <DateInput
+                    value={fromDate}
+                    onChange={setFromDate}
+                    minDate={calendarBounds.min}
+                    maxDate={calendarBounds.max}
+                    placeholder="dd/mm/yyyy"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-ink">
+                    To Date <span className="text-xs font-normal text-muted">(optional)</span>
+                  </label>
+                  <DateInput
+                    value={toDate}
+                    onChange={setToDate}
+                    minDate={fromDate || calendarBounds.min}
+                    maxDate={calendarBounds.max}
+                    placeholder="dd/mm/yyyy"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink">
+                  Date <span className="text-red-500">*</span>
+                </label>
+                <DateInput
+                  value={fromDate}
+                  onChange={setFromDate}
+                  minDate={calendarBounds.min}
+                  maxDate={calendarBounds.max}
+                  placeholder="dd/mm/yyyy"
+                />
+              </div>
+            )}
             {!isEventForm ? (
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-ink">Holiday Type</label>
