@@ -172,9 +172,23 @@ export const authController = {
 
       }
 
-      const { name } = req.body ?? {};
+      // JWT role is always lowercase 'admin' | 'employee' (normalizeApiRole is applied at token creation)
+      const jwtRole = normalizeApiRole(String(req.user.role ?? ''));
 
-      if (typeof name !== 'string') {
+      if (jwtRole !== 'admin') {
+
+        res.status(403).json({ error: 'Only accessible from the admin portal' });
+
+        return;
+
+      }
+
+      const { name, adminDisplayName } = req.body ?? {};
+
+      const displayName = typeof adminDisplayName === 'string' ? adminDisplayName
+        : typeof name === 'string' ? name : '';
+
+      if (!displayName.trim()) {
 
         res.status(400).json({ error: 'Name is required' });
 
@@ -182,7 +196,7 @@ export const authController = {
 
       }
 
-      const user = await authService.updateUserName(req.user.id, name);
+      const user = await authService.updateAdminDisplayName(req.user.id, displayName);
 
       const portalAdmin = await authService.resolveSessionPortalAdmin(
 
@@ -196,7 +210,7 @@ export const authController = {
 
         user,
 
-        role: normalizeApiRole(String(req.user.role)),
+        role: jwtRole,
 
         portalAdmin,
 

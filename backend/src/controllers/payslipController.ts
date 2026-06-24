@@ -126,16 +126,18 @@ async function notifyAdminsAndEmployee(params: {
 
 export const payslipController = {
   /** Download active template — custom if uploaded, else built-in demo */
-  downloadTemplate: async (_req: Request, res: Response): Promise<void> => {
+  downloadTemplate: async (req: Request, res: Response): Promise<void> => {
+    const includeEmployeeData = req.query.includeEmployeeData === 'true'
+    
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    if (existsSync(TEMPLATE_PATH)) {
+    if (existsSync(TEMPLATE_PATH) && !includeEmployeeData) {
       const meta = await templateMetaCollection().findOne({}, { sort: { uploadedAt: -1 } })
       const name = payrollMasterTemplateFileName()
       res.setHeader('Content-Disposition', `attachment; filename="${name}"`)
       const buffer = readFileSync(TEMPLATE_PATH)
       res.send(buffer)
     } else {
-      const buffer = await generatePayrollTemplateBuffer()
+      const buffer = await generatePayrollTemplateBuffer({ includeEmployeeData })
       res.setHeader('Content-Disposition', `attachment; filename="${payrollMasterTemplateFileName()}"`)
       res.send(buffer)
     }

@@ -32,7 +32,6 @@ export const env = {
   GNEWS_API_KEY: process.env.GNEWS_API_KEY || '',
   ADMIN_EMAIL: (process.env.ADMIN_EMAIL || 'admin@company.com').toLowerCase().trim(),
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'admin123',
-  ADMIN_NAME: process.env.ADMIN_NAME || 'Epical Admin',
   CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
 
   // SMTP / Email (Uppercase & Camelcase options for compatibility)

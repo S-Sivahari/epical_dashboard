@@ -7737,7 +7737,8 @@
 
 .admin-projects-view .projects-ts-table-wrap thead th {
   font-size: 0.8125rem;
-  letter-spacing: 0.07em;
+  letter-spacing: normal;
+  text-transform: none;
   padding: calc(0.875rem * var(--admin-projects-ui-scale, 0.8)) calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
 }
 
@@ -7785,8 +7786,9 @@
 .admin-projects-view .projects-analytics-head h3 {
   color: #ffffff !important;
   font-size: 0.9375rem;
-  letter-spacing: 0.08em;
+  letter-spacing: normal;
   line-height: 1.35;
+  text-transform: none;
 }
 
 .admin-projects-view .projects-analytics-head h3 > span:first-child {
@@ -17149,6 +17151,7 @@ html:has(.admin-portal) .emp-nav-wheel-overlay {
   flex-shrink: 0;
   min-width: 0;
   max-width: var(--cmd-slash-band);
+  overflow: hidden;
 }
 
 .admin-portal .employee-cmd-bar__logo ,.employee-portal .employee-cmd-bar__logo {
@@ -17241,6 +17244,8 @@ html:has(.admin-portal) .emp-nav-wheel-overlay {
   flex-direction: column;
   gap: 0.15rem;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   margin-left: calc(
     var(--cmd-forest-w) - var(--cmd-bar-pad-x) - var(--cmd-logo-w) - var(--cmd-brand-gap)
   );

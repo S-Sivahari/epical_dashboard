@@ -214,6 +214,8 @@ export function CompanyAchievementsExperience({
         (e as { response?: { data?: { error?: string } } })?.response?.data?.error ||
         'Failed to load page settings'
       toast.error(msg)
+    } finally {
+      setPageMetaLoaded(true)
     }
   }, [])
 
@@ -238,11 +240,10 @@ export function CompanyAchievementsExperience({
     ]
   }, [categories])
 
+  const [pageMetaLoaded, setPageMetaLoaded] = useState(false)
+
   const defaultSectionTitle = 'Our achievements'
   const employeeSectionSubtitle = 'Celebrating milestones, recognition, and team wins.'
-  // For employee presentation, always use the stable default to avoid a flicker from
-  // the async pageMeta load overriding the initial title.
-  const displaySectionTitleOverride = ep ? defaultSectionTitle : undefined
 
   const [addOpen, setAddOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<CompanyAchievementRow | null>(null)
@@ -364,7 +365,7 @@ export function CompanyAchievementsExperience({
     }
   }
 
-  const displaySectionTitle = displaySectionTitleOverride ?? (pageMeta?.title?.trim() || defaultSectionTitle)
+  const displaySectionTitle = pageMeta?.title?.trim() || defaultSectionTitle
   const hasActiveFilters = !!(searchQuery || filterCategory || filterYear || filterMonth)
 
   const clearFilters = () => {
@@ -412,20 +413,20 @@ export function CompanyAchievementsExperience({
           )}
         >
           <div className={cn(ep && 'mx-auto max-w-2xl')}>
-            
             <h2
               className={cn(
                 adminHub
                   ? 'admin-achievements-section-title font-display text-2xl font-extrabold text-[#06C033]'
                   : ep
                     ? 'font-sans text-3xl font-bold tracking-tight text-[#06C033] sm:text-4xl'
-                    : 'font-display text-2xl font-semibold text-[#06C033] sm:text-3xl'
+                    : 'font-display text-2xl font-semibold text-[#06C033] sm:text-3xl',
+                !pageMetaLoaded && 'invisible'
               )}
             >
               {displaySectionTitle}
             </h2>
             {employeePresentation ? (
-              <p className="mt-4 font-sans text-base text-slate-600 sm:text-lg">
+              <p className={cn('mt-4 font-sans text-base text-slate-600 sm:text-lg', !pageMetaLoaded && 'invisible')}>
                 {employeeSectionSubtitle}
               </p>
             ) : null}

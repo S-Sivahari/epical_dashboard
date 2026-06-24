@@ -3242,7 +3242,7 @@ export function ProjectManagement() {
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="projects-analytics-card">
               <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0 rounded-t-2xl">
-                <h3 className="type-card-label-caps flex items-center gap-2 font-extrabold text-white">
+                <h3 className="flex items-center gap-2 font-display text-[0.9375rem] font-extrabold text-white">
                   <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/85" />
                   Aggregated Hours by Project
                 </h3>
@@ -3327,7 +3327,7 @@ export function ProjectManagement() {
 
             <div className="projects-analytics-card">
               <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0 rounded-t-2xl">
-                <h3 className="type-card-label-caps flex items-center gap-2 font-extrabold text-white">
+                <h3 className="flex items-center gap-2 font-display text-[0.9375rem] font-extrabold text-white">
                   <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/85" />
                   Aggregated Hours by Employee
                 </h3>
@@ -3357,12 +3357,12 @@ export function ProjectManagement() {
               <table className="w-full min-w-[720px] border-collapse text-left">
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-[rgba(38,107,28,0.12)]">
-                    <th className="px-5 py-3.5 font-bold uppercase">Employee</th>
-                    <th className="px-5 py-3.5 font-bold uppercase">Project</th>
-                    <th className="px-5 py-3.5 font-bold uppercase">Login Time</th>
-                    <th className="px-5 py-3.5 font-bold uppercase">Logout Time</th>
-                    <th className="px-5 py-3.5 font-bold uppercase">Break Time</th>
-                    <th className="px-5 py-3.5 font-bold uppercase">Duration</th>
+                    <th className="px-5 py-3.5 font-bold">Employee</th>
+                    <th className="px-5 py-3.5 font-bold">Project</th>
+                    <th className="px-5 py-3.5 font-bold">Login Time</th>
+                    <th className="px-5 py-3.5 font-bold">Logout Time</th>
+                    <th className="px-5 py-3.5 font-bold">Break Time</th>
+                    <th className="px-5 py-3.5 font-bold">Duration</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70 text-base">

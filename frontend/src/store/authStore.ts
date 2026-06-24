@@ -7,6 +7,8 @@ export type PortalTarget = UserRole
 export interface AuthUser {
   id: string
   name: string
+  /** Separate display name shown only on the admin portal. */
+  adminDisplayName?: string
   email: string
   role: 'Admin' | 'Employee'
   designation: string
