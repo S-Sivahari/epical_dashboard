@@ -12548,6 +12548,7 @@
   min-height: 0;
   gap: var(--admin-payslips-gap-page);
   padding-bottom: 0.75rem;
+  overflow: hidden;
 }
 
 .admin-payslips-view .admin-payslips-hub-header {
@@ -12761,6 +12762,10 @@
   min-height: 0;
 }
 
+.admin-payslips-view .admin-payslips-body-grid--fill > * {
+  min-height: 0;
+}
+
 .admin-payslips-view .admin-payslips-shell > .admin-payslips-body-grid--fill {
   flex: 1 1 0;
   min-height: 0;
@@ -12816,17 +12821,19 @@
   flex: 1;
   flex-direction: column;
   min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
   border-radius: 1rem;
   border: 1px solid var(--dash-border-green);
   border-left: 4px solid var(--bb-color);
   background: #ffffff;
   padding: var(--admin-payslips-pad-panel);
   box-shadow: 0 1px 3px rgba(26, 67, 41, 0.06);
-  min-height: 420px;
 }
 
 .admin-payslips-view .admin-payslips-body-grid--fill .admin-payslips-main-panel {
   min-height: 0;
+  height: 100%;
 }
 
 .admin-payslips-view .admin-payslips-main-fixed {
@@ -12834,9 +12841,13 @@
 }
 
 .admin-payslips-view .admin-payslips-list-scroll {
+  flex: 1 1 0;
   min-height: 0;
-  flex: 1;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
 }
 
 /* Payroll history — panel grows with content; internal scroll past viewport */
@@ -12855,13 +12866,7 @@
 }
 
 .admin-payslips-view .admin-payslips-list-scroll--history {
-  flex: 1 1 0;
-  min-height: 10rem;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable;
+  padding: 0;
 }
 
 @media (min-width: 640px) {
@@ -12881,15 +12886,10 @@
 }
 
 .admin-payslips-view .admin-payslips-list-scroll--upload {
-  flex: 1 1 0;
-  min-height: 12rem;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
   border-radius: 0.75rem;
   border: 1px solid var(--dash-border-green);
   background: var(--dash-cream-mint-body, #f4faf6);
+  padding: 0;
 }
 
 .admin-payslips-view .admin-payslips-chip-active {
@@ -13408,20 +13408,39 @@
 }
 
 .admin-payslips-view .admin-payslip-table-wrap {
-  border-radius: 0.75rem;
-  border: 1px solid var(--dash-border-green);
-  background: var(--dash-cream-mint-body, #f4faf6);
-  overflow: hidden;
+  background: transparent;
+  overflow: visible;
+  border: none;
+  border-radius: 0;
+  margin: 0;
 }
 
 /* Inner scroll — no white card so header row matches hub bar */
 .admin-payslips-view .admin-payslip-table-wrap .admin-table-scroll {
-  max-height: 70vh;
-  overflow: auto;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  max-height: none !important;
+  overflow-y: visible !important;
+  overflow-x: visible !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Sticky table header flush with list box top */
+.admin-payslips-view .admin-payslips-list-scroll .admin-payslip-table-wrap .admin-payslip-hub-thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.admin-payslips-view .admin-payslips-list-scroll .admin-payslip-table-wrap .admin-payslip-hub-thead th:first-child {
+  border-top-left-radius: calc(0.75rem - 1px);
+}
+
+.admin-payslips-view .admin-payslips-list-scroll .admin-payslip-table-wrap .admin-payslip-hub-thead th:last-child {
+  border-top-right-radius: calc(0.75rem - 1px);
 }
 
 /* Table column headers — same solid green as Payslip Management Hub (--bb-color) */
@@ -13583,6 +13602,24 @@
 .admin-payslips-view input:not([type='file']),
 .admin-payslips-view textarea {
   font-size: calc(0.875rem * var(--admin-payslips-font-scale));
+}
+
+/* Payslips hub — fixed viewport; scroll inside employee list only */
+@media (min-width: 1024px) {
+  .admin-portal .cmd-main:has(.admin-payslips-page) {
+    overflow: hidden;
+  }
+
+  .admin-portal .admin-hub-page-wrap.admin-payslips-page {
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+  }
+
+  .admin-payslips-view.crewiq-dashboard,
+  .admin-payslips-view .admin-payslips-shell {
+    overflow: hidden;
+  }
 }
 
 /* Page scroll — PageWrapper scrolls; inner panels grow with content */
