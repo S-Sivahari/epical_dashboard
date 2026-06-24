@@ -113,8 +113,7 @@
 }
 
 .admin-portal .admin-hub-page-wrap:has(.admin-documents-view),
-.admin-portal .admin-hub-page-wrap:has(.admin-training-view),
-.admin-portal .admin-hub-page-wrap:has(.admin-payslips-view) {
+.admin-portal .admin-hub-page-wrap:has(.admin-training-view) {
   overflow-x: hidden;
   overflow-y: auto;
   max-height: none;
@@ -123,7 +122,22 @@
   -webkit-overflow-scrolling: touch;
 }
 
-.admin-portal .admin-hub-page-wrap:has(.admin-payslips-view)[data-page-scrollable],
+/* Payslips — fixed viewport; scroll only inside employee list */
+.admin-portal .admin-hub-page-wrap:has(.admin-payslips-view):not([data-page-scrollable]) {
+  overflow: hidden;
+  min-height: 0;
+  flex: 1 1 0;
+}
+
+.admin-portal .admin-hub-page-wrap:has(.admin-payslips-view)[data-page-scrollable] {
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: none;
+  min-height: 0;
+  flex: 1 1 auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .admin-portal .admin-hub-page-wrap:has(.admin-training-view)[data-page-scrollable],
 .admin-portal .admin-hub-page-wrap:has(.admin-documents-view)[data-page-scrollable] {
   flex: 1 1 auto;
@@ -206,6 +220,27 @@
     flex: 1 1 0;
     min-height: 0;
     overflow: hidden;
+  }
+
+  .admin-portal .admin-payslips-view .admin-payslips-body-grid--fill {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .admin-portal .admin-payslips-view .admin-payslips-main-panel,
+  .admin-portal .admin-payslips-view .admin-payslips-main-panel--history {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .admin-portal .admin-payslips-view .admin-payslips-list-scroll,
+  .admin-portal .admin-payslips-view .admin-payslips-list-scroll--upload,
+  .admin-portal .admin-payslips-view .admin-payslips-list-scroll--history {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   .admin-hub-page-wrap[data-page-scrollable] .admin-payslips-body-grid,
