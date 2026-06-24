@@ -115,6 +115,10 @@
   .admin-leaves-view .admin-leaves-compensation-wrap {
     overflow-y: auto;
   }
+
+  .admin-leaves-view .admin-leaves-year-balances-wrap {
+    overflow-y: auto;
+  }
 }
 
 .admin-leaves-view .admin-leaves-compensation-wrap {
@@ -1074,5 +1078,439 @@
   border: none;
   border-radius: 0;
   box-shadow: none;
+}
+
+.admin-leaves-view .admin-leaves-hero-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-wrap .admin-leaves-year-balances-panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-panel {
+  min-height: 0;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.875rem 1.25rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--dash-border-green, rgba(26, 67, 41, 0.14));
+  background: var(--dash-sage-row, #f0f3f0);
+}
+
+.admin-leaves-view .admin-leaves-year-balances-toolbar-main {
+  min-width: 0;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-caption {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  line-height: 1.35;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-year {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--dash-forest, #1a4329);
+}
+
+.admin-leaves-view .admin-leaves-year-balances-year-select {
+  border: 1px solid rgba(26, 67, 41, 0.2);
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--dash-forest-header, #2f6b4f);
+}
+
+.admin-leaves-view .admin-leaves-year-balances-year-select:focus {
+  outline: none;
+  border-color: var(--dash-forest-header, #2f6b4f);
+  box-shadow: 0 0 0 2px rgba(47, 107, 79, 0.2);
+}
+
+.admin-leaves-view .admin-leaves-year-balances-search-wrap {
+  position: relative;
+  flex-shrink: 0;
+  max-width: 22rem;
+  margin: 0.75rem 1rem 0;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-search-icon {
+  pointer-events: none;
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  height: 1rem;
+  width: 1rem;
+  transform: translateY(-50%);
+  color: var(--dash-forest-header, #2f6b4f);
+  opacity: 0.75;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-search {
+  width: 100%;
+  border: 1px solid rgba(26, 67, 41, 0.18);
+  border-radius: 0.625rem;
+  background: #fff;
+  padding: 0.625rem 0.75rem 0.625rem 2.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--dash-forest, #1a4329);
+}
+
+.admin-leaves-view .admin-leaves-year-balances-search:focus {
+  outline: none;
+  border-color: var(--dash-forest-header, #2f6b4f);
+  box-shadow: 0 0 0 2px rgba(47, 107, 79, 0.18);
+}
+
+.admin-leaves-view .admin-leaves-year-balances-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 0.75rem;
+  padding: 0 0.75rem 0.75rem;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-empty {
+  display: flex;
+  min-height: 12rem;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-row {
+  display: grid;
+  grid-template-columns: minmax(9.5rem, 11.5rem) minmax(0, 1fr) auto auto;
+  gap: 1.25rem 1.5rem;
+  align-items: center;
+  padding: 1.25rem 1rem;
+  border: 1px solid var(--dash-border-green, rgba(26, 67, 41, 0.14));
+  border-radius: 0.875rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(26, 67, 41, 0.05);
+}
+
+.admin-leaves-view .admin-leaves-year-balances-row + .admin-leaves-year-balances-row {
+  margin-top: 1rem;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-employee {
+  min-width: 0;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-employee-name {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--dash-forest, #1a4329);
+}
+
+.admin-leaves-view .admin-leaves-year-balances-employee-id {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--dash-forest-header, #2f6b4f);
+}
+
+.admin-leaves-view .admin-leaves-year-balances-employee-dept {
+  margin: 0.2rem 0 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(9.25rem, 1fr));
+  gap: 1rem;
+  min-width: 0;
+}
+
+.admin-leaves-view .admin-leaves-balance-card {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(26, 67, 41, 0.12);
+  padding: 0.875rem 0.75rem;
+  min-height: 7.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.admin-leaves-view .admin-leaves-balance-card--casual {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%);
+}
+
+.admin-leaves-view .admin-leaves-balance-card--sick {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: linear-gradient(180deg, #eff6ff 0%, #f0f9ff 100%);
+}
+
+.admin-leaves-view .admin-leaves-balance-card--earned {
+  border-color: rgba(139, 92, 246, 0.35);
+  background: linear-gradient(180deg, #f5f3ff 0%, #faf5ff 100%);
+}
+
+.admin-leaves-view .admin-leaves-balance-card--comp {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.admin-leaves-view .admin-leaves-balance-card__title {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--dash-forest, #1a4329);
+}
+
+.admin-leaves-view .admin-leaves-balance-card__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  margin: 0.5rem 0;
+}
+
+.admin-leaves-view .admin-leaves-balance-card__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid rgba(26, 67, 41, 0.18);
+  border-radius: 0.5rem;
+  background: #fff;
+  color: var(--dash-forest, #1a4329);
+  box-shadow: 0 1px 2px rgba(26, 67, 41, 0.06);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.admin-leaves-view .admin-leaves-balance-card__btn:hover:not(:disabled) {
+  background: var(--dash-mint-soft, #bbf7d0);
+  border-color: rgba(26, 67, 41, 0.28);
+}
+
+.admin-leaves-view .admin-leaves-balance-card__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.admin-leaves-view .admin-leaves-balance-card__value {
+  min-width: 3.75rem;
+  text-align: center;
+  font-size: 1.125rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--dash-forest, #1a4329);
+}
+
+.admin-leaves-view .admin-leaves-balance-card__meta {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.admin-leaves-view .admin-leaves-balance-card__meta span {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-lop {
+  min-width: 6.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  background: linear-gradient(180deg, #fff5f5 0%, #fef2f2 100%);
+  padding: 0.875rem 0.75rem;
+  min-height: 7.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-lop__title {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--dash-forest, #1a4329);
+}
+
+.admin-leaves-view .admin-leaves-year-balances-lop__value {
+  margin: 0.5rem 0;
+  text-align: center;
+  font-size: 1.125rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #b91c1c;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-lop__meta {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-lop__meta span {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 9.5rem;
+}
+
+.admin-leaves-view .admin-leaves-year-history-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 9.25rem;
+  padding: 0.75rem 1.125rem;
+  border: none;
+  border-radius: 0.625rem;
+  background: var(--dash-forest-header, #2f6b4f);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  box-shadow: 0 2px 6px rgba(26, 67, 41, 0.18);
+  transition: background 0.12s ease, transform 0.12s ease;
+  white-space: nowrap;
+}
+
+.admin-leaves-view .admin-leaves-year-history-btn:hover {
+  background: var(--dash-forest, #1a4329);
+}
+
+.admin-leaves-view .admin-leaves-year-history-btn:active {
+  transform: translateY(1px);
+}
+
+@media (max-width: 1279px) {
+  .admin-leaves-view .admin-leaves-year-balances-wrap {
+    overflow-y: auto;
+  }
+
+  .admin-leaves-view .admin-leaves-year-balances-list {
+    overflow: visible;
+    max-height: none;
+  }
+
+  .admin-leaves-view .admin-leaves-year-balances-row {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .admin-leaves-view .admin-leaves-year-balances-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-leaves-view .admin-leaves-year-balances-lop {
+    min-width: 0;
+    max-width: 12rem;
+  }
+
+  .admin-leaves-view .admin-leaves-year-balances-actions {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-leaves-view .admin-leaves-year-balances-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Legacy table rules — kept for compatibility if table is reintroduced */
+.admin-leaves-year-balances-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f8fafc;
+  padding: 0.5rem 0.625rem;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.admin-leaves-year-balances-table tbody td {
+  padding: 0.5rem 0.625rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+}
+
+.admin-leaves-year-balances-table tbody tr:hover td {
+  background: #f8fafc;
+}
+
+.admin-leaves-year-balances-table tbody tr:hover td.sticky,
+.admin-leaves-year-balances-table tbody td.sticky.left-0 {
+  background: #fff;
+}
+
+.admin-leaves-year-balances-table tbody tr:hover td:first-child {
+  background: #f8fafc;
 }
 

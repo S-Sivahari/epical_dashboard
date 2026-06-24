@@ -3,7 +3,7 @@ import api from '@/services/api'
 import { toast } from 'sonner'
 import {
   Trash2, FileText, FileSpreadsheet, Search, RotateCcw,
-  Check, X, Eye, ChevronDown, User, Tag, ClipboardList, Wallet,
+  Check, X, Eye, ChevronDown, User, Tag, ClipboardList, Wallet, CalendarRange,
 } from 'lucide-react'
 import { AdminLeaveDateRange } from './AdminLeaveDateRange'
 import './adminLeavesHub.css'
@@ -14,7 +14,9 @@ import { Modal } from '@components/ui/Modal'
 import { LeaveRequests } from './LeaveRequests'
 import { CompensationManagement } from './CompensationManagement'
 import { EmployeeLeaveProfileModal } from './EmployeeLeaveProfileModal'
+import { YearLeaveBalancesPanel } from './YearLeaveBalancesPanel'
 import { useLeaves } from '@hooks/useLeaves'
+import { useLeaveStore } from '@store/leaveStore'
 import { useAuthStore } from '@store/authStore'
 import { useEmployeeStore } from '@store/employeeStore'
 import {
@@ -22,7 +24,6 @@ import {
   excludeCancelledLeaves,
   canCancelLeave,
   isRevokedApprovedLeave,
-  sortApprovedLeavesUpcomingFirst,
   formatMonthLabel,
   formatLeaveDayCount,
   getCurrentMonthDateRange,
@@ -39,9 +40,9 @@ import {
   type CompensationExportRow,
 } from '@/utils/exportLeaveReport'
 import { leaveExportFileName } from '@/utils/exportFileName'
-import type { LeaveRequest } from '@/types'
+import type { LeaveAllocationActivity, LeaveRequest } from '@/types'
 
-type TabType = 'requests' | 'compensation'
+type TabType = 'requests' | 'compensation' | 'year-balances'
 
 const LEAVE_TYPES = ['Casual Leave', 'Sick Leave', 'Earned Leave', 'Compensation Leave']
 
@@ -220,7 +221,9 @@ export function LeaveManagementContainer() {
 
   const [exporting, setExporting] = useState<'pdf' | 'excel' | null>(null)
 
-  const { leaves, loading, approveLeave, rejectLeave, revokeApprovedLeave } = useLeaves()
+  const { leaves, loading, allocationActivities, approveLeave, rejectLeave, revokeApprovedLeave } = useLeaves()
+  const fetchAllocationActivities = useLeaveStore((s) => s.fetchAllocationActivities)
+  const fetchAllocationActivitiesSilent = useLeaveStore((s) => s.fetchAllocationActivitiesSilent)
 
   useEffect(() => {
     const syncMonth = () => {
@@ -300,6 +303,7 @@ export function LeaveManagementContainer() {
   // Employee leave profile modal state
   const [profileEmployeeId, setProfileEmployeeId] = useState<string | null>(null)
   const [profileEmployeeName, setProfileEmployeeName] = useState('')
+  const [profileFocusSection, setProfileFocusSection] = useState<'balances' | 'history'>('balances')
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const [rejectModalOpen, setRejectModalOpen] = useState(false)
   const [rejectLeaveId, setRejectLeaveId] = useState<string | null>(null)
@@ -308,15 +312,28 @@ export function LeaveManagementContainer() {
   const [rejectError, setRejectError] = useState('')
   const [rejectSubmitting, setRejectSubmitting] = useState(false)
 
-  const openProfile = (employeeId: string, employeeName: string) => {
+  const openProfile = (
+    employeeId: string,
+    employeeName: string,
+    focusSection: 'balances' | 'history' = 'balances',
+  ) => {
     setProfileEmployeeId(employeeId)
     setProfileEmployeeName(employeeName)
+    setProfileFocusSection(focusSection)
     setIsProfileModalOpen(true)
   }
 
   // ── Derived data (scoped to current calendar month) ─────────────────────────
   const monthRange = useMemo(() => getCurrentMonthDateRange(), [monthKey])
   const monthLabel = useMemo(() => formatMonthLabel(monthRange.from), [monthRange.from])
+
+  useEffect(() => {
+    void fetchAllocationActivities(monthRange.from, monthRange.to)
+    const id = window.setInterval(() => {
+      void fetchAllocationActivitiesSilent(monthRange.from, monthRange.to)
+    }, 60_000)
+    return () => window.clearInterval(id)
+  }, [monthRange.from, monthRange.to, fetchAllocationActivities, fetchAllocationActivitiesSilent])
 
   const visibleLeaves = useMemo(() => excludeCancelledLeaves(leaves), [leaves])
 
@@ -336,25 +353,39 @@ export function LeaveManagementContainer() {
     () => monthlyLeaves.filter((l) => l.status === 'Pending'),
     [monthlyLeaves],
   )
-  const approvedLeaves = useMemo(
-    () => monthlyLeaves.filter((l) => l.status === 'Approved'),
-    [monthlyLeaves],
-  )
 
-  const upcomingLeaves = useMemo(
-    () => sortApprovedLeavesUpcomingFirst(approvedLeaves),
-    [approvedLeaves],
-  )
+  type ActivityFeedItem =
+    | { kind: 'leave'; id: string; at: number; leave: LeaveRequest }
+    | { kind: 'allocation'; id: string; at: number; activity: LeaveAllocationActivity }
 
   const activityFeed = useMemo(() => {
-    return [...leaves]
+    const leaveItems: ActivityFeedItem[] = [...leaves]
       .filter((l) => ['Approved', 'Rejected', 'Pending', 'Cancelled'].includes(l.status))
       .filter((l) => {
         const activityDate = getActivityDateKey(l)
         return activityDate != null && isDateKeyInRange(activityDate, monthRange.from, monthRange.to)
       })
-      .sort((a, b) => getLeaveActivityTimestamp(b) - getLeaveActivityTimestamp(a))
-  }, [leaves, monthRange])
+      .map((leave) => ({
+        kind: 'leave' as const,
+        id: leave.id,
+        at: getLeaveActivityTimestamp(leave),
+        leave,
+      }))
+
+    const allocationItems: ActivityFeedItem[] = allocationActivities
+      .filter((activity) => {
+        const activityDate = activity.createdAt.slice(0, 10)
+        return isDateKeyInRange(activityDate, monthRange.from, monthRange.to)
+      })
+      .map((activity) => ({
+        kind: 'allocation' as const,
+        id: activity.id,
+        at: new Date(activity.createdAt).getTime() || 0,
+        activity,
+      }))
+
+    return [...leaveItems, ...allocationItems].sort((a, b) => b.at - a.at)
+  }, [leaves, allocationActivities, monthRange])
 
   // Export helpers
   const filteredLeaveRequests = useMemo(() => {
@@ -493,9 +524,7 @@ export function LeaveManagementContainer() {
           <header className="admin-leaves-hub-header">
             <div className="admin-leaves-hero-top">
               <div className="min-w-0">
-                <h1 className="admin-leaves-hero-title font-display">
-                  {activeTab === 'compensation' ? 'Compensation Management' : 'Leave Management'}
-                </h1>
+                <h1 className="admin-leaves-hero-title font-display">Leave Management</h1>
               </div>
               <nav className="admin-leaves-tab-rail" aria-label="Leave views">
                 {([
@@ -508,6 +537,11 @@ export function LeaveManagementContainer() {
                     id: 'compensation' as TabType,
                     label: 'Compensation Management',
                     icon: Wallet,
+                  },
+                  {
+                    id: 'year-balances' as TabType,
+                    label: 'View Balance',
+                    icon: CalendarRange,
                   },
                 ]).map((tab) => {
                   const Icon = tab.icon
@@ -686,59 +720,9 @@ export function LeaveManagementContainer() {
           </div>
         )}
 
-        {/* ── Requests tab: 3-column layout ────────────────────────── */}
+        {/* ── Requests tab: 2-column layout ────────────────────────── */}
         {activeTab === 'requests' && (
-          <div className="admin-leaves-body-grid admin-leaves-three-col">
-
-            <div className="admin-leaves-panel admin-leaves-upcoming-panel admin-leaves-feed-panel admin-leaves-bb-panel admin-leaves-col-panel">
-              <div className="admin-leaves-col-panel-head">
-                <h3 className="admin-leaves-col-panel-title">Approved — {monthLabel}</h3>
-              </div>
-              <div className="admin-leaves-scroll">
-                {upcomingLeaves.length === 0 ? (
-                  <div className="admin-leaves-feed-empty">
-                    No approved leaves in {monthLabel}.
-                  </div>
-                ) : (
-                  upcomingLeaves.map((l) => {
-                    const empAvatar = avatarMap[l.employeeId] ?? avatarMap[String(l.employeeId)]
-                    const initials = empAvatar?.initials || l.employeeName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
-                    return (
-                      <LeaveFeedRow
-                        key={l.id}
-                        stackBadge
-                        badgeLabel={l.type}
-                        badgeClass="bg-emerald-100 text-emerald-800"
-                        title={
-                          <>
-                            <span className="admin-leaves-feed-name">{l.employeeName}</span>
-                            {`'s ${formatLeaveActivityPhrase(l.type, 'Approved')}`}
-                          </>
-                        }
-                        line2={`${formatDate(l.from)} – ${formatDate(l.to)}`}
-                        daysLabel={formatLeaveDayCount(l)}
-                        avatar={
-                          empAvatar?.avatarUrl ? (
-                            <img src={empAvatar.avatarUrl} alt={l.employeeName} className="admin-leaves-feed-avatar" />
-                          ) : (
-                            <div className="admin-leaves-feed-avatar-fallback">{initials}</div>
-                          )
-                        }
-                        actions={
-                          <button
-                            type="button"
-                            className="admin-leaves-feed-btn"
-                            onClick={() => openProfile(l.employeeId, l.employeeName)}
-                          >
-                            <Eye className="h-3 w-3" /> View
-                          </button>
-                        }
-                      />
-                    )
-                  })
-                )}
-              </div>
-            </div>
+          <div className="admin-leaves-body-grid admin-leaves-two-col">
 
             <div className="admin-leaves-panel admin-leaves-col-panel flex min-h-0 flex-col">
               {searched && (filterEmployees.length > 0 || filterType || filterFrom || filterTo) && (
@@ -770,12 +754,74 @@ export function LeaveManagementContainer() {
                 ) : activityFeed.length === 0 ? (
                   <div className="admin-leaves-feed-empty">No leave activity in {monthLabel}.</div>
                 ) : (
-                  activityFeed.map((l) => {
+                  activityFeed.map((item) => {
+                    if (item.kind === 'allocation') {
+                      const activity = item.activity
+                      const empAvatar =
+                        avatarMap[activity.employeeInternalId] ??
+                        avatarMap[activity.employeeId] ??
+                        avatarMap[String(activity.employeeId)]
+                      const initials =
+                        empAvatar?.initials ||
+                        activity.employeeName
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join('')
+                          .slice(0, 2)
+                          .toUpperCase()
+                      const delta = activity.newTotal - activity.previousTotal
+                      const deltaLabel = delta > 0 ? `+${delta}` : String(delta)
+
+                      return (
+                        <LeaveFeedRow
+                          key={item.id}
+                          stackBadge
+                          badgeLabel="Allocation"
+                          badgeClass="bg-sky-100 text-sky-800"
+                          title={
+                            <>
+                              <span className="admin-leaves-feed-name">{activity.employeeName}</span>
+                              {`'s ${activity.leaveType.toLowerCase()} total updated`}
+                            </>
+                          }
+                          line2={`${activity.previousTotal} → ${activity.newTotal} days (${deltaLabel}) · ${activity.year}`}
+                          line3={`Updated ${formatDateTime(activity.createdAt)} by ${activity.adjustedBy}`}
+                          avatar={
+                            empAvatar?.avatarUrl ? (
+                              <img
+                                src={empAvatar.avatarUrl}
+                                alt={activity.employeeName}
+                                className="admin-leaves-feed-avatar"
+                              />
+                            ) : (
+                              <div className="admin-leaves-feed-avatar-fallback">{initials}</div>
+                            )
+                          }
+                          actions={
+                            <button
+                              type="button"
+                              className="admin-leaves-feed-btn"
+                              onClick={() =>
+                                openProfile(
+                                  activity.employeeInternalId,
+                                  activity.employeeName,
+                                  'history',
+                                )
+                              }
+                            >
+                              <Eye className="h-3 w-3" /> View
+                            </button>
+                          }
+                        />
+                      )
+                    }
+
+                    const l = item.leave
                     const empAvatar = avatarMap[l.employeeId] ?? avatarMap[String(l.employeeId)]
                     const initials = empAvatar?.initials || l.employeeName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
                     return (
                       <LeaveFeedRow
-                        key={l.id}
+                        key={item.id}
                         stackBadge
                         badgeLabel={
                           l.status === 'Rejected' && isRevokedApprovedLeave(l) ? 'Revoked' : l.status
@@ -859,6 +905,20 @@ export function LeaveManagementContainer() {
           </div>
         )}
 
+        {activeTab === 'year-balances' && (
+          <div className="admin-leaves-panel admin-leaves-year-balances-wrap min-h-0 flex-1 overflow-hidden">
+            <YearLeaveBalancesPanel
+              active
+              onOpenLeaveHistory={(employeeId, employeeName) =>
+                openProfile(employeeId, employeeName, 'history')
+              }
+              onAllocationUpdated={() =>
+                void fetchAllocationActivities(monthRange.from, monthRange.to)
+              }
+            />
+          </div>
+        )}
+
         </div>
       </div>
 
@@ -932,7 +992,13 @@ export function LeaveManagementContainer() {
         isOpen={isProfileModalOpen}
         employeeId={profileEmployeeId}
         employeeName={profileEmployeeName}
-        onClose={() => { setIsProfileModalOpen(false); setProfileEmployeeId(null); setProfileEmployeeName('') }}
+        focusSection={profileFocusSection}
+        onClose={() => {
+          setIsProfileModalOpen(false)
+          setProfileEmployeeId(null)
+          setProfileEmployeeName('')
+          setProfileFocusSection('balances')
+        }}
       />
     </PageWrapper>
   )

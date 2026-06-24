@@ -97,15 +97,52 @@ export interface EmployeeLeaveSummary {
   employeeId: string
   employeeName?: string
   allocations?: Record<string, number>
-  balances: Array<{
-    type: string
-    total: number
-    used: number
-    pending: number
-    remaining: number
-  }>
+  balances: LeaveTypeBalanceSummary[]
   currentLeaves: LeaveRequest[]
   history: LeaveRequest[]
+}
+
+export interface LeaveTypeBalanceSummary {
+  type: string
+  total: number
+  used: number
+  pending: number
+  remaining: number
+}
+
+export interface YearLeaveBalanceRow {
+  internalId: string
+  employeeId: string
+  employeeName: string
+  department?: string
+  balances: LeaveTypeBalanceSummary[]
+  lopDays: number
+  lopApproved?: number
+  lopPending?: number
+}
+
+export interface YearLeaveBalancesResponse {
+  year: number
+  employees: YearLeaveBalanceRow[]
+}
+
+export type YearLeaveBalanceUpdate = {
+  type: 'Casual Leave' | 'Sick Leave' | 'Earned Leave' | 'Compensation Leave'
+  total?: number
+  used?: number
+}
+
+export interface LeaveAllocationActivity {
+  id: string
+  employeeInternalId: string
+  employeeId: string
+  employeeName: string
+  leaveType: 'Casual Leave' | 'Sick Leave' | 'Earned Leave' | 'Compensation Leave'
+  previousTotal: number
+  newTotal: number
+  year: number
+  adjustedBy: string
+  createdAt: string
 }
 
 export interface Holiday {

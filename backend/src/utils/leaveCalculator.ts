@@ -399,6 +399,71 @@ export function calculateMonthlyLopSummary(
   };
 }
 
+function isLeaveInCalendarYear(leave: LeaveRequest, year: number): boolean {
+  const yearStr = String(year);
+  return Boolean(leave.from?.startsWith(yearStr));
+}
+
+/** Calendar-year LOP summary for admin balance views. */
+export function calculateYearlyLopSummary(
+  employeeLeaves: LeaveRequest[],
+  year: number,
+  joinedAt?: string,
+  options?: LeaveBalanceOptions,
+): LopSummary {
+  let approvedLopDays = 0;
+  let pendingLopDays = 0;
+
+  for (const leave of employeeLeaves) {
+    if (!isLeaveInCalendarYear(leave, year)) continue;
+
+    if (leave.type === LOP_LEAVE_TYPE) {
+      if (leave.status === 'Approved') approvedLopDays += leave.days;
+      else if (leave.status === 'Pending') pendingLopDays += leave.days;
+      continue;
+    }
+
+    if (leave.type === 'Casual Leave' || leave.type === 'Sick Leave') {
+      if (leave.status === 'Approved') {
+        approvedLopDays += Number(leave.lopDays ?? 0) || 0;
+        continue;
+      }
+
+      if (leave.status === 'Pending') {
+        const stored = Number(leave.lopDays ?? NaN);
+        if (!Number.isNaN(stored)) {
+          pendingLopDays += stored;
+        } else if (leave.type === 'Casual Leave') {
+          const { lopDays } = computeCasualLeaveLopForRequest(
+            leave.days,
+            employeeLeaves,
+            joinedAt,
+            options,
+            leave.id,
+            leave.from,
+          );
+          pendingLopDays += lopDays;
+        } else {
+          const { lopDays } = computeSickLeaveLopForRequest(
+            leave.days,
+            employeeLeaves,
+            joinedAt,
+            options,
+            leave.id,
+          );
+          pendingLopDays += lopDays;
+        }
+      }
+    }
+  }
+
+  return {
+    approvedLopDays,
+    pendingLopDays,
+    totalLopDays: approvedLopDays + pendingLopDays,
+  };
+}
+
 function normalizeHolidayDate(date: string): string {
   return date.trim().slice(0, 10);
 }
