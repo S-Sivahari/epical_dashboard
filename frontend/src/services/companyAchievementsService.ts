@@ -78,7 +78,6 @@ export async function fetchAchievementImageBlob(
 
 export async function createCompanyAchievement(formData: FormData): Promise<CompanyAchievementRow> {
   const { data } = await api.post<CompanyAchievementRow>('/company-achievements', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 60000,
   })
   return data
@@ -92,7 +91,6 @@ export async function updateCompanyAchievement(
     `/company-achievements/${id}`,
     formData,
     {
-      headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 60000,
     }
   )

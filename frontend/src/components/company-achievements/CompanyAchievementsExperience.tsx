@@ -328,12 +328,21 @@ export function CompanyAchievementsExperience({
       if (editTarget) {
         await updateCompanyAchievement(editTarget.id, fd)
         toast.success('Achievement updated')
+        setAddOpen(false)
+        void fetchAchievements(1, false)
       } else {
-        await createCompanyAchievement(fd)
+        const created = await createCompanyAchievement(fd)
         toast.success('Achievement published')
+        setAddOpen(false)
+        setSearchQuery('')
+        setFilterCategory('')
+        setFilterYear('')
+        setFilterMonth('')
+        setRows((prev) => [created, ...prev.filter((r) => r.id !== created.id)])
+        setTotal((t) => t + 1)
+        setHasMore(false)
+        setPage(1)
       }
-      setAddOpen(false)
-      void fetchAchievements(1, false)
       void listAchievementCategories().then(setCategories).catch(() => {})
     } catch (e: unknown) {
       const msg =
@@ -627,10 +636,10 @@ export function CompanyAchievementsExperience({
             />
           </div>
           <div>
-            <p className="text-sm font-medium text-ink">Image (JPEG/JPG)</p>
+            <p className="text-sm font-medium text-ink">Image (JPEG, PNG, or WebP)</p>
             <input
               type="file"
-              accept="image/jpeg,image/jpg,.jpg,.jpeg"
+              accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
               className="mt-2 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-[#06C033] file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
               onChange={(e) => {
                 setAFile(e.target.files?.[0] ?? null)
