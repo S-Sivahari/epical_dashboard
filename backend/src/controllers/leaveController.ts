@@ -205,6 +205,94 @@ export const leaveController = {
     }
   },
 
+  // GET /api/leaves/year-balances?year=2026 (Admin only)
+  getYearBalances: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user || !isAdminRole(req.user.role)) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
+        return;
+      }
+
+      const yearParam = req.query.year;
+      const year =
+        yearParam !== undefined && yearParam !== ''
+          ? Number(Array.isArray(yearParam) ? yearParam[0] : yearParam)
+          : new Date().getFullYear();
+
+      const data = await leaveService.getAllEmployeesYearLeaveBalances(year);
+      res.json(data);
+    } catch (error: unknown) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Failed to fetch year leave balances',
+      });
+    }
+  },
+
+  // PATCH /api/leaves/employee/:employeeId/year-balances (Admin only)
+  updateYearBalances: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user || !isAdminRole(req.user.role)) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
+        return;
+      }
+
+      const employeeId = Array.isArray(req.params.employeeId)
+        ? req.params.employeeId[0]
+        : req.params.employeeId;
+
+      if (!employeeId) {
+        res.status(400).json({ error: 'employeeId is required' });
+        return;
+      }
+
+      const { year, balances } = req.body as {
+        year?: number;
+        balances?: leaveService.YearLeaveBalanceUpdate[];
+      };
+
+      const calendarYear =
+        year !== undefined && year !== null ? Number(year) : new Date().getFullYear();
+
+      if (!Array.isArray(balances) || balances.length === 0) {
+        res.status(400).json({ error: 'balances array is required' });
+        return;
+      }
+
+      const row = await leaveService.updateEmployeeYearLeaveBalances(
+        employeeId,
+        calendarYear,
+        balances,
+        (req.user as { name?: string; email?: string })?.name ||
+          (req.user as { name?: string; email?: string })?.email ||
+          'Admin',
+      );
+      res.json(row);
+    } catch (error: unknown) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Failed to update year leave balances',
+      });
+    }
+  },
+
+  // GET /api/leaves/allocation-activities?from=&to= (Admin only)
+  getAllocationActivities: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user || !isAdminRole(req.user.role)) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
+        return;
+      }
+
+      const from = typeof req.query.from === 'string' ? req.query.from : undefined;
+      const to = typeof req.query.to === 'string' ? req.query.to : undefined;
+      const activities = await leaveService.getLeaveAllocationActivities(from, to);
+      res.json(activities);
+    } catch (error: unknown) {
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to fetch leave allocation activities',
+      });
+    }
+  },
+
   // POST /api/leaves
   create: async (req: AuthRequest, res: Response): Promise<void> => {
     try {

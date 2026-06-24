@@ -1,18 +1,22 @@
 import { create } from 'zustand'
-import type { CompanyCalendarEvent, Holiday, LeaveRequest } from '@/types'
+import type { CompanyCalendarEvent, Holiday, LeaveAllocationActivity, LeaveRequest } from '@/types'
 import * as leaveService from '@services/leaveService'
 import * as calendarEventService from '@services/calendarEventService'
 
 interface LeaveState {
   leaves: LeaveRequest[]
+  allocationActivities: LeaveAllocationActivity[]
   holidays: Holiday[]
   companyCalendarEvents: CompanyCalendarEvent[]
   loading: boolean
   lastFetchLeaves: number
+  lastFetchAllocationActivities: number
   lastFetchHolidays: number
   lastFetchCalendarEvents: number
   fetchLeaves: () => Promise<void>
   fetchLeavesSilent: () => Promise<void>
+  fetchAllocationActivities: (from?: string, to?: string) => Promise<void>
+  fetchAllocationActivitiesSilent: (from?: string, to?: string) => Promise<void>
   fetchHolidays: () => Promise<void>
   fetchHolidaysSilent: () => Promise<void>
   approveLeave: (id: string) => Promise<void>
@@ -35,10 +39,12 @@ const CACHE_EXPIRY = 30000
 
 export const useLeaveStore = create<LeaveState>((set, get) => ({
   leaves: [],
+  allocationActivities: [],
   holidays: [],
   companyCalendarEvents: [],
   loading: false,
   lastFetchLeaves: 0,
+  lastFetchAllocationActivities: 0,
   lastFetchHolidays: 0,
   lastFetchCalendarEvents: 0,
   fetchLeaves: async () => {
@@ -59,6 +65,26 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
     try {
       const leaves = await leaveService.getLeaves()
       set({ leaves, lastFetchLeaves: now })
+    } catch {
+      // silently fail on background polling
+    }
+  },
+  fetchAllocationActivities: async (from?: string, to?: string) => {
+    try {
+      const allocationActivities = await leaveService.getLeaveAllocationActivities(from, to)
+      set({ allocationActivities, lastFetchAllocationActivities: Date.now() })
+    } catch {
+      // silently fail
+    }
+  },
+  fetchAllocationActivitiesSilent: async (from?: string, to?: string) => {
+    const now = Date.now()
+    if (now - get().lastFetchAllocationActivities < CACHE_EXPIRY) {
+      return
+    }
+    try {
+      const allocationActivities = await leaveService.getLeaveAllocationActivities(from, to)
+      set({ allocationActivities, lastFetchAllocationActivities: now })
     } catch {
       // silently fail on background polling
     }

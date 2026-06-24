@@ -26,6 +26,5 @@ export function useLeaves() {
       clearInterval(holidayInterval)
     }
   }, [fetchLeaves, fetchLeavesSilent, fetchHolidays, fetchHolidaysSilent])
-  
   return useLeaveStore()
 }

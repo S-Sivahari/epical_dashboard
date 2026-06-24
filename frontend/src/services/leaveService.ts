@@ -1,4 +1,12 @@
-import type { EmployeeLeaveSummary, Holiday, LeaveRequest } from '@/types'
+import type {
+  EmployeeLeaveSummary,
+  Holiday,
+  LeaveAllocationActivity,
+  LeaveRequest,
+  YearLeaveBalanceRow,
+  YearLeaveBalancesResponse,
+  YearLeaveBalanceUpdate,
+} from '@/types'
 import api from '@services/api'
 import { downloadWithAuth } from '@/utils/downloadWithAuth'
 
@@ -41,6 +49,32 @@ export async function adjustEmployeeLeaveBalance(
 ) {
   const response = await api.patch(`/leaves/employee/${employeeId}/balance-adjustment`, { type, delta })
   return response.data as EmployeeLeaveSummary
+}
+
+export async function getYearLeaveBalances(year?: number) {
+  const response = await api.get('/leaves/year-balances', {
+    params: year !== undefined ? { year } : undefined,
+  })
+  return response.data as YearLeaveBalancesResponse
+}
+
+export async function updateEmployeeYearLeaveBalances(
+  employeeId: string,
+  year: number,
+  balances: YearLeaveBalanceUpdate[],
+) {
+  const response = await api.patch(`/leaves/employee/${employeeId}/year-balances`, {
+    year,
+    balances,
+  })
+  return response.data as YearLeaveBalanceRow
+}
+
+export async function getLeaveAllocationActivities(from?: string, to?: string) {
+  const response = await api.get('/leaves/allocation-activities', {
+    params: { from, to },
+  })
+  return response.data as LeaveAllocationActivity[]
 }
 
 export async function createLeave(payload: {
