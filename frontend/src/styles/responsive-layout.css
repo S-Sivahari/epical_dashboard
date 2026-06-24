@@ -625,7 +625,7 @@
   }
 
   .admin-projects-view .projects-hero-heading {
-    font-size: calc(26px * var(--admin-projects-ui-scale, 0.68)) !important;
+    font-size: 1.375rem !important;
   }
 
   .admin-projects-view .projects-hero-cards-row {

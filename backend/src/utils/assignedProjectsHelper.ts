@@ -71,7 +71,7 @@ export async function buildEmployeeWorkspaceProjectsFilter(identityTokens: strin
     or.push({ _id: { $in: cellProjectIds } });
   }
 
-  return { $or: or };
+  return { status: 'Active', $or: or };
 }
 
 export async function getAssignedProjectsForUser(
@@ -100,12 +100,13 @@ export async function getAssignedProjectsForUser(
   const projectFilter =
     cellProjectIds.length > 0
       ? {
+          status: 'Active',
           $or: [
             ...(buildAssignedProjectsFilter(assignmentTokens).$or as Record<string, unknown>[]),
             { _id: { $in: cellProjectIds } },
           ],
         }
-      : buildAssignedProjectsFilter(assignmentTokens);
+      : { status: 'Active', ...buildAssignedProjectsFilter(assignmentTokens) };
 
   if (options?.syncTasks === true) {
     void ensureAssignedTasksForEmployee({

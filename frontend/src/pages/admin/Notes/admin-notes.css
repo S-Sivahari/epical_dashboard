@@ -588,6 +588,12 @@
   gap: 0.65rem;
 }
 
+@media (min-width: 900px) {
+  .admin-notes-accordion {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .admin-notes-accordion__item {
   overflow: hidden;
   border-radius: 0.8rem;

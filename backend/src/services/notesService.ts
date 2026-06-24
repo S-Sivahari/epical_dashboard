@@ -90,9 +90,9 @@ function serializeChildBlock(child: Record<string, unknown>) {
   };
 }
 
-/** Same project directory as the admin timesheet workspace (`GET /api/projects`). */
+/** Active projects for Daily Notes pickers — only current (Active) projects are shown. */
 export async function listActiveProjects() {
-  const projects = await ProjectModel.find({}).sort({ projectName: 1 }).lean();
+  const projects = await ProjectModel.find({ status: 'Active' }).sort({ projectName: 1 }).lean();
 
   return projects.map((project) => ({
     id: project._id.toString(),
@@ -126,7 +126,7 @@ export async function listProjectAssignedEmployees(projectId: string) {
   const db = getDB();
   const employeeDocs = await db
     .collection('employees')
-    .find({ status: 'Active' })
+    .find({ status: 'Active', view: { $ne: 'Private' } })
     .project({ id: 1, firstName: 1, lastName: 1, employeeId: 1 })
     .toArray();
 
@@ -148,12 +148,12 @@ export async function listProjectAssignedEmployees(projectId: string) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Active employees for Daily Notes pickers — available to any authenticated notes user. */
+/** Active public employees for Daily Notes pickers — private employees are hidden. */
 export async function listActiveEmployeesForNotes() {
   const db = getDB();
   const employeeDocs = await db
     .collection('employees')
-    .find({ status: 'Active' })
+    .find({ status: 'Active', view: { $ne: 'Private' } })
     .project({
       id: 1,
       employeeId: 1,

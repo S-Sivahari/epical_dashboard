@@ -292,7 +292,7 @@ export function DailyNotesEmailModal({ block, isOpen, onClose, onSent, onError }
                 <p className="admin-notes-email-preview__signoff">
                   Regards,
                   <br />
-                  <strong>Epical Admin</strong>
+                  <strong>Epical Layouts team</strong>
                 </p>
               </div>
             </div>

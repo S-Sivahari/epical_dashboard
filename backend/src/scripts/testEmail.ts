@@ -18,9 +18,9 @@ async function runEmailTest() {
       testRecipientEmail,
       testRecipientName,
       'System System Maintenance',
-      'Please note that the Epical EMS platform will be undergoing scheduled maintenance this Sunday from 2:00 AM to 6:00 AM UTC. Please save all your timesheets and leave requests prior to this window.',
+      'Please note that the EMPWR platform will be undergoing scheduled maintenance this Sunday from 2:00 AM to 6:00 AM UTC. Please save all your timesheets and leave requests prior to this window.',
       [
-        { label: 'Platform', value: 'Epical EMS' },
+        { label: 'Platform', value: 'EMPWR' },
         { label: 'Window', value: 'Sunday, 2:00 AM - 6:00 AM' },
         { label: 'Impact', value: 'Temporary read-only mode' }
       ]

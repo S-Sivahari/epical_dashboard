@@ -2574,7 +2574,7 @@
   background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  font-size: calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
+  font-size: 1.25rem;
   font-weight: 800;
   color: #ffffff;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
@@ -2615,7 +2615,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 800;
-  font-size: calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
+  font-size: 1.25rem;
 }
 
 .admin-projects-view .projects-hero-create-btn.projects-hero-stat-card {
@@ -2632,7 +2632,7 @@
   background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  font-size: calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
+  font-size: 1.25rem;
   font-weight: 800;
   color: #ffffff;
   line-height: 1.2;
@@ -2670,17 +2670,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 800;
-  font-size: calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
+  font-size: 1.25rem;
 }
 
 .projects-create-project-modal {
-  font-size: 110%;
+  font-size: inherit;
   max-width: min(calc(100% - 2rem), 35.2rem);
-  padding: calc(1.65rem * 1.1) !important;
+  padding: 1.65rem !important;
 }
 
 .projects-create-project-modal [class*='text-lg'] {
-  font-size: calc(1.125rem * 1.1);
+  font-size: 1.125rem;
 }
 
 .admin-projects-view .projects-sidebar--with-footer {
@@ -6402,11 +6402,13 @@
 /* ── Projects hub: full-width light green layout ── */
 .admin-projects-view {
   --admin-projects-ui-scale: 0.8;
-  --admin-projects-font-scale: var(--admin-projects-ui-scale);
+  --admin-projects-font-scale: 1;
   font-family: var(--font-body, var(--tblr-font-sans-serif));
-  font-size: calc(15px * var(--admin-projects-ui-scale));
+  font-size: 0.9375rem;
   line-height: 1.55;
   color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .admin-projects-view button:focus-visible,
@@ -6477,7 +6479,7 @@
 /* Date picker portal is outside .admin-projects-view — define theme + scale locally */
 .projects-date-calendar-portal,
 .projects-date-calendar {
-  --admin-projects-font-scale: calc(1.125 * var(--admin-projects-ui-scale, 0.8));
+  --admin-projects-font-scale: 1;
   --emerald-dark: #266b1c;
   --dash-forest-header: #2f6b4f;
   --dash-forest: #1a4329;
@@ -6499,7 +6501,7 @@
   min-height: 0;
   overflow: hidden;
   padding-bottom: 0;
-  font-size: calc(15px * var(--admin-projects-ui-scale, 0.8));
+  font-size: inherit;
   line-height: 1.55;
 }
 
@@ -6591,7 +6593,7 @@
 }
 
 .admin-projects-view .projects-hero-donut-total {
-  font-size: calc(1.5rem * var(--admin-projects-ui-scale, 0.8));
+  font-size: 1.5rem;
   font-weight: 700;
   line-height: 1;
   color: #ffffff;
@@ -6600,7 +6602,7 @@
 
 .admin-projects-view .projects-hero-donut-label {
   margin-top: calc(0.125rem * var(--admin-projects-ui-scale, 0.8));
-  font-size: calc(9px * var(--admin-projects-ui-scale, 0.8));
+  font-size: 0.5625rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -6748,7 +6750,7 @@
 }
 
 .admin-projects-view .projects-hero-stat-label {
-  font-size: calc(0.8125rem * var(--admin-projects-ui-scale, 0.8));
+  font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -6757,7 +6759,7 @@
 }
 
 .admin-projects-view .projects-hero-stat-value {
-  font-size: calc(1.625rem * var(--admin-projects-ui-scale, 0.8));
+  font-size: 1.625rem;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -7076,7 +7078,7 @@
   background: rgba(255, 255, 255, 0.97);
   padding: calc(24px * var(--admin-projects-ui-scale, 0.8));
   box-shadow: 0 4px 16px -4px rgba(38, 107, 28, 0.08);
-  font-size: calc(15px * var(--admin-projects-ui-scale, 0.8));
+  font-size: inherit;
   line-height: 1.55;
 }
 
@@ -7092,7 +7094,7 @@
 }
 
 .admin-projects-view .projects-section-heading {
-  font-size: calc(22px * var(--admin-projects-ui-scale, 0.8));
+  font-size: 1.375rem;
   font-weight: 700;
   line-height: 1.25;
   color: var(--emerald-dark);
@@ -7101,13 +7103,13 @@
 
 .admin-projects-view .projects-section-subheading {
   margin-top: 0.25rem;
-  font-size: calc(14px * var(--admin-projects-ui-scale, 0.8));
+  font-size: 0.875rem;
   font-weight: 500;
   color: #64748b;
 }
 
 .admin-projects-view .projects-list-row {
-  --projects-card-font-scale: calc(1.3 * var(--admin-projects-ui-scale, 0.8));
+  --projects-card-font-scale: 1;
 }
 
 .admin-projects-view .projects-card {
@@ -7121,7 +7123,7 @@
 }
 
 .admin-projects-view .projects-directory-section {
-  --projects-directory-font-scale: calc(1.35 * var(--admin-projects-ui-scale, 0.8));
+  --projects-directory-font-scale: 1;
   display: flex;
   min-height: 0;
   flex: 1 1 auto;
@@ -7131,7 +7133,7 @@
   border: 1px solid rgba(30, 90, 61, 0.1);
   background: #ffffff;
   box-shadow: 0 4px 24px rgba(30, 90, 61, 0.07);
-  font-size: calc(15px * var(--projects-directory-font-scale));
+  font-size: inherit;
 }
 
 .admin-projects-view .projects-directory-scroll {
@@ -7302,58 +7304,62 @@
 }
 
 .admin-projects-view .projects-directory-table-title {
-  font-size: calc(1.0625rem * var(--projects-directory-font-scale, 1.08));
+  font-size: calc(1.0625rem * var(--projects-directory-font-scale, 1));
   font-weight: 700;
   letter-spacing: 0.02em;
   color: #1a4712;
 }
 
+.admin-projects-view .projects-directory-table-title--main {
+  font-size: calc(1.0625rem * 1.1 * var(--projects-directory-font-scale, 1));
+}
+
 .admin-projects-view .projects-directory-table-subtitle {
   margin-top: 0;
-  font-size: calc(0.9375rem * var(--projects-directory-font-scale, 1.08));
+  font-size: calc(0.9375rem * var(--projects-directory-font-scale, 1));
   font-weight: 500;
   color: #64748b;
   white-space: nowrap;
 }
 
 .admin-projects-view .projects-directory-section .text-xs {
-  font-size: calc(0.75rem * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(0.75rem * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section .text-sm {
-  font-size: calc(0.875rem * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(0.875rem * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section .text-base {
-  font-size: calc(1rem * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(1rem * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section .text-lg {
-  font-size: calc(1.125rem * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(1.125rem * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section .text-xl {
-  font-size: calc(1.25rem * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(1.25rem * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section [class*='text-[9px]'] {
-  font-size: calc(9px * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(9px * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section [class*='text-[10px]'] {
-  font-size: calc(10px * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(10px * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section [class*='text-[11px]'] {
-  font-size: calc(11px * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(11px * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section .projects-card {
-  --projects-card-font-scale: var(--projects-directory-font-scale, 1.08);
+  --projects-card-font-scale: var(--projects-directory-font-scale, 1);
 }
 
 .admin-projects-view .projects-directory-section .projects-list-row {
-  --projects-card-font-scale: var(--projects-directory-font-scale, 1.08);
+  --projects-card-font-scale: var(--projects-directory-font-scale, 1);
 }
 
 .admin-projects-view .projects-grid {
@@ -7591,7 +7597,7 @@
 }
 
 .admin-projects-view .projects-archived-card {
-  --projects-card-font-scale: calc(1.3 * var(--admin-projects-ui-scale, 0.8));
+  --projects-card-font-scale: 1;
   position: relative;
   overflow: hidden;
   min-width: 0;
@@ -7680,7 +7686,7 @@
 }
 
 .admin-projects-view .projects-ts-table-wrap thead th {
-  font-size: calc(13px * var(--admin-projects-ui-scale, 0.8));
+  font-size: 0.8125rem;
   letter-spacing: 0.07em;
   padding: calc(0.875rem * var(--admin-projects-ui-scale, 0.8)) calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
 }
@@ -7728,7 +7734,7 @@
 
 .admin-projects-view .projects-analytics-head h3 {
   color: #ffffff !important;
-  font-size: calc(15px * var(--admin-projects-ui-scale, 0.8));
+  font-size: 0.9375rem;
   letter-spacing: 0.08em;
   line-height: 1.35;
 }
@@ -7741,7 +7747,7 @@
 .admin-projects-view .projects-analytics-head > span {
   color: rgba(255, 255, 255, 0.9) !important;
   font-weight: 700;
-  font-size: calc(13px * var(--admin-projects-ui-scale, 0.8));
+  font-size: 0.8125rem;
 }
 
 .admin-projects-view .projects-analytics-body {
@@ -7788,8 +7794,8 @@
 }
 
 .admin-projects-view .projects-analytics-embed .admin-analytics-view {
-  --admin-analytics-font-scale: 0.896;
-  font-size: calc(15px * var(--admin-projects-ui-scale, 0.8));
+  --admin-analytics-font-scale: 1;
+  font-size: inherit;
 }
 
 .admin-projects-view .projects-analytics-embed .admin-analytics-view .admin-analytics-hub-header {
@@ -7934,8 +7940,8 @@
 }
 
 .projects-date-calendar-header {
-  background: linear-gradient(135deg, var(--projects-date-accent) 0%, var(--projects-date-accent-dark) 100%) !important;
-  box-shadow: 0 6px 16px rgba(38, 107, 28, 0.18);
+  background: var(--dash-forest-header, #2f6b4f) !important;
+  box-shadow: 0 4px 14px rgba(47, 107, 79, 0.22);
   border-radius: 12px;
   padding: 0.7rem 0.9rem;
   margin-bottom: 1rem;
@@ -8035,9 +8041,9 @@
 }
 
 .projects-date-calendar .projects-date-day-selected {
-  background: linear-gradient(180deg, #266b1c 0%, #1f5516 100%) !important;
+  background: var(--dash-forest-header, #2f6b4f) !important;
   color: #ffffff !important;
-  box-shadow: 0 4px 12px rgba(20, 83, 45, 0.35);
+  box-shadow: 0 4px 12px rgba(47, 107, 79, 0.28);
 }
 
 .projects-date-calendar .projects-date-day-in-range {
@@ -8080,18 +8086,18 @@
 }
 
 .projects-date-action-btn--primary {
-  border: 1px solid #1f5516;
-  background: linear-gradient(180deg, #266b1c 0%, #1f5516 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--dash-forest-header, #2f6b4f) !important;
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff;
-  box-shadow: 0 4px 12px rgba(20, 83, 45, 0.28);
+  box-shadow: 0 4px 12px rgba(47, 107, 79, 0.24);
 }
 
 .projects-date-action-btn--primary:hover {
-  background: linear-gradient(180deg, #2f7d24 0%, #266b1c 100%) !important;
+  background: #357a5c !important;
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff;
-  box-shadow: 0 6px 16px rgba(20, 83, 45, 0.34);
+  box-shadow: 0 6px 16px rgba(47, 107, 79, 0.3);
   transform: translateY(-1px);
 }
 
@@ -8137,10 +8143,10 @@
 }
 
 .projects-date-calendar .projects-date-preset-active {
-  background: linear-gradient(180deg, #266b1c 0%, #1f5516 100%);
+  background: var(--dash-forest-header, #2f6b4f);
   color: #ffffff !important;
   font-weight: 700;
-  box-shadow: 0 3px 10px rgba(20, 83, 45, 0.28);
+  box-shadow: 0 3px 10px rgba(47, 107, 79, 0.24);
 }
 
 /* â”€â”€ Admin Company Calendar â€” dashboard theme + 125% scale â”€â”€ */

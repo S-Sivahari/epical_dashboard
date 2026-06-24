@@ -58,6 +58,7 @@ import { useEmployeeStore } from '@store/employeeStore'
 import { MOCK_EMPLOYEES } from '@/services/mockData'
 import type { Employee } from '@/types'
 import { cn } from '@/utils/cn'
+import { formatDurationFromMs } from '@/utils/durationFormat'
 import { getVisiblePageNumbers } from '@hooks/usePagination'
 import {
   ProjectHoursHoverCard,
@@ -165,6 +166,12 @@ function formatAdminDuration(hours: number | null): string {
   return `${hrs}h ${String(mins).padStart(2, '0')}m`
 }
 
+function formatBreakTime(totalPausedMs?: number): string {
+  const ms = totalPausedMs ?? 0
+  if (ms <= 0) return '—'
+  return formatDurationFromMs(ms)
+}
+
 function employeeDisplayName(e: Employee): string {
   return `${e.firstName} ${e.lastName || ''}`.trim()
 }
@@ -254,6 +261,22 @@ const formatDateTime = (isoString?: string): string => {
   return `${dateStr}, ${timeStr}`
 }
 
+/** Timezone-safe YYYY-MM-DD for local calendar dates (no UTC shift). */
+const formatLocalDateString = (d: Date = new Date()): string => {
+  const pad = (num: number) => String(num).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+const isTodayTimesheetRange = (start: string, end: string, preset: string): boolean => {
+  const today = formatLocalDateString()
+  return preset === 'Today' && start === today && end === today
+}
+
+const TIMESHEET_AGGREGATED_SCROLL_THRESHOLD = {
+  projects: 6,
+  employees: 5,
+} as const
+
 
 /* ================================================================
    COMPONENT – Custom Date Range Picker (Linear/SaaS Style)
@@ -263,6 +286,7 @@ interface DateRangePickerProps {
   endDate: string
   preset: string
   onChange: (start: string, end: string, preset: string) => void
+  size?: 'md' | 'lg'
 }
 
 const QUICK_DATE_PRESETS = [
@@ -277,7 +301,7 @@ const QUICK_DATE_PRESETS = [
   'Last Year',
 ] as const
 
-function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRangePickerProps) {
+function CustomDateRangePicker({ startDate, endDate, preset, onChange, size = 'md' }: DateRangePickerProps) {
   const [open, setOpen] = useState(false)
   const [currentMonth, setCurrentMonth] = useState<Date>(
     new Date(startDate || new Date().toISOString().split('T')[0]),
@@ -500,21 +524,25 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange }: DateRan
     return cells
   }, [currentMonth])
 
+  const isLarge = size === 'lg'
+
   return (
     <div ref={containerRef} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="projects-date-trigger inline-flex h-9 max-w-full items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold text-[var(--emerald-dark)] shadow-sm transition-colors whitespace-nowrap"
+        className={`projects-date-trigger inline-flex max-w-full items-center gap-2 rounded-lg border font-bold text-[var(--emerald-dark)] shadow-sm transition-colors whitespace-nowrap ${
+          isLarge ? 'h-11 px-3 text-sm' : 'h-9 px-2.5 text-xs'
+        }`}
       >
-        <CalendarIcon className="h-3.5 w-3.5 text-[var(--emerald-dark)] flex-shrink-0" />
-        <span className="truncate max-w-xs text-xs leading-tight">
+        <CalendarIcon className={`text-[var(--emerald-dark)] flex-shrink-0 ${isLarge ? 'h-4 w-4' : 'h-3.5 w-3.5'}`} />
+        <span className={`truncate max-w-xs leading-tight ${isLarge ? 'text-sm' : 'text-xs'}`}>
           {preset === 'Custom' && startDate === endDate
             ? `${formatDate(startDate)}`
             : preset === 'Custom'
               ? `${formatDate(startDate)} – ${formatDate(endDate)}`
               : `${preset} (${formatDate(startDate)} – ${formatDate(endDate)})`}
         </span>
-        <ChevronDown className="h-3 w-3 text-[var(--emerald-dark)]/70 flex-shrink-0" />
+        <ChevronDown className={`text-[var(--emerald-dark)]/70 flex-shrink-0 ${isLarge ? 'h-4 w-4' : 'h-3 w-3'}`} />
       </button>
 
       {open && createPortal(
@@ -679,6 +707,7 @@ function FilterCheckboxGroup({
   selected,
   onChange,
   compact = false,
+  size = 'md',
 }: {
   label: string
   placeholder: string
@@ -686,6 +715,7 @@ function FilterCheckboxGroup({
   selected: string[]
   onChange: (next: string[]) => void
   compact?: boolean
+  size?: 'md' | 'lg'
 }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -714,10 +744,12 @@ function FilterCheckboxGroup({
     return `${selected.length} selected`
   }, [selected, options, placeholder])
 
+  const isLarge = size === 'lg'
+
   return (
     <div ref={rootRef} className="relative">
       {!compact && (
-        <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-600">
+        <span className={`mb-1 block font-bold uppercase tracking-wider text-slate-600 ${isLarge ? 'text-xs' : 'text-[10px]'}`}>
           {label}
         </span>
       )}
@@ -726,15 +758,17 @@ function FilterCheckboxGroup({
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => setOpen((v) => !v)}
-        className={`flex h-9 w-full items-center justify-between gap-1.5 rounded-lg border bg-[var(--bg-card)] px-2.5 text-left text-xs font-bold outline-none transition-all ${
+        className={`flex w-full items-center justify-between gap-2 rounded-lg border bg-[var(--bg-card)] text-left font-bold outline-none transition-all ${
+          isLarge ? 'h-11 px-3 text-sm' : 'h-9 px-2.5 text-xs'
+        } ${
           open || selected.length > 0
             ? 'border-[rgba(38,107,28,0.35)] text-ink ring-4 ring-[rgba(38,107,28,0.12)]'
             : 'border-border text-slate-700 hover:border-white/20'
         }`}
       >
-        <span className="truncate text-xs">{summary}</span>
+        <span className={`truncate ${isLarge ? 'text-sm' : 'text-xs'}`}>{summary}</span>
         <ChevronDown
-          className={`h-3.5 w-3.5 shrink-0 text-slate-700 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`shrink-0 text-slate-700 transition-transform ${isLarge ? 'h-4 w-4' : 'h-3.5 w-3.5'} ${open ? 'rotate-180' : ''}`}
         />
       </button>
 
@@ -742,41 +776,41 @@ function FilterCheckboxGroup({
         <div
           role="listbox"
           aria-label={label}
-          className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-border bg-[var(--bg-card)] p-2 shadow-2xl"
+          className={`absolute left-0 right-0 z-50 mt-1 min-w-full rounded-xl border border-border bg-[var(--bg-card)] shadow-2xl ${isLarge ? 'p-3' : 'p-2'}`}
         >
-          <div className="mb-2 flex items-center justify-between gap-2 border-b border-border pb-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700">{label}</span>
+          <div className={`mb-2 flex items-center justify-between gap-2 border-b border-border ${isLarge ? 'pb-2.5' : 'pb-2'}`}>
+            <span className={`font-bold uppercase tracking-wider text-slate-700 ${isLarge ? 'text-xs' : 'text-[10px]'}`}>{label}</span>
             <div className="flex shrink-0 gap-2">
               <button
                 type="button"
                 onClick={() => onChange(options.map((o) => o.value))}
-                className="text-[10px] font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)]"
+                className={`font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)] ${isLarge ? 'text-xs' : 'text-[10px]'}`}
               >
                 All
               </button>
               <button
                 type="button"
                 onClick={() => onChange([])}
-                className="text-[10px] font-bold text-slate-700 hover:text-ink"
+                className={`font-bold text-slate-700 hover:text-ink ${isLarge ? 'text-xs' : 'text-[10px]'}`}
               >
                 Clear
               </button>
             </div>
           </div>
-          <div className="max-h-48 space-y-0.5 overflow-y-auto pr-0.5">
+          <div className={`space-y-0.5 overflow-y-auto pr-0.5 ${isLarge ? 'max-h-64' : 'max-h-48'}`}>
             {options.length === 0 ? (
-              <p className="px-2 py-2 text-xs font-semibold text-slate-700">No options</p>
+              <p className={`px-2 py-2 font-semibold text-slate-700 ${isLarge ? 'text-sm' : 'text-xs'}`}>No options</p>
             ) : (
               options.map((opt) => (
                 <label
                   key={opt.value}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-ink transition-colors hover:bg-emerald-50/50"
+                  className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-2 text-ink transition-colors hover:bg-emerald-50/50 ${isLarge ? 'py-2 text-sm' : 'py-1.5 text-xs'}`}
                 >
                   <input
                     type="checkbox"
                     checked={selected.includes(opt.value)}
                     onChange={() => toggle(opt.value)}
-                    className="h-3.5 w-3.5 shrink-0 rounded border-border bg-[var(--bg-input)] accent-[var(--emerald-dark)]"
+                    className={`shrink-0 rounded border-border bg-[var(--bg-input)] accent-[var(--emerald-dark)] ${isLarge ? 'h-4 w-4' : 'h-3.5 w-3.5'}`}
                   />
                   <span className="truncate font-semibold" title={opt.label}>
                     {opt.label}
@@ -1098,36 +1132,35 @@ function EmployeeLeaderboard({
   const maxHours = sortedData.length > 0 ? Math.max(...sortedData.map((d) => d.hours)) : 0
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3.5">
       {sortedData.map((item, idx) => {
         const percent = maxHours > 0 ? (item.hours / maxHours) * 100 : 0
         const hue = item.hue ?? Math.round((idx * 137.5) % 360)
 
-        // 3D bar colours — front, top (lighter), right side (darker)
-        const frontBg = `hsl(${hue}, 70%, 48%)`
-        const topBg = `hsl(${hue}, 65%, 62%)`
-        const sideBg = `hsl(${hue}, 72%, 38%)`
-        const depth = 5 // px depth of the 3D extrusion
+        const frontBg = '#2f6b4f'
+        const topBg = '#3d8a66'
+        const sideBg = '#245c40'
+        const depth = 6 // px depth of the 3D extrusion
 
         return (
           <div
             key={item.name}
-            className="group rounded-lg border border-transparent px-2 py-2 transition-all hover:border-border hover:bg-emerald-50/50"
+            className="group rounded-lg border border-transparent px-3 py-3 transition-all hover:border-border hover:bg-emerald-50/50"
           >
-            <div className="flex items-center gap-2.5">
-              <Avatar name={item.name} size="sm" color={`hsl(${hue},55%,45%)`} />
+            <div className="flex items-center gap-3">
+              <Avatar name={item.name} size="md" color={`hsl(${hue},55%,45%)`} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-sm font-bold text-ink group-hover:text-[var(--emerald-dark)] font-display">
+                  <p className="truncate text-base font-bold text-ink group-hover:text-[var(--emerald-dark)] font-display">
                     {item.name}
                   </p>
-                  <span className="type-metric-inline shrink-0 text-ink">
+                  <span className="type-metric-inline shrink-0 text-base text-ink">
                     {item.hours.toFixed(1)}
-                    <span className="text-[10px] ml-0.5 font-semibold text-slate-450">h</span>
+                    <span className="ml-0.5 text-xs font-semibold text-slate-450">h</span>
                   </span>
                 </div>
                 {/* 3D Bar — matches PDF report style */}
-                <div className="relative mt-1.5 w-full" style={{ height: 12 + depth }}>
+                <div className="relative mt-2 w-full" style={{ height: 16 + depth }}>
                   {/* Track / background */}
                   <div
                     className="absolute rounded-[3px]"
@@ -1135,7 +1168,7 @@ function EmployeeLeaderboard({
                       left: 0,
                       top: depth,
                       width: '100%',
-                      height: 12,
+                      height: 16,
                       background: 'rgba(0,0,0,0.04)',
                     }}
                   />
@@ -1148,9 +1181,9 @@ function EmployeeLeaderboard({
                           left: 0,
                           top: depth,
                           width: `${percent}%`,
-                          height: 12,
+                          height: 16,
                           background: frontBg,
-                          boxShadow: `0 2px 6px hsla(${hue}, 70%, 48%, 0.35)`,
+                          boxShadow: '0 2px 6px rgba(47, 107, 79, 0.35)',
                         }}
                       />
                       {/* Top face (parallelogram via clip-path) */}
@@ -1172,7 +1205,7 @@ function EmployeeLeaderboard({
                           left: `${percent}%`,
                           top: 0,
                           width: depth,
-                          height: 12 + depth,
+                          height: 16 + depth,
                           background: sideBg,
                           clipPath: `polygon(${depth}px 0%, ${depth}px ${depth}px, 0% 100%, 0% ${depth}px)`,
                         }}
@@ -1666,29 +1699,10 @@ export function ProjectManagement() {
   }, [modalOpen, form.accessType, allEmployeeNames])
 
   // ── Timesheets Date Range Picker States ─────────────────────
-  // FIXED: Initialize with current month using timezone-safe date formatting
-  const getCurrentMonthDates = () => {
-    const now = new Date()
-    const year = now.getFullYear()
-    const month = now.getMonth()
-    
-    // Get first day of current month
-    const startDay = 1
-    // Get last day of current month
-    const endDay = new Date(year, month + 1, 0).getDate()
-    
-    // Format as YYYY-MM-DD without timezone conversion
-    const pad = (num: number) => String(num).padStart(2, '0')
-    const start = `${year}-${pad(month + 1)}-${pad(startDay)}`
-    const end = `${year}-${pad(month + 1)}-${pad(endDay)}`
-    
-    return { start, end }
-  }
-  
-  const initialDates = getCurrentMonthDates()
-  const [datePreset, setDatePreset] = useState<string>('This Month')
-  const [tsStartDate, setTsStartDate] = useState(initialDates.start)
-  const [tsEndDate, setTsEndDate] = useState(initialDates.end)
+  const todayDate = formatLocalDateString()
+  const [datePreset, setDatePreset] = useState<string>('Today')
+  const [tsStartDate, setTsStartDate] = useState(todayDate)
+  const [tsEndDate, setTsEndDate] = useState(todayDate)
 
   // ── Timesheets Filters States ───────────────────────────────
   const [tsSearch, setTsSearch] = useState('')
@@ -2724,10 +2738,14 @@ export function ProjectManagement() {
   }, [filteredTimesheets, tsStartDate, tsEndDate])
 
   const clearTimesheetFilters = useCallback(() => {
+    const today = formatLocalDateString()
     setTsSearch('')
     setTsEmployeeFilters([])
     setTsProjectFilters([])
     setTsStatusFilters([])
+    setTsStartDate(today)
+    setTsEndDate(today)
+    setDatePreset('Today')
   }, [])
 
   const tsEmployeeFilterOptions = useMemo(() => {
@@ -2763,6 +2781,7 @@ export function ProjectManagement() {
   )
 
   const hasActiveTimesheetFilters =
+    !isTodayTimesheetRange(tsStartDate, tsEndDate, datePreset) ||
     tsSearch.trim().length > 0 ||
     tsEmployeeFilters.length > 0 ||
     tsProjectFilters.length > 0 ||
@@ -2882,79 +2901,6 @@ export function ProjectManagement() {
                 </span>
               </div>
             </div>
-          ) : activeTab === 'timesheets' ? (
-            <div className="space-y-4">
-              <p className="projects-sidebar-title">Timesheet Filters</p>
-              
-              {/* Search */}
-              <div className="relative min-w-0">
-                <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
-                <input
-                  type="text"
-                  value={tsSearch}
-                  onChange={(e) => setTsSearch(e.target.value)}
-                  placeholder="Search logs…"
-                  className="admin-field projects-search-input pl-9 pr-8 font-medium text-ink shadow-sm"
-                />
-                {tsSearch.trim() && (
-                  <button
-                    type="button"
-                    onClick={() => setTsSearch('')}
-                    className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-emerald-50/50 hover:text-ink"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* Date Range Picker */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Date Period</label>
-                <CustomDateRangePicker
-                  startDate={tsStartDate}
-                  endDate={tsEndDate}
-                  preset={datePreset}
-                  onChange={handleDateRangeChange}
-                />
-              </div>
-
-              {/* Employee Filter */}
-              <FilterCheckboxGroup
-                label="Employee"
-                placeholder="All Employees"
-                options={tsEmployeeFilterOptions}
-                selected={tsEmployeeFilters}
-                onChange={setTsEmployeeFilters}
-              />
-
-              {/* Project Filter */}
-              <FilterCheckboxGroup
-                label="Project"
-                placeholder="All Projects"
-                options={tsProjectFilterOptions}
-                selected={tsProjectFilters}
-                onChange={setTsProjectFilters}
-              />
-
-              {/* Status Filter */}
-              <FilterCheckboxGroup
-                label="Status"
-                placeholder="All Statuses"
-                options={tsStatusFilterOptions}
-                selected={tsStatusFilters}
-                onChange={setTsStatusFilters}
-              />
-
-              {hasActiveTimesheetFilters && (
-                <button
-                  type="button"
-                  onClick={clearTimesheetFilters}
-                  className="w-full text-center text-xs font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)] transition-colors mt-2"
-                >
-                  Reset All Filters
-                </button>
-              )}
-            </div>
           ) : null}
           </div>
         </aside>
@@ -2978,7 +2924,7 @@ export function ProjectManagement() {
             <div className="projects-directory-section animate-fadeIn">
               <div className="projects-directory-header">
                 <div className="projects-directory-header-title">
-                  <h2 className="projects-directory-table-title">Project Directory</h2>
+                  <h2 className="projects-directory-table-title projects-directory-table-title--main">Project Directory</h2>
                   <p className="projects-directory-table-subtitle">
                     {filteredProjects.length} project{filteredProjects.length === 1 ? '' : 's'}
                   </p>
@@ -3197,99 +3143,141 @@ export function ProjectManagement() {
           ) : (
             <div className="projects-tab-panel animate-fadeIn">
               <div className="projects-tab-scroll space-y-5">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-                <div>
-                  <h2 className="projects-section-heading">Timesheet Records</h2>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleExportExcel}
-                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[rgba(38,107,28,0.25)] bg-white px-3 text-xs font-bold text-[var(--emerald-dark)] transition-all hover:bg-emerald-50"
-                  >
-                    <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" />
-                    <span>Export Excel</span>
-                  </button>
-                  <button
-                    onClick={handleExportPDF}
-                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 px-3 text-xs font-bold text-white shadow-sm transition-all hover:shadow-md"
-                  >
-                    <FileDown className="h-3.5 w-3.5 shrink-0" />
-                    <span>PDF Report</span>
-                  </button>
+              <div className="border-b border-border pb-3">
+                <div className="projects-timesheet-toolbar flex flex-wrap items-center gap-3">
+                  <div className="relative min-w-[12rem] flex-1 max-w-[22rem]">
+                    <Search className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-[var(--emerald-dark)]" />
+                    <input
+                      type="text"
+                      value={tsSearch}
+                      onChange={(e) => setTsSearch(e.target.value)}
+                      placeholder="Search logs…"
+                      className="admin-field projects-search-input h-11 w-full pl-10 pr-9 text-sm font-medium text-ink shadow-sm"
+                    />
+                    {tsSearch.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => setTsSearch('')}
+                        className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-emerald-50/50 hover:text-ink"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="relative shrink-0">
+                    <CustomDateRangePicker
+                      startDate={tsStartDate}
+                      endDate={tsEndDate}
+                      preset={datePreset}
+                      onChange={handleDateRangeChange}
+                      size="lg"
+                    />
+                  </div>
+
+                  <div className="relative min-w-[11rem] flex-1 max-w-[15rem]">
+                    <FilterCheckboxGroup
+                      label="Employee"
+                      placeholder="All Employees"
+                      compact
+                      size="lg"
+                      options={tsEmployeeFilterOptions}
+                      selected={tsEmployeeFilters}
+                      onChange={setTsEmployeeFilters}
+                    />
+                  </div>
+
+                  <div className="relative min-w-[11rem] flex-1 max-w-[15rem]">
+                    <FilterCheckboxGroup
+                      label="Project"
+                      placeholder="All Projects"
+                      compact
+                      size="lg"
+                      options={tsProjectFilterOptions}
+                      selected={tsProjectFilters}
+                      onChange={setTsProjectFilters}
+                    />
+                  </div>
+
+                  <div className="relative min-w-[10rem] flex-1 max-w-[13rem]">
+                    <FilterCheckboxGroup
+                      label="Status"
+                      placeholder="All Statuses"
+                      compact
+                      size="lg"
+                      options={tsStatusFilterOptions}
+                      selected={tsStatusFilters}
+                      onChange={setTsStatusFilters}
+                    />
+                  </div>
+
+                  {hasActiveTimesheetFilters ? (
+                    <button
+                      type="button"
+                      onClick={clearTimesheetFilters}
+                      className="shrink-0 whitespace-nowrap px-1 text-sm font-bold text-[var(--emerald-dark)] transition-colors hover:text-[var(--green-600)]"
+                    >
+                      Reset
+                    </button>
+                  ) : null}
+
+                  <div className="flex w-full shrink-0 items-center justify-end gap-2.5 sm:ml-auto sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={handleExportExcel}
+                      className="inline-flex h-11 min-w-[9.75rem] shrink-0 flex-row items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[rgba(38,107,28,0.25)] bg-white px-4 text-sm font-bold text-[var(--emerald-dark)] transition-all hover:bg-emerald-50"
+                    >
+                      <FileSpreadsheet className="h-4 w-4 shrink-0" />
+                      <span>Export Excel</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportPDF}
+                      className="inline-flex h-11 min-w-[9.75rem] shrink-0 flex-row items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 px-4 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md"
+                    >
+                      <FileDown className="h-4 w-4 shrink-0" />
+                      <span>PDF Report</span>
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              {hasActiveTimesheetFilters && (
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Active Filters:</span>
-                  {tsSearch.trim() && (
-                    <span className="inline-flex items-center gap-1 rounded-md border border-border bg-[var(--bg-input)] px-2 py-0.5 text-xs font-semibold text-slate-800">
-                      Search: "{tsSearch}"
-                      <button type="button" onClick={() => setTsSearch('')} className="text-slate-600 hover:text-slate-800">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  )}
-                  {tsEmployeeFilters.map((empName) => (
-                    <span key={empName} className="inline-flex items-center gap-1 rounded-md border border-[rgba(38,107,28,0.22)] bg-[var(--emerald-surface)] px-2 py-0.5 text-xs font-semibold text-[var(--emerald-dark)]">
-                      {empName}
-                      <button type="button" onClick={() => setTsEmployeeFilters(tsEmployeeFilters.filter((name) => name !== empName))} className="text-[var(--emerald-dark)] hover:text-[var(--green-600)]">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                  {tsProjectFilters.map((proj) => (
-                    <span key={proj} className="inline-flex items-center gap-1 rounded-md border border-border bg-[var(--bg-input)] px-2 py-0.5 text-xs font-semibold text-slate-800">
-                      {proj}
-                      <button type="button" onClick={() => setTsProjectFilters(tsProjectFilters.filter((p) => p !== proj))} className="text-slate-600 hover:text-slate-800">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                  {tsStatusFilters.map((status) => (
-                    <span key={status} className="inline-flex items-center gap-1 rounded-md border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-400">
-                      {status}
-                      <button type="button" onClick={() => setTsStatusFilters(tsStatusFilters.filter((s) => s !== status))} className="text-blue-500/70 hover:text-blue-300">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                  <button type="button" onClick={clearTimesheetFilters} className="text-xs font-bold text-[var(--emerald-dark)] hover:text-[var(--green-600)] ml-2">
-                    Clear all
-                  </button>
-                </div>
-              )}
 
           {/* Analytics panels */}
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="projects-analytics-card">
-              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0 bg-gradient-to-r from-[#1e5a3d] via-[#236b48] to-[#276749] px-5 py-3 rounded-t-2xl">
+              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0 rounded-t-2xl">
                 <h3 className="type-card-label-caps flex items-center gap-2 font-extrabold text-white">
-                  <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/80" />
+                  <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/85" />
                   Aggregated Hours by Project
                 </h3>
                 {derivedHoursByProject.length > 0 && (
-                  <span className="text-xs text-white/90 font-mono font-bold">
+                  <span className="text-sm font-mono font-bold text-white/90">
                     {derivedHoursByProject.length} project{derivedHoursByProject.length === 1 ? '' : 's'}
                   </span>
                 )}
               </div>
               <div className="projects-analytics-body">
               {derivedHoursByProject.length > 0 ? (
-                <div className="timesheet-panel-scroll h-60 overflow-auto pr-0.5 sm:h-64">
+                <div
+                  className={cn(
+                    'timesheet-panel-scroll pr-0.5',
+                    derivedHoursByProject.length > TIMESHEET_AGGREGATED_SCROLL_THRESHOLD.projects &&
+                      'max-h-[22rem] overflow-auto',
+                  )}
+                >
                   <ProjectHoursHoverCardProvider>
                     <div
                       className={
                         derivedHoursByProject.length > 9
-                          ? 'grid w-max min-w-full gap-2 p-0.5'
-                          : 'grid w-full grid-cols-2 gap-2 sm:grid-cols-3'
+                          ? 'grid w-max min-w-full gap-3 p-0.5'
+                          : 'grid w-full grid-cols-2 gap-3 sm:grid-cols-3'
                       }
                       style={
                         derivedHoursByProject.length > 9
                           ? {
-                              gridTemplateRows: 'repeat(3, minmax(4.25rem, auto))',
+                              gridTemplateRows: 'repeat(3, minmax(5.75rem, auto))',
                               gridAutoFlow: 'column',
-                              gridAutoColumns: 'minmax(7.25rem, 8.5rem)',
+                              gridAutoColumns: 'minmax(9rem, 10.5rem)',
                             }
                           : undefined
                       }
@@ -3303,7 +3291,7 @@ export function ProjectManagement() {
                           const isGreaterThanAverage = project.hours > averageHours
                           const percentage =
                             totalHours > 0 ? ((project.hours / totalHours) * 100).toFixed(2) : '0.00'
-                          const cardBg = isGreaterThanAverage ? 'bg-[#4aaf7d]' : 'bg-[#f16c6f]'
+                          const cardBg = 'bg-[#2f6b4f]'
                           const foundProject = allProjects.find((p) => p.name === project.name)
 
                           return (
@@ -3334,7 +3322,7 @@ export function ProjectManagement() {
                   </ProjectHoursHoverCardProvider>
                 </div>
               ) : (
-                <div className="flex h-60 items-center justify-center rounded-lg border border-dashed border-[rgba(38,107,28,0.2)] bg-white/60 text-sm font-semibold text-slate-600 sm:h-64">
+                <div className="flex min-h-[8rem] items-center justify-center rounded-lg border border-dashed border-[rgba(38,107,28,0.2)] bg-white/60 px-4 py-8 text-base font-semibold text-slate-600">
                   No data logs available in the chosen dates.
                 </div>
               )}
@@ -3342,19 +3330,25 @@ export function ProjectManagement() {
             </div>
 
             <div className="projects-analytics-card">
-              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0 bg-gradient-to-r from-[#1e5a3d] via-[#236b48] to-[#276749] px-5 py-3 rounded-t-2xl">
+              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0 rounded-t-2xl">
                 <h3 className="type-card-label-caps flex items-center gap-2 font-extrabold text-white">
-                  <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/80" />
+                  <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/85" />
                   Aggregated Hours by Employee
                 </h3>
                 {derivedLeaderboardData.length > 0 && (
-                  <span className="text-xs text-white/90 font-mono font-bold">
+                  <span className="text-sm font-mono font-bold text-white/90">
                     {derivedLeaderboardData.length} employee{derivedLeaderboardData.length === 1 ? '' : 's'}
                   </span>
                 )}
               </div>
               <div className="projects-analytics-body">
-              <div className="timesheet-panel-scroll max-h-[15.75rem] overflow-y-auto pr-0.5">
+              <div
+                className={cn(
+                  'timesheet-panel-scroll pr-0.5',
+                  derivedLeaderboardData.length > TIMESHEET_AGGREGATED_SCROLL_THRESHOLD.employees &&
+                    'max-h-[22rem] overflow-y-auto',
+                )}
+              >
                 <EmployeeLeaderboard data={derivedLeaderboardData} />
               </div>
               </div>
@@ -3364,17 +3358,18 @@ export function ProjectManagement() {
           {/* Timesheet log table */}
           <div className="projects-ts-table-wrap">
             <div className="overflow-x-auto timesheet-panel-scroll">
-              <table className="w-full min-w-[640px] border-collapse text-left">
-                <thead className="sticky top-0 z-10 bg-gradient-to-r from-[#1e5a3d] via-[#236b48] to-[#276749]">
-                  <tr className="border-b border-white/10">
-                    <th className="px-5 py-3 font-bold uppercase text-white">Employee</th>
-                    <th className="px-5 py-3 font-bold uppercase text-white">Project</th>
-                    <th className="px-5 py-3 font-bold uppercase text-white">Login Time</th>
-                    <th className="px-5 py-3 font-bold uppercase text-white">Logout Time</th>
-                    <th className="px-5 py-3 font-bold uppercase text-white">Duration</th>
+              <table className="w-full min-w-[720px] border-collapse text-left">
+                <thead className="sticky top-0 z-10">
+                  <tr className="border-b border-[rgba(38,107,28,0.12)]">
+                    <th className="px-5 py-3.5 font-bold uppercase">Employee</th>
+                    <th className="px-5 py-3.5 font-bold uppercase">Project</th>
+                    <th className="px-5 py-3.5 font-bold uppercase">Login Time</th>
+                    <th className="px-5 py-3.5 font-bold uppercase">Logout Time</th>
+                    <th className="px-5 py-3.5 font-bold uppercase">Break Time</th>
+                    <th className="px-5 py-3.5 font-bold uppercase">Duration</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200/70 text-sm">
+                <tbody className="divide-y divide-slate-200/70 text-base">
                   {currentTimesheets.map((t) => {
                     const empInfo = employees.find((e) => e.id === t.employeeId || e.employeeId === t.employeeId)
                     const employeeColorKey =
@@ -3392,25 +3387,25 @@ export function ProjectManagement() {
                         key={t.id}
                         className="group transition-colors"
                       >
-                        <td className="px-5 py-3.5">
+                        <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
                             <Avatar
                               name={t.employeeName}
-                              size="sm"
+                              size="md"
                               color={stringToHueColor(employeeColorKey)}
                             />
                             <div className="min-w-0">
-                              <p className="truncate font-bold text-ink leading-tight">
+                              <p className="truncate text-base font-bold text-ink leading-tight">
                                 {t.employeeName}
                               </p>
-                              <p className="text-[11px] font-semibold text-slate-600 font-mono">
+                              <p className="text-xs font-semibold text-slate-600 font-mono">
                                 {t.employeeId}
                               </p>
                             </div>
                           </div>
                         </td>
 
-                        <td className="px-5 py-3.5">
+                        <td className="px-5 py-4">
                           <button
                             type="button"
                             onClick={() => {
@@ -3427,25 +3422,31 @@ export function ProjectManagement() {
                             }}
                             className="group/btn block max-w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(38,107,28,0.22)] rounded-md"
                           >
-                            <p className="flex items-center gap-1 font-bold text-ink transition-colors group-hover/btn:text-[var(--emerald-dark)]">
+                            <p className="flex items-center gap-1 text-base font-bold text-ink transition-colors group-hover/btn:text-[var(--emerald-dark)]">
                               <span className="truncate">{t.project}</span>
-                              <ArrowUpRight className="h-3.5 w-3.5 shrink-0 opacity-0 text-[var(--emerald-dark)] transition-all group-hover/btn:opacity-100" />
+                              <ArrowUpRight className="h-4 w-4 shrink-0 opacity-0 text-[var(--emerald-dark)] transition-all group-hover/btn:opacity-100" />
                             </p>
                           </button>
                         </td>
 
-                        <td className="whitespace-nowrap px-5 py-3.5">
-                          <p className="font-semibold text-slate-800">{formatDateTime(t.loginTime)}</p>
+                        <td className="whitespace-nowrap px-5 py-4">
+                          <p className="text-base font-semibold text-slate-800">{formatDateTime(t.loginTime)}</p>
                         </td>
 
-                        <td className="whitespace-nowrap px-5 py-3.5">
-                          <p className="font-semibold text-slate-800">
+                        <td className="whitespace-nowrap px-5 py-4">
+                          <p className="text-base font-semibold text-slate-800">
                             {t.logoutTime ? formatDateTime(t.logoutTime) : '—'}
                           </p>
                         </td>
 
-                        <td className="px-5 py-3.5">
-                          <span className="inline-flex rounded-lg border border-border bg-[var(--bg-input)] px-2.5 py-1 text-ink font-mono text-xs font-bold">
+                        <td className="whitespace-nowrap px-5 py-4">
+                          <span className="inline-flex rounded-lg border border-border bg-[var(--bg-input)] px-3 py-1.5 font-mono text-sm font-bold text-slate-800">
+                            {formatBreakTime(t.totalPausedMs)}
+                          </span>
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <span className="inline-flex rounded-lg border border-border bg-[var(--bg-input)] px-3 py-1.5 text-ink font-mono text-sm font-bold">
                             {formatAdminDuration(hours)}
                           </span>
                           {t.autoCheckedOut && (
@@ -3459,7 +3460,7 @@ export function ProjectManagement() {
                   })}
                   {filteredTimesheets.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-12 text-center text-sm font-semibold text-slate-600">
+                      <td colSpan={6} className="py-12 text-center text-sm font-semibold text-slate-600">
                         No individual logs correspond to selected range and filters.
                       </td>
                     </tr>
@@ -3557,7 +3558,7 @@ export function ProjectManagement() {
               })
             }}
             options={[
-              { value: 'public', label: 'Public — allotted members can access' },
+              { value: 'public', label: 'Public — all members can access' },
               { value: 'private', label: 'Private — restricted to allotted members' },
             ]}
           />

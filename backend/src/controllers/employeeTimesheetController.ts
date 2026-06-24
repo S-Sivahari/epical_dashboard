@@ -408,9 +408,10 @@ async function fetchActiveTaskPayload(employee: ResolvedEmployee) {
 
 async function fetchAssignedTasksForEmployee(employee: ResolvedEmployee) {
   const recentApprovedCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const allottedProjects = await ProjectModel.find(buildAssignedProjectsFilter(employee.identityTokens), {
-    _id: 1,
-  }).lean();
+  const allottedProjects = await ProjectModel.find(
+    { $and: [{ status: 'Active' }, buildAssignedProjectsFilter(employee.identityTokens)] },
+    { _id: 1 },
+  ).lean();
   const allottedProjectIds = allottedProjects.map((p) => p._id);
   if (allottedProjectIds.length === 0) return [];
 

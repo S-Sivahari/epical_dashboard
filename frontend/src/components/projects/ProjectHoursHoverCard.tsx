@@ -41,17 +41,17 @@ export function ProjectHoursHoverCard({
         <button
           type="button"
           onClick={onCardClick}
-          className={`flex w-full min-h-[4.25rem] flex-col justify-between rounded-xl p-3 text-left text-white shadow-[0_2px_8px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/80 focus-visible:ring-offset-2 ${cardBg}`}
+          className={`flex w-full min-h-[5.75rem] flex-col justify-between rounded-xl p-4 text-left text-white shadow-[0_2px_8px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/80 focus-visible:ring-offset-2 ${cardBg}`}
         >
           <div
-            className="truncate text-[11px] font-black uppercase leading-tight tracking-wide opacity-95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]"
+            className="truncate text-sm font-black uppercase leading-tight tracking-wide opacity-95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]"
             title={projectName}
           >
             {projectName}
           </div>
-          <div className="mt-2 flex items-baseline justify-between gap-1">
-            <span className="type-metric text-base font-black tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">{hours.toFixed(1)}</span>
-            <span className="text-[10px] font-extrabold opacity-95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
+          <div className="mt-2.5 flex items-baseline justify-between gap-1">
+            <span className="type-metric text-xl font-black tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">{hours.toFixed(1)}</span>
+            <span className="text-xs font-extrabold opacity-95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
               {isGreaterThanAverage ? '+' : ''}
               {percentage}%
             </span>
