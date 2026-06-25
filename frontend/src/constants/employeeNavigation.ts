@@ -27,7 +27,7 @@ export type EmployeeNavItem = {
 }
 
 export const EMPLOYEE_NOTES_NAV_ITEM: EmployeeNavItem = {
-  to: '/employee/notes',
+  to: '/employee/project-analysis/notes',
   label: 'Daily Notes',
   navLabel: 'Notes',
   icon: NotebookPen,
@@ -106,8 +106,8 @@ export const EMPLOYEE_ROUTE_TITLES: Record<string, string> = {
   '/employee': 'Dashboard',
   '/employee/timesheet': 'Projects & Timesheets',
   '/employee/project-analysis': 'Project Management',
+  '/employee/project-analysis/notes': 'Daily Notes',
   '/employee/metal-routing': 'Metal Routing',
-  '/employee/notes': 'Daily Notes',
   '/employee/leave': 'Leave Request',
   '/employee/calendar': 'Company Calendar',
   '/employee/documents': 'Documents',

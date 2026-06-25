@@ -38,6 +38,10 @@ export function isNotesAdmin(req: Request): boolean {
   return Boolean(req.user && isAdminRole(req.user.role));
 }
 
+export async function assertEmployeeCanAccessNotesForDate(req: Request, date: string): Promise<void> {
+  await assertEmployeeCanMutateNotesForDate(req, date);
+}
+
 export async function assertEmployeeCanMutateNotesForDate(req: Request, date: string): Promise<void> {
   if (isNotesAdmin(req)) return;
 

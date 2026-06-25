@@ -25,7 +25,9 @@ export type NotificationType =
   | 'CellReviewApproved'
   | 'CellReviewRejected'
   | 'CellCreatedUnassigned'
-  | 'CellAssigned';
+  | 'CellAssigned'
+  | 'NotesDelegationAssigned'
+  | 'NotesDelegationMorning';
 
 export interface Notification {
   _id?: ObjectId;
@@ -74,6 +76,9 @@ export interface Notification {
     libraryName?: string;
     createdByName?: string;
     assignedByName?: string;
+    notesDelegationId?: string;
+    notesDate?: string;
+    notesNotificationKind?: 'assigned' | 'morning';
   };
   relatedId?: string;
   isRead: boolean;
@@ -126,6 +131,9 @@ export interface CreateNotificationPayload {
     libraryName?: string;
     createdByName?: string;
     assignedByName?: string;
+    notesDelegationId?: string;
+    notesDate?: string;
+    notesNotificationKind?: 'assigned' | 'morning';
   };
   relatedId?: string;
 }

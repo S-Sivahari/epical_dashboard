@@ -89,6 +89,9 @@ export function getNotificationTypesForPath(pathname: string): NotificationData[
       'CalendarEventRemoved',
     ]
   }
+  if (path.startsWith('/employee/project-analysis/notes')) {
+    return ['NotesDelegationAssigned', 'NotesDelegationMorning']
+  }
   if (
     path.startsWith('/employee/project-analysis') ||
     path.startsWith('/employee/projects')

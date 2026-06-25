@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getNotesAccess } from '@/services/notesService'
 import type { NotesAccess } from '@/types/notes'
+import { toDateKey } from '@/utils/notesWeek'
 
 export function useEmployeeNotesAccess() {
   const [access, setAccess] = useState<NotesAccess | null>(null)
@@ -8,7 +9,8 @@ export function useEmployeeNotesAccess() {
 
   useEffect(() => {
     let cancelled = false
-    void getNotesAccess()
+    const today = toDateKey(new Date())
+    void getNotesAccess({ from: today, to: today })
       .then((result) => {
         if (!cancelled) setAccess(result)
       })

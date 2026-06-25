@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
-import { ChevronDown, Pencil, Plus, Send, Trash2 } from 'lucide-react'
+import { ChevronDown, Copy, Pencil, Plus, Send, Trash2 } from 'lucide-react'
 import { Button } from '@components/ui/Button'
 import { AddNoteModal } from '@components/notes/AddNoteModal'
 import { DailyNotesInlineEditor } from '@components/notes/DailyNotesInlineEditor'
-import { EmailDeliveryBadge } from '@components/notes/DailyNotesEmailModal'
 import type { DailyNoteBlock, DailyNoteStatus, NoteChildBlock, NoteProjectOption } from '@/types/notes'
 import type { Employee } from '@/types'
 import { employeeNamesLabel, groupEntriesByProject } from '@/utils/notesBootstrap'
@@ -48,6 +47,7 @@ type Props = {
   onDelete?: () => void
   autoOpenAddNote?: boolean
   onAutoOpenAddNoteHandled?: () => void
+  onCopyYesterday?: () => void
   onError: (message: string) => void
 }
 
@@ -67,6 +67,7 @@ export function DailyNotesNotepad({
   onDelete,
   autoOpenAddNote = false,
   onAutoOpenAddNoteHandled,
+  onCopyYesterday,
   onError,
 }: Props) {
   const title = useMemo(() => formatDailyBlockTitle(date), [date])
@@ -98,13 +99,11 @@ export function DailyNotesNotepad({
   const hasBlock = Boolean(block)
   const status = block?.status ?? 'draft'
   const isPastDay = isPastNotesDay(dateKey)
-  const isEmailSent = status === 'email_sent'
   const canEditNotes =
     hasBlock && block && !block.archived && !isPastDay && canEdit
   const canSendEmail =
     hasBlock && block && !block.archived && !isPastDay && canEdit
   const emailIncludeCount = entries.filter((entry) => entry.includeInEmail).length
-  const hasContent = projectGroups.length > 0
   const hasNotes = entries.length > 0
 
   useEffect(() => {
@@ -201,6 +200,18 @@ export function DailyNotesNotepad({
                   >
                     Add note
                   </Button>
+                  {onCopyYesterday ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      icon={<Copy className="h-3.5 w-3.5" />}
+                      disabled={busy}
+                      onClick={onCopyYesterday}
+                    >
+                      Copy yesterday
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     size="sm"

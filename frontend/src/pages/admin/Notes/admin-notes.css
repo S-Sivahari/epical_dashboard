@@ -85,6 +85,13 @@
   color: #64748b;
 }
 
+.admin-notes-header__actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .admin-notes-week-nav {
   display: flex;
   flex-wrap: wrap;
@@ -3387,9 +3394,48 @@
   border-radius: 0.25rem;
 }
 
-.notes-notepad-inline-editor__surface {
-  display: grid;
-  position: relative;
+.notes-notepad-inline-editor__textarea--solo {
+  width: 100%;
+  min-height: 16rem;
+  resize: vertical;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  font-family: inherit;
+  font-size: 1rem !important;
+  line-height: 1.55;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a;
+  background: #fff;
+  border-radius: 0.5rem;
+  border: 1px solid #cbd5e1;
+  outline: none;
+}
+
+.notes-notepad-inline-editor__textarea--solo:focus {
+  border-color: rgba(30, 90, 61, 0.45);
+  box-shadow: 0 0 0 3px rgba(30, 90, 61, 0.08);
+}
+
+[data-admin-notes] .notes-notepad-inline-editor__textarea--solo {
+  font-size: 1rem !important;
+}
+
+.notes-date-bar__chip.is-future {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.notes-date-bar__chip.is-future:hover {
+  border-color: var(--notes-border);
+  background: #f8fafc;
+}
+
+.notes-toolbar__trailing-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .notes-notepad-inline-editor__highlight,
@@ -3752,7 +3798,6 @@
 [data-admin-notes] .notes-notepad-pad__empty-text,
 [data-admin-notes] .notes-notepad-pad__no-updates,
 [data-admin-notes] .notes-notepad-pad__read-only-hint,
-[data-admin-notes] .notes-notepad-inline-editor__textarea,
 [data-admin-notes] .notes-day-card__title,
 [data-admin-notes] .notes-day-card__meta,
 [data-admin-notes] .notes-day-card__badge {
@@ -3772,9 +3817,11 @@
   font-size: calc(0.8125rem * var(--notes-font-scale));
 }
 
-[data-admin-notes] .notes-notepad-inline-editor__textarea {
-  font-size: calc(0.8125rem * var(--notes-font-scale));
-  line-height: 1.55;
+[data-admin-notes] .notes-notepad-inline-editor__textarea--solo {
+  font-size: 1rem !important;
+  line-height: 1.55 !important;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
 }
 
 [data-admin-notes] .notes-day-card__title {
