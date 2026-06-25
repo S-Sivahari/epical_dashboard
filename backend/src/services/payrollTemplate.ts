@@ -105,6 +105,7 @@ async function mapEmployeeToRow(
     '', // Reimbursements
     '', // PT
     '', // TDS
+    '', // LOP Deduction
     '', // Loan Recovery
     elBalance, // EL Balance
     clBalance, // CL Balance
@@ -173,10 +174,12 @@ export async function generatePayrollTemplateBuffer(options?: { includeEmployeeD
     { width: 14 },
     { width: 10 },
     { width: 10 },
+    { width: 12 },
+    { width: 10 },
     { width: 14 },
   ]
 
-  empSheet.mergeCells('A1:Z1')
+  empSheet.mergeCells('A1:AE1')
   const empTitle = empSheet.getCell('A1')
   empTitle.value = 'EMPLOYEE PAYROLL DATA'
   empTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREEN_DK } }
@@ -184,7 +187,7 @@ export async function generatePayrollTemplateBuffer(options?: { includeEmployeeD
   empTitle.alignment = { horizontal: 'center', vertical: 'middle' }
   empSheet.getRow(1).height = 24
 
-  empSheet.mergeCells('A2:Z2')
+  empSheet.mergeCells('A2:AE2')
   empSheet.getCell('A2').value =
     'Enter one employee per row. Headers are on row 4 — do not delete or rename header columns.'
   empSheet.getCell('A2').font = { italic: true, color: { argb: MUTED }, size: 9 }
@@ -218,6 +221,7 @@ export async function generatePayrollTemplateBuffer(options?: { includeEmployeeD
     'Reimbursements',
     'PT',
     'TDS',
+    'LOP Deduction',
     'Loan Recovery',
     'EL Balance',
     'CL Balance',
@@ -282,6 +286,7 @@ export async function generatePayrollTemplateBuffer(options?: { includeEmployeeD
         '',
         '',
         '',
+        '',
         18,
         7,
         7,
@@ -302,6 +307,7 @@ export async function generatePayrollTemplateBuffer(options?: { includeEmployeeD
         'Full Time',
         26,
         0,
+        '',
         '',
         '',
         '',
@@ -429,7 +435,7 @@ export async function generatePayrollTemplateBuffer(options?: { includeEmployeeD
     '',
     'Notes:',
     '• Leave employee amount blank to use Salary Structure default.',
-    '• LOP Days drives the Loss of Pay deduction.',
+    '• LOP Days drives the Loss of Pay deduction; enter LOP Deduction to override the calculated amount.',
     '• Upload this file (or your own copy) from Payslip Management to generate PDF payslips.',
   ]
 

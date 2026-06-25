@@ -79,6 +79,9 @@ app.use(
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         'img-src': ["'self'", 'data:', 'blob:', 'https:'],
+        // Payslip PDF preview uses blob: object URLs in an iframe (admin hub).
+        'frame-src': ["'self'", 'blob:'],
+        'object-src': ["'self'", 'blob:'],
       },
     },
   }),

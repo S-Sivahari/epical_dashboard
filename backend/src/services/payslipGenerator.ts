@@ -711,7 +711,7 @@ const COMPONENT_ALIASES: Record<string, string[]> = {
   'Professional Tax': ['PT'],
   'Income Tax (TDS)': ['TDS'],
   'Loan / Advance Recovery': ['Loan Recovery', 'Loan / Adv. Recovery'],
-  'Loss of Pay': ['LOP', 'LOP Amount'],
+  'Loss of Pay': ['LOP', 'LOP Amount', 'LOP Deduction'],
 }
 
 function parseAmount(v: unknown): number {
@@ -856,7 +856,7 @@ export function resolveLopAmount(
   lopDays: number,
   paidDays: number
 ): number {
-  const explicit = parseAmount(emp['Loss of Pay'])
+  const explicit = parseAmount(emp['Loss of Pay']) || parseAmount(emp['LOP Deduction'])
   if (explicit > 0) return roundPayrollAmount(explicit)
   if (lopDays > 0 && gross > 0 && paidDays > 0) {
     return roundPayrollAmount((gross / paidDays) * lopDays)
