@@ -1384,17 +1384,10 @@
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-approvals,
   .admin-dashboard-view[data-admin-dashboard] .dashboard-approvals-panel {
-    flex: 0 1 auto;
-    max-height: min(var(--dash-approvals-max-h, 15rem), 38%);
-    min-height: 6.5rem;
-    overflow: hidden;
-  }
-
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-approvals.dashboard-approvals-panel--has-items,
-  .admin-dashboard-view[data-admin-dashboard] .dashboard-approvals-panel--has-items {
     flex: 1 1 0;
     max-height: none;
     min-height: 12rem;
+    overflow: hidden;
   }
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-activity,
@@ -4959,13 +4952,11 @@
 }
 
 .dashboard-right-approvals {
-  /* flex-basis 30% allocates 30% of the right stack's height (which is 100% of
-     the right column = full dashboard height).  max-height caps it with an
-     explicit rem fallback so the rule doesn't silently collapse when the parent
-     has no resolved height (e.g. in some browser paint passes). */
-  flex: 0 0 30%;
-  min-height: 0;
-  max-height: min(30%, 18rem);
+  /* Share the right stack equally with the activity log; flex-basis 0 + equal
+     grow lets the two panels split available height 50/50, with a min-height
+     so even an empty state has breathing room beneath the header. */
+  flex: 1 1 0;
+  min-height: 12rem;
 }
 
 .dashboard-right-activity {
