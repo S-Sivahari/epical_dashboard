@@ -1,5 +1,6 @@
 import type { PayPeriod } from './payrollYtdService'
 import type { Employee } from './payslipGenerator'
+import { formatPayslipPersonName } from '../utils/personName'
 import { findEmployeeByPayrollEmpId } from './employeePayslipService'
 import { getLeaveBalances } from './leaveService'
 
@@ -12,6 +13,9 @@ const LEAVE_BALANCE_FIELDS = {
   },
   'SL Balance': {
     dbType: 'Sick Leave',
+  },
+  'Compensation': {
+    dbType: 'Compensation Leave',
   },
   'Comp Off': {
     dbType: 'Compensation Leave',
@@ -142,7 +146,7 @@ function mergeStatutoryFromDb(emp: Employee, db: Record<string, unknown>): Emplo
 
   return {
     ...emp,
-    Name: coalesceStr(formatDbEmployeeName(db), emp['Name']),
+    Name: formatPayslipPersonName(coalesceStr(formatDbEmployeeName(db), emp['Name'])),
     Designation: coalesceStr(db.designation, emp['Designation']),
     Department: coalesceStr(db.role, emp['Department']),
     PAN: coalesceStr(db.pan, emp['PAN']),

@@ -132,6 +132,15 @@ export function parseStructureMatrix(
 
     const comp = cellToString(row[cols.componentCol])
     if (!comp || comp.toLowerCase() === 'component') continue
+    const compLower = comp.toLowerCase()
+    if (
+      compLower === 'earnings' ||
+      compLower === 'earning' ||
+      compLower === 'deductions' ||
+      compLower === 'deduction'
+    ) {
+      continue
+    }
 
     const sectionText = cellToString(row[cols.sectionCol])
     const rawAmt = row[cols.amountCol]

@@ -35,6 +35,46 @@ function styleLabelCell(cell: ExcelJS.Cell) {
   cell.border = thinBorder()
 }
 
+function styleSectionBandRow(sheet: ExcelJS.Worksheet, rowNum: number, fromCol: number, toCol: number, label: string) {
+  sheet.mergeCells(rowNum, fromCol, rowNum, toCol)
+  const cell = sheet.getCell(rowNum, fromCol)
+  cell.value = label
+  cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREEN_LT } }
+  cell.font = { bold: true, color: { argb: GREEN_DK }, size: 10 }
+  cell.alignment = { vertical: 'middle', horizontal: 'center' }
+  cell.border = thinBorder()
+  sheet.getRow(rowNum).height = 18
+}
+
+function writeSalaryStructureRow(
+  sheet: ExcelJS.Worksheet,
+  rowNum: number,
+  comp: string,
+  section: string,
+  amt: number | string,
+  notes: string,
+) {
+  const isDeduction = section === 'Deductions'
+  const r = sheet.getRow(rowNum)
+  ;[comp, section, amt, notes].forEach((val, j) => {
+    const cell = r.getCell(j + 1)
+    cell.value = val
+    cell.border = thinBorder()
+    cell.font = { size: 10, color: { argb: TEXT } }
+    if (isDeduction) {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PEACH } }
+    } else {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } }
+    }
+    if (j === 3) cell.font = { size: 9, italic: true, color: { argb: MUTED } }
+  })
+  r.height = 18
+}
+
+function writeSalaryStructureSpareRow(sheet: ExcelJS.Worksheet, rowNum: number, section: 'Earnings' | 'Deductions') {
+  writeSalaryStructureRow(sheet, rowNum, '', section, '', 'Add optional component here')
+}
+
 function styleValueCell(cell: ExcelJS.Cell) {
   cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } }
   cell.font = { color: { argb: TEXT }, size: 10 }
@@ -110,7 +150,7 @@ async function mapEmployeeToRow(
     elBalance, // EL Balance
     clBalance, // CL Balance
     slBalance, // SL Balance
-    compOff, // Comp Off
+    compOff, // Compensation
   ]
 }
 
@@ -189,11 +229,14 @@ export async function generatePayrollTemplateBuffer(options?: { includeEmployeeD
 
   empSheet.mergeCells('A2:AE2')
   empSheet.getCell('A2').value =
-    'Enter one employee per row. Headers are on row 4 — do not delete or rename header columns.'
+    'Enter one employee per row. Section bands on row 3, headers on row 4 — do not delete or rename columns.'
   empSheet.getCell('A2').font = { italic: true, color: { argb: MUTED }, size: 9 }
   empSheet.getRow(2).height = 18
 
-  empSheet.getRow(3).height = 8
+  styleSectionBandRow(empSheet, 3, 1, 14, 'EMPLOYEE DETAILS')
+  styleSectionBandRow(empSheet, 3, 15, 23, 'EARNINGS')
+  styleSectionBandRow(empSheet, 3, 24, 27, 'DEDUCTIONS')
+  styleSectionBandRow(empSheet, 3, 28, 31, 'LEAVE BALANCES')
 
   const empHeaders = [
     'Emp ID',
@@ -226,7 +269,7 @@ export async function generatePayrollTemplateBuffer(options?: { includeEmployeeD
     'EL Balance',
     'CL Balance',
     'SL Balance',
-    'Comp Off',
+    'Compensation',
   ]
   const headerRow = empSheet.getRow(4)
   empHeaders.forEach((h, i) => {
@@ -374,7 +417,7 @@ export async function generatePayrollTemplateBuffer(options?: { includeEmployeeD
   })
   styleHeaderRow(salHeader, 4)
 
-  const components: [string, string, number | string, string][] = [
+  const earningsComponents: [string, string, number | string, string][] = [
     ['Basic Salary', 'Earnings', '', 'Foundation of salary'],
     ['House Rent Allowance', 'Earnings', '', 'Usually 40-50% of Basic'],
     ['Conveyance (Non-taxable)', 'Earnings', '', ''],
@@ -384,31 +427,32 @@ export async function generatePayrollTemplateBuffer(options?: { includeEmployeeD
     ['Personal Allowance', 'Earnings', '', ''],
     ['Special Allowance', 'Earnings', '', 'Balancing allowance'],
     ['Reimbursements', 'Earnings', '', 'Telephone, internet, fuel etc.'],
-    ['Professional Tax', 'Deductions', 0, 'State-level tax'],
-    ['Income Tax (TDS)', 'Deductions', 0, 'Tax deducted at source'],
-    ['Loan / Advance Recovery', 'Deductions', 0, 'EMI or one-time recovery'],
-    ['Loss of Pay', 'Deductions', 0, 'Deduction for unpaid leaves'],
   ]
 
-  components.forEach(([comp, section, amt, notes], i) => {
-    const r = salSheet.getRow(i + 2)
-    const isDeduction = section === 'Deductions'
-    ;[comp, section, amt, notes].forEach((val, j) => {
-      const cell = r.getCell(j + 1)
-      cell.value = val
-      cell.border = thinBorder()
-      cell.font = { size: 10, color: { argb: TEXT } }
-      if (isDeduction) {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PEACH } }
-      } else if (j === 0) {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } }
-      } else {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: WHITE } }
-      }
-      if (j === 3) cell.font = { size: 9, italic: true, color: { argb: MUTED } }
-    })
-    r.height = 18
+  const deductionsComponents: [string, string, number | string, string][] = [
+    ['Professional Tax', 'Deductions', 0, 'State-level tax'],
+    ['Income Tax (TDS)', 'Deductions', 0, 'Tax deducted at source'],
+    ['LOP Deduction', 'Deductions', 0, 'Loss of pay — auto-calculated from LOP Days unless overridden'],
+    ['Loan / Advance Recovery', 'Deductions', 0, 'EMI or one-time recovery'],
+  ]
+
+  let salRow = 2
+  earningsComponents.forEach(([comp, section, amt, notes]) => {
+    writeSalaryStructureRow(salSheet, salRow++, comp, section, amt, notes)
   })
+  writeSalaryStructureSpareRow(salSheet, salRow++, 'Earnings')
+  writeSalaryStructureSpareRow(salSheet, salRow++, 'Earnings')
+
+  salSheet.getRow(salRow).height = 6
+  salRow++
+
+  styleSectionBandRow(salSheet, salRow++, 1, 4, 'DEDUCTIONS')
+
+  deductionsComponents.forEach(([comp, section, amt, notes]) => {
+    writeSalaryStructureRow(salSheet, salRow++, comp, section, amt, notes)
+  })
+  writeSalaryStructureSpareRow(salSheet, salRow++, 'Deductions')
+  writeSalaryStructureSpareRow(salSheet, salRow++, 'Deductions')
 
   // ── Sheet 4: readme ───────────────────────────────────────────
   const readmeSheet = wb.addWorksheet('readme')
@@ -428,14 +472,15 @@ export async function generatePayrollTemplateBuffer(options?: { includeEmployeeD
     '→ Fill company details (label in col A, value in col B).',
     '',
     'Sheet: salary structure',
+    '→ Earnings and deductions are grouped separately. Use the two spare rows in each section before adding new rows.',
     '→ Set default monthly amounts for each pay component.',
     '',
     'Sheet: employee',
-    '→ One employee per row from row 4 (headers on row 4).',
+    '→ One employee per row from row 5 (section bands row 3, headers row 4).',
     '',
     'Notes:',
     '• Leave employee amount blank to use Salary Structure default.',
-    '• LOP Days drives the Loss of Pay deduction; enter LOP Deduction to override the calculated amount.',
+    '• LOP Days drives LOP Deduction; enter an amount in LOP Deduction to override the calculated value.',
     '• Upload this file (or your own copy) from Payslip Management to generate PDF payslips.',
   ]
 
