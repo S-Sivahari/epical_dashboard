@@ -191,8 +191,9 @@ export function EmployeeLeaveProfileModal({
     {
       key: 'reason',
       header: 'Reason',
+      className: 'whitespace-normal min-w-[8rem] max-w-[16rem]',
       render: (l) => (
-        <span className="max-w-[180px] truncate text-sm text-muted" title={l.reason}>
+        <span className="text-sm text-muted break-words">
           {l.reason}
         </span>
       ),
@@ -218,7 +219,7 @@ export function EmployeeLeaveProfileModal({
         title={profileTitle}
         onClose={onClose}
         size="xl"
-        className="flex max-h-[min(90vh,40rem)] min-h-0 flex-col overflow-hidden"
+        className="flex max-h-[min(90vh,44rem)] min-h-0 flex-col overflow-hidden"
       >
         {loading ? (
           <div className="flex min-h-[200px] flex-1 items-center justify-center">

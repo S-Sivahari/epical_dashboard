@@ -73,8 +73,19 @@ const DEFAULT_CONFIG = { icon: Activity, color: 'text-slate-500', bg: 'bg-slate-
    ================================================================ */
 function formatTimestamp(iso: string) {
   const d = new Date(iso)
-  const date = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-  const time = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+  if (Number.isNaN(d.getTime())) {
+    return { date: '—', time: '—' }
+  }
+  const date = d.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+  const time = d.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  })
   return { date, time }
 }
 
@@ -93,6 +104,56 @@ function getRelativeTime(iso: string) {
   return `${Math.floor(diffDays / 30)}mo ago`
 }
 
+/** Merge assignment events into one timeline entry listing all assignees for the same task. */
+function mergeAssignmentEvents(events: AuditEvent[]): AuditEvent[] {
+  const nonAssignments: AuditEvent[] = []
+  const assignmentGroups = new Map<string, AuditEvent[]>()
+
+  for (const event of events) {
+    if (event.type !== 'task_assigned') {
+      nonAssignments.push(event)
+      continue
+    }
+
+    const taskTitle = String(event.metadata?.taskTitle || event.metadata?.taskId || 'project')
+    const existing = assignmentGroups.get(taskTitle) ?? []
+    existing.push(event)
+    assignmentGroups.set(taskTitle, existing)
+  }
+
+  const mergedAssignments: AuditEvent[] = []
+
+  for (const group of assignmentGroups.values()) {
+    if (group.length === 1) {
+      mergedAssignments.push(group[0])
+      continue
+    }
+
+    const sorted = [...group].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    )
+    const names = [...new Set(sorted.map((event) => event.employee).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b),
+    )
+    const latest = sorted[sorted.length - 1]
+    const taskTitle = String(latest.metadata?.taskTitle || 'Project')
+
+    mergedAssignments.push({
+      ...latest,
+      employee: names.join(', '),
+      details: `Project "${taskTitle}" assigned to ${names.join(', ')}`,
+      metadata: {
+        ...latest.metadata,
+        assignedEmployees: names,
+      },
+    })
+  }
+
+  return [...nonAssignments, ...mergedAssignments].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+  )
+}
+
 /* ================================================================
    COMPONENT — Summary Metric Card
    ================================================================ */
@@ -108,8 +169,8 @@ function SummaryCard({ label, value, icon: Icon, accentColor }: {
         <Icon className="h-5 w-5 text-white" />
       </div>
       <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-        <p className="text-lg font-black text-slate-800 leading-tight tabular-nums">{value}</p>
+        <p className="text-[13px] font-bold uppercase tracking-wider text-black">{label}</p>
+        <p className="text-[21px] font-black text-black leading-tight tabular-nums">{value}</p>
       </div>
     </div>
   )
@@ -124,6 +185,7 @@ function TimelineEvent({ event, isLast }: { event: AuditEvent; isLast: boolean }
   const { date, time } = formatTimestamp(event.timestamp)
   const relative = getRelativeTime(event.timestamp)
   const hours = event.metadata?.totalHours as number | undefined
+  const showEmployeeFooter = event.type !== 'task_assigned'
 
   return (
     <div className="flex gap-4 group">
@@ -142,28 +204,30 @@ function TimelineEvent({ event, isLast }: { event: AuditEvent; isLast: boolean }
         <div className="rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm hover:shadow-md transition-shadow">
           {/* Header */}
           <div className="flex items-start justify-between gap-2 mb-1.5">
-            <Badge className={`${config.bg} ${config.color} border ${config.border} text-[10px] font-bold px-2 py-0.5`}>
+            <Badge className={`${config.bg} ${config.color} border ${config.border} text-[13px] font-bold px-2 py-0.5`}>
               {config.label}
             </Badge>
             <div className="text-right shrink-0">
-              <p className="text-[10px] font-bold text-slate-400">{relative}</p>
+              <p className="text-[13px] font-bold text-black">{relative}</p>
             </div>
           </div>
 
           {/* Details */}
-          <p className="text-xs font-semibold text-slate-700 leading-relaxed">{event.details}</p>
+          <p className="text-[15px] font-semibold text-black leading-relaxed">{event.details}</p>
 
           {/* Footer */}
           <div className="mt-2 flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-1.5">
-              <Avatar name={event.employee} size="sm" color={`hsl(${hashName(event.employee)},55%,45%)`} />
-              <span className="text-[10px] font-bold text-slate-500">{event.employee}</span>
-            </div>
-            <span className="text-[10px] font-semibold text-slate-400">
+            {showEmployeeFooter ? (
+              <div className="flex items-center gap-1.5">
+                <Avatar name={event.employee} size="sm" color={`hsl(${hashName(event.employee)},55%,45%)`} />
+                <span className="text-[13px] font-bold text-black">{event.employee}</span>
+              </div>
+            ) : null}
+            <span className="text-[13px] font-semibold text-black">
               {date} · {time}
             </span>
             {hours !== undefined && hours > 0 && (
-              <span className="text-[10px] font-black text-emerald-600 tabular-nums">
+              <span className="text-[13px] font-black text-black tabular-nums">
                 {hours.toFixed(1)}h
               </span>
             )}
@@ -223,6 +287,8 @@ export function ProjectAuditTrailModal({
     }
   }, [isOpen, projectId, fetchAuditTrail])
 
+  const displayEvents = data ? mergeAssignmentEvents(data.events) : []
+
   return (
     <Modal isOpen={isOpen} title="" onClose={onClose} size="xl">
       {/* Custom header with project info */}
@@ -232,17 +298,9 @@ export function ProjectAuditTrailModal({
             <Activity className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-base font-black text-slate-800 leading-tight">
+            <h2 className="text-[19px] font-black text-black leading-tight">
               {projectName || data?.project?.name || 'Project'} — Audit Trail
             </h2>
-            {data?.project && (
-              <p className="text-[10px] font-bold text-slate-400 mt-0.5">
-                {data.project.client} · {data.project.technologyNode} ·{' '}
-                <span className={data.project.status === 'Active' ? 'text-emerald-600' : data.project.status === 'Completed' ? 'text-blue-600' : 'text-slate-500'}>
-                  {data.project.status}
-                </span>
-              </p>
-            )}
           </div>
         </div>
       </div>
@@ -251,17 +309,17 @@ export function ProjectAuditTrailModal({
       {loading && (
         <div className="flex flex-col items-center justify-center py-20">
           <Spinner />
-          <p className="mt-3 text-xs font-bold text-slate-400">Loading audit trail…</p>
+          <p className="mt-3 text-[15px] font-bold text-black">Loading audit trail…</p>
         </div>
       )}
 
       {/* Error */}
       {error && !loading && (
         <div className="flex flex-col items-center justify-center py-20">
-          <p className="text-sm font-bold text-red-500">{error}</p>
+          <p className="text-[17px] font-bold text-red-600">{error}</p>
           <button
             onClick={fetchAuditTrail}
-            className="mt-3 text-xs font-bold text-emerald-600 hover:text-emerald-800 transition-colors"
+            className="mt-3 text-[15px] font-bold text-black hover:text-black/70 transition-colors"
           >
             Try Again
           </button>
@@ -275,7 +333,7 @@ export function ProjectAuditTrailModal({
           <div className="grid gap-3 grid-cols-2">
             <SummaryCard
               label="Total Hours"
-              value={`${data.summary.totalHours}h`}
+              value={`${Number(data.summary.totalHours).toFixed(1)}h`}
               icon={Clock}
               accentColor="bg-slate-600"
             />
@@ -289,27 +347,27 @@ export function ProjectAuditTrailModal({
 
           {/* Events Count */}
           <div className="flex justify-end">
-            <span className="text-[10px] font-bold text-slate-400 tabular-nums">
-              {data.events.length} event{data.events.length !== 1 ? 's' : ''}
+            <span className="text-[13px] font-bold text-black tabular-nums">
+              {displayEvents.length} event{displayEvents.length !== 1 ? 's' : ''}
             </span>
           </div>
 
           {/* Timeline */}
           <div className="max-h-[50vh] overflow-y-auto pr-1 -mr-1">
-            {data.events.length > 0 ? (
+            {displayEvents.length > 0 ? (
               <div className="pt-1">
-                {data.events.map((event, i) => (
+                {displayEvents.map((event, i) => (
                   <TimelineEvent
                     key={`${event.type}-${event.timestamp}-${event.employee}-${i}`}
                     event={event}
-                    isLast={i === data.events.length - 1}
+                    isLast={i === displayEvents.length - 1}
                   />
                 ))}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-16 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50">
-                <Activity className="h-10 w-10 text-slate-300 mb-3" />
-                <p className="text-xs font-bold text-slate-400">
+                <Activity className="h-10 w-10 text-slate-400 mb-3" />
+                <p className="text-[15px] font-bold text-black">
                   No activity recorded for this project yet.
                 </p>
               </div>

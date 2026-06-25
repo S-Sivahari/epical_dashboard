@@ -65,12 +65,15 @@ export async function fetchAchievementImageBlob(
   revision?: string | null
 ): Promise<Blob | null> {
   try {
-    const { data, status } = await api.get<Blob>(`/company-achievements/${id}/image`, {
+    const { data, status, headers } = await api.get<Blob>(`/company-achievements/${id}/image`, {
       responseType: 'blob',
       params: revision ? { v: revision } : undefined,
     })
     if (status !== 200) return null
-    return data
+    const contentType = headers['content-type'] || ''
+    if (contentType.includes('application/json')) return null
+    if (data instanceof Blob && data.size > 0) return data
+    return null
   } catch {
     return null
   }

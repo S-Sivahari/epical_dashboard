@@ -16,15 +16,47 @@ import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
 import { normalizeProjectDescription, validateProjectDescription } from '../utils/textLimits';
 import { enrichProjectsWithChecklist } from '../services/checklistService';
 import { enrichProjectsWithAnalysisStatus } from '../services/projectAnalysisStatusService';
+import { computeTotalHoursDecimal } from '../utils/durationFormat';
 
-function computeTotalHours(loginTime: Date, logoutTime?: Date, overriddenHours?: number): number {
-  if (overriddenHours !== undefined && overriddenHours !== null) {
-    return Number(overriddenHours);
+function resolveTimesheetHours(ts: {
+  loginTime: Date;
+  logoutTime?: Date | null;
+  overriddenHours?: number | null;
+  totalHours?: number | null;
+  totalPausedMs?: number;
+}): number {
+  if (ts.overriddenHours !== undefined && ts.overriddenHours !== null) {
+    return Number(ts.overriddenHours);
   }
-  if (!logoutTime) return 0;
-  const diffMs = logoutTime.getTime() - loginTime.getTime();
-  if (diffMs <= 0) return 0;
-  return Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10;
+  if (ts.totalHours !== undefined && ts.totalHours !== null && Number(ts.totalHours) > 0) {
+    return Number(ts.totalHours);
+  }
+  return computeTotalHoursDecimal(ts.loginTime, ts.logoutTime, ts.totalPausedMs || 0);
+}
+
+function computeTotalHours(
+  loginTime: Date,
+  logoutTime?: Date,
+  overriddenHours?: number,
+  totalPausedMs = 0,
+): number {
+  return computeTotalHoursDecimal(loginTime, logoutTime, totalPausedMs, overriddenHours);
+}
+
+function uniqueEmployeeCount(
+  timesheets: Array<{ employee?: string; employeeId?: string }>,
+  assignedTasks: Array<{ employeeName?: string; employeeId?: string }>,
+): number {
+  const keys = new Set<string>();
+  for (const ts of timesheets) {
+    const key = ts.employeeId || ts.employee;
+    if (key) keys.add(String(key));
+  }
+  for (const task of assignedTasks) {
+    const key = task.employeeId || task.employeeName;
+    if (key) keys.add(String(key));
+  }
+  return keys.size;
 }
 
 function toFrontendTimesheet(t: any) {
@@ -442,7 +474,8 @@ export const projectController = {
           timesheet.totalHours = computeTotalHours(
             timesheet.loginTime,
             timesheet.logoutTime,
-            timesheet.overriddenHours
+            timesheet.overriddenHours,
+            timesheet.totalPausedMs,
           );
 
           await timesheet.save({ session });
@@ -527,7 +560,8 @@ export const projectController = {
               timesheet.totalHours = computeTotalHours(
                 timesheet.loginTime,
                 timesheet.logoutTime,
-                timesheet.overriddenHours
+                timesheet.overriddenHours,
+                timesheet.totalPausedMs,
               );
               await timesheet.save({ session });
             }
@@ -687,7 +721,7 @@ export const projectController = {
             metadata: {
               timesheetId: ts._id.toString(),
               task: ts.task,
-              totalHours: computeTotalHours(ts.loginTime, ts.logoutTime, ts.overriddenHours),
+              totalHours: resolveTimesheetHours(ts),
             },
           });
         }
@@ -746,11 +780,9 @@ export const projectController = {
       events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
       // Build summary
-      const uniqueEmployees = new Set<string>();
       let totalHours = 0;
       timesheets.forEach((ts) => {
-        if (ts.employee) uniqueEmployees.add(ts.employee);
-        totalHours += computeTotalHours(ts.loginTime, ts.logoutTime, ts.overriddenHours);
+        totalHours += resolveTimesheetHours(ts);
       });
 
       const summary = {
@@ -758,12 +790,18 @@ export const projectController = {
         totalSessions: timesheets.length,
         totalTasks: assignedTasks.length,
         completedTasks: assignedTasks.filter((t) => t.status === 'completed').length,
-        employees: uniqueEmployees.size,
+        employees: uniqueEmployeeCount(timesheets, assignedTasks),
       };
 
       res.json({
         project: toFrontendProject(project),
-        events,
+        events: events.map((event) => ({
+          ...event,
+          timestamp:
+            event.timestamp instanceof Date
+              ? event.timestamp.toISOString()
+              : new Date(event.timestamp).toISOString(),
+        })),
         summary,
       });
     } catch (error) {
@@ -816,7 +854,8 @@ export const projectController = {
           timesheet.totalHours = computeTotalHours(
             timesheet.loginTime,
             timesheet.logoutTime,
-            timesheet.overriddenHours
+            timesheet.overriddenHours,
+            timesheet.totalPausedMs,
           );
 
           await timesheet.save({ session });

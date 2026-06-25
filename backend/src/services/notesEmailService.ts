@@ -10,7 +10,6 @@ import { sendEmail } from './emailService';
 import { getUserById } from './authService';
 import { getEmployeeOfficialEmail } from '../utils/employeeAuth';
 import { isPublicEmployeeView } from '../utils/employeeView';
-import { stripHtml } from '../utils/notesSearchUtils';
 import { serializeDailyBlock } from './notesService';
 
 const BLOCKED_EMPLOYEE_STATUSES = ['Deactivated', 'Inactive', 'Archived'] as const;
@@ -84,6 +83,23 @@ function employeeDisplayName(employee: {
   return name || String(employee.email || 'Employee');
 }
 
+/** Convert HTML to plain text preserving block-level newlines (p, br, div, li). */
+function htmlToEmailText(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(?:p|div|li|h[1-6]|tr|blockquote)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+}
+
 function formatDescriptionLines(text: string): string[] {
   if (!text || text === '—') return [];
   return text
@@ -99,7 +115,7 @@ function groupContentByProject(doc: DailyNoteBlockDocument): NoteEmailProjectGro
   for (const child of emailContentChildren(doc)) {
     const projectId = child.projectId || child.title;
     const projectName = child.projectName || child.title || '—';
-    const descriptionText = stripHtml(child.description || '') || '—';
+    const descriptionText = htmlToEmailText(child.description || '') || '—';
     const entry: NoteEmailEmployeeEntry = {
       childBlockId: String(child._id),
       employeeName: employeeNames(child),
@@ -240,7 +256,7 @@ function buildEmailHtml(doc: DailyNoteBlockDocument, projectGroups: NoteEmailPro
         <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#374151;">Please find below the daily project updates for <strong>${formattedDate}</strong>.</p>
         <p style="margin:0 0 14px;font-size:15px;font-weight:700;color:${PROJECT_RED};">Projects:</p>
         ${projectsBody}
-        <p style="margin:28px 0 0;font-size:14px;line-height:1.6;color:#374151;">Regards,<br/><strong>Epical Admin</strong></p>
+        <p style="margin:28px 0 0;font-size:14px;line-height:1.6;color:#374151;">Regards,<br/><strong>Epical Layouts team</strong></p>
       </div>
     </div>`;
 }
@@ -275,7 +291,7 @@ function buildEmailText(doc: DailyNoteBlockDocument, projectGroups: NoteEmailPro
     });
   }
 
-  lines.push('Regards,', 'Epical Admin');
+  lines.push('Regards,', 'Epical Layouts team');
   return lines.join('\n');
 }
 

@@ -709,9 +709,10 @@
 
 .admin-leaves-view .admin-leaves-requests-header-left,
 .admin-leaves-view .admin-leaves-requests-header-right {
-  min-height: 3.375rem;
+  min-height: 3rem;
   border-radius: 0.7875rem 0.7875rem 0 0;
 }
+
 
 .admin-leaves-view .admin-leaves-requests-header-right {
   display: flex;
@@ -722,7 +723,7 @@
 
 .admin-leaves-view .admin-leaves-activity-head-title {
   margin: 0;
-  font-size: 0.928125rem;
+  font-size: 1.021rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   line-height: 1.2;
@@ -742,17 +743,17 @@
 }
 
 .admin-leaves-view .admin-leaves-requests-headers .admin-leaves-tab-btn {
-  min-height: 2.1375rem;
-  padding: 0.45rem 0.9rem;
+  min-height: 2.25rem;
+  padding: 0.45rem 1rem;
   border-radius: 0.45rem;
-  font-size: 0.84375rem;
+  font-size: 0.975rem;
 }
 
 .admin-leaves-view .admin-leaves-requests-headers .admin-leaves-status-tab-count {
-  min-width: 1.125rem;
-  padding: 0 0.3375rem;
-  font-size: 0.61875rem;
-  line-height: 1.2375rem;
+  min-width: 1.375rem;
+  padding: 0 0.4rem;
+  font-size: 0.75rem;
+  line-height: 1.375rem;
 }
 
 .admin-leaves-view .admin-leaves-requests-headers .admin-leaves-status-month-label {
@@ -806,6 +807,15 @@
   padding: 0.75rem 1rem;
   background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Status-tab hub variant — keep green bg but strip the inner rail box */
+.admin-leaves-view .admin-leaves-status-tabs--hub .admin-leaves-status-tab-rail {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  gap: 0.25rem;
 }
 
 .admin-leaves-view .admin-leaves-status-tabs--hub::after {
@@ -1495,7 +1505,7 @@
   border-radius: 0.75rem;
   border: 1px solid rgba(26, 67, 41, 0.12);
   padding: 0.875rem 0.75rem;
-  min-height: 7.25rem;
+  min-height: 8rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -1578,7 +1588,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  font-size: 0.6875rem;
+  font-size: 0.757rem;
   font-weight: 600;
   color: #334155;
 }
@@ -1588,13 +1598,29 @@
   font-weight: 600;
 }
 
+.admin-leaves-view .admin-leaves-balance-card__meta-month {
+  margin-top: 0.2rem;
+  padding-top: 0.2rem;
+  border-top: 1px dashed rgba(26, 67, 41, 0.14);
+  font-size: 0.72rem;
+  color: var(--dash-forest-header, #2f6b4f);
+}
+
+.admin-leaves-view .admin-leaves-balance-card__meta-month span {
+  color: var(--dash-forest-header, #2f6b4f);
+}
+
+.admin-leaves-view .admin-leaves-balance-card__meta-month strong {
+  color: var(--dash-forest, #1a4329);
+}
+
 .admin-leaves-view .admin-leaves-year-balances-lop {
-  min-width: 6.5rem;
+  min-width: 8.5rem;
   border-radius: 0.75rem;
   border: 1px solid rgba(239, 68, 68, 0.28);
   background: linear-gradient(180deg, #fff5f5 0%, #fef2f2 100%);
   padding: 0.875rem 0.75rem;
-  min-height: 7.25rem;
+  min-height: 8rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;

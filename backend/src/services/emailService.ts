@@ -35,7 +35,7 @@ interface ReminderEmailParams {
 }
 
 const HRMS_COMPANY_NAME = 'Epical Layouts';
-const HRMS_PRODUCT_NAME = 'Epical EMS';
+const HRMS_PRODUCT_NAME = 'EMPWR';
 
 /** Brand palette — matches frontend tailwind.config.js + index.css (--emerald-*) */
 const EMAIL_COLORS = {
@@ -508,7 +508,7 @@ function buildHtmlTemplate(
   <div class="wrapper">
     <div class="container">
       <div class="header">
-        <h1 class="logo">Epical EMS</h1>
+        <h1 class="logo">EMPWR</h1>
       </div>
       <div class="content">
         <h2 class="greeting">Hi ${recipientName},</h2>
@@ -521,7 +521,7 @@ function buildHtmlTemplate(
         </div>
       </div>
       <div class="footer">
-        <p style="margin: 0 0 8px 0;">This is an automated notification from Epical EMS.</p>
+        <p style="margin: 0 0 8px 0;">This is an automated notification from EMPWR.</p>
         <p style="margin: 0;">&copy; ${new Date().getFullYear()} Epical Layouts. All rights reserved.</p>
       </div>
     </div>
@@ -554,7 +554,7 @@ export async function sendLeaveSubmittedEmail(
   data: LeaveNotificationData,
   actionUrl?: string
 ): Promise<boolean> {
-  const subject = `[Epical EMS] New Leave Request - ${data.employeeName}`;
+  const subject = `[EMPWR] New Leave Request - ${data.employeeName}`;
   const message = `A new leave request has been submitted by <strong>${data.employeeName}</strong> and requires your review.`;
 
   const details: DetailField[] = [
@@ -583,7 +583,7 @@ export async function sendLeaveStatusEmail(
   data: LeaveNotificationData,
   actionUrl?: string
 ): Promise<boolean> {
-  const subject = `[Epical EMS] Leave Request ${data.status} - ${data.type}`;
+  const subject = `[EMPWR] Leave Request ${data.status} - ${data.type}`;
   
   let message = '';
   let statusTone: DetailField['valueColor'];
@@ -629,7 +629,7 @@ export async function sendGenericNotificationEmail(
   detailFields: DetailField[] = [],
   actionUrl?: string
 ): Promise<boolean> {
-  const subject = `[Epical EMS] ${title}`;
+  const subject = `[EMPWR] ${title}`;
   const url = actionUrl || frontendUrl();
   const html = buildHtmlTemplate(recipientName, title, message, detailFields, url);
   
@@ -658,7 +658,7 @@ export async function sendWelcomeEmail(
   actionUrl?: string
 ): Promise<boolean> {
   const fullName = `${data.firstName} ${data.lastName}`;
-  const subject = `[Epical EMS] Welcome to the Team, ${data.firstName}! 🎉`;
+  const subject = `[EMPWR] Welcome to the Team, ${data.firstName}! 🎉`;
   const message = `We're thrilled to have you on board! Your employee profile has been created in our system. Below are your onboarding details.`;
 
   const details: DetailField[] = [
@@ -699,23 +699,23 @@ export async function sendHolidayNotificationEmail(
 
   switch (data.eventType) {
     case 'added':
-      subject = `[Epical EMS] New Holiday: ${data.holidayTitle}`;
+      subject = `[EMPWR] New Holiday: ${data.holidayTitle}`;
       message = `A new holiday <strong>${data.holidayTitle}</strong> has been added to the company calendar on <strong>${data.holidayDate}</strong>.`;
       break;
     case 'updated':
-      subject = `[Epical EMS] Holiday Updated: ${data.holidayTitle}`;
+      subject = `[EMPWR] Holiday Updated: ${data.holidayTitle}`;
       message = `The holiday <strong>${data.holidayTitle}</strong> on <strong>${data.holidayDate}</strong> has been updated in the company calendar.`;
       break;
     case 'deleted':
-      subject = `[Epical EMS] Holiday Removed: ${data.holidayTitle}`;
+      subject = `[EMPWR] Holiday Removed: ${data.holidayTitle}`;
       message = `The holiday <strong>${data.holidayTitle}</strong> on <strong>${data.holidayDate}</strong> has been removed from the company calendar.`;
       break;
     case 'skipped':
-      subject = `[Epical EMS] Working Day Notice: ${data.holidayTitle}`;
+      subject = `[EMPWR] Working Day Notice: ${data.holidayTitle}`;
       message = `<strong>${data.holidayTitle}</strong> on <strong>${data.holidayDate}</strong> has been designated as a working day. The company will be operational on this date.`;
       break;
     case 'restored':
-      subject = `[Epical EMS] Holiday Restored: ${data.holidayTitle}`;
+      subject = `[EMPWR] Holiday Restored: ${data.holidayTitle}`;
       message = `<strong>${data.holidayTitle}</strong> on <strong>${data.holidayDate}</strong> has been restored as a holiday. Enjoy your day off!`;
       break;
   }
@@ -730,7 +730,7 @@ export async function sendHolidayNotificationEmail(
   }
 
   const url = actionUrl || frontendUrl('/employee/calendar');
-  const html = buildHtmlTemplate(data.recipientName, subject.replace('[Epical EMS] ', ''), message, details, url);
+  const html = buildHtmlTemplate(data.recipientName, subject.replace('[EMPWR] ', ''), message, details, url);
   const text = `Hi ${data.recipientName},\n\n${message.replace(/<[^>]+>/g, '')}\n\nPlease check the company calendar for details.`;
 
   return await sendEmail({ to: data.recipientEmail, subject, html, text });
@@ -754,15 +754,15 @@ export async function sendCalendarEventNotificationEmail(
 
   switch (data.eventType) {
     case 'added':
-      subject = `[Epical EMS] New Company Event: ${data.eventTitle}`;
+      subject = `[EMPWR] New Company Event: ${data.eventTitle}`;
       message = `A new company event <strong>${data.eventTitle}</strong> has been scheduled for <strong>${data.eventDate}</strong>.`;
       break;
     case 'updated':
-      subject = `[Epical EMS] Company Event Updated: ${data.eventTitle}`;
+      subject = `[EMPWR] Company Event Updated: ${data.eventTitle}`;
       message = `The company event <strong>${data.eventTitle}</strong> on <strong>${data.eventDate}</strong> has been updated.`;
       break;
     case 'deleted':
-      subject = `[Epical EMS] Company Event Removed: ${data.eventTitle}`;
+      subject = `[EMPWR] Company Event Removed: ${data.eventTitle}`;
       message = `The company event <strong>${data.eventTitle}</strong> on <strong>${data.eventDate}</strong> has been removed from the calendar.`;
       break;
   }
@@ -776,7 +776,7 @@ export async function sendCalendarEventNotificationEmail(
   }
 
   const url = actionUrl || frontendUrl('/employee/calendar');
-  const html = buildHtmlTemplate(data.recipientName, subject.replace('[Epical EMS] ', ''), message, details, url);
+  const html = buildHtmlTemplate(data.recipientName, subject.replace('[EMPWR] ', ''), message, details, url);
   const text = `Hi ${data.recipientName},\n\n${message.replace(/<[^>]+>/g, '')}\n\nView calendar: ${url}`;
 
   return await sendEmail({ to: data.recipientEmail, subject, html, text });
@@ -802,7 +802,7 @@ export async function sendPayslipEmail(
   actionUrl?: string,
   pdfAttachment?: EmailAttachment
 ): Promise<boolean> {
-  const subject = `[Epical EMS] Your Payslip for ${data.payMonth} is Ready`;
+  const subject = `[EMPWR] Your Payslip for ${data.payMonth} is Ready`;
   const message = pdfAttachment
     ? `Your payslip for the pay period of <strong>${data.payMonth}</strong> is attached to this email. Open the PDF attachment to view your payslip.`
     : `Your payslip for the pay period of <strong>${data.payMonth}</strong> has been issued. Please contact HR if you need a copy.`;
@@ -856,8 +856,8 @@ export async function sendCellReviewEmail(data: CellReviewEmailData): Promise<bo
   const reviewLabel = data.reviewPoint.toUpperCase();
   const approved = data.outcome === 'approved';
   const subject = approved
-    ? `[Epical EMS] ${reviewLabel} review approved — ${data.cellName}`
-    : `[Epical EMS] ${reviewLabel} review rejected — ${data.cellName}`;
+    ? `[EMPWR] ${reviewLabel} review approved — ${data.cellName}`
+    : `[EMPWR] ${reviewLabel} review rejected — ${data.cellName}`;
 
   const message = approved
     ? `Your <strong>${reviewLabel}</strong> review for <strong>${data.cellName}</strong> in <strong>${data.projectName}</strong> has been approved. You can continue the layout workflow.`

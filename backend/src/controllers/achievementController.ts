@@ -1,5 +1,15 @@
+import path from 'path'
 import { Request, Response } from 'express'
 import * as achievementService from '../services/achievementService'
+
+const ALLOWED_IMAGE_MIMES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/pjpeg',
+  'image/png',
+  'image/x-png',
+  'image/webp',
+])
 
 function paramStr(v: string | string[] | undefined): string {
   if (typeof v === 'string') return v
@@ -9,11 +19,39 @@ function paramStr(v: string | string[] | undefined): string {
 
 function fileToBlob(file?: Express.Multer.File) {
   if (!file?.buffer) return undefined
+  const mime = (file.mimetype || '').toLowerCase()
+  let contentType = file.mimetype
+  if (!ALLOWED_IMAGE_MIMES.has(mime)) {
+    const ext = path.extname(file.originalname || '').toLowerCase()
+    if (ext === '.png') contentType = 'image/png'
+    else if (ext === '.webp') contentType = 'image/webp'
+    else contentType = 'image/jpeg'
+  }
   return {
     data: file.buffer.toString('base64'),
-    contentType: file.mimetype,
+    contentType,
     filename: file.originalname || 'image',
   }
+}
+
+function toIsoDate(value: unknown, fallback: Date): string {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString()
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = new Date(value.trim())
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString()
+  }
+  return fallback.toISOString()
+}
+
+function imageDataToBuffer(data: unknown): Buffer | null {
+  if (!data) return null
+  if (Buffer.isBuffer(data)) return data
+  if (typeof data === 'string') return Buffer.from(data, 'base64')
+  if (typeof data === 'object' && data !== null && 'buffer' in data) {
+    const buf = (data as { buffer: ArrayBuffer | Uint8Array }).buffer
+    return Buffer.from(buf)
+  }
+  return null
 }
 
 function parseTags(value: unknown): string[] {
@@ -83,20 +121,40 @@ function serializeAchievementRow(r: {
   createdAt: Date
   updatedAt: Date
 }) {
-  const achievementDate = r.achievementDate ?? r.createdAt
+  const fallbackDate = coerceDate(r.createdAt) ?? new Date()
+  const achievementDate = coerceDate(r.achievementDate) ?? fallbackDate
   return {
     id: r.id,
     title: r.title,
     description: r.description,
     category: r.category?.trim() || 'General',
     employeeOrTeamName: r.employeeOrTeamName?.trim() || '',
-    achievementDate: achievementDate.toISOString(),
+    achievementDate: toIsoDate(achievementDate, fallbackDate),
     tags: Array.isArray(r.tags) ? r.tags : [],
     sortOrder: r.sortOrder,
-    hasImage: !!(r.image?.data && r.image?.contentType),
-    createdAt: r.createdAt.toISOString(),
-    updatedAt: r.updatedAt.toISOString(),
+    hasImage: achievementHasImage(r.image),
+    createdAt: toIsoDate(r.createdAt, fallbackDate),
+    updatedAt: toIsoDate(r.updatedAt, fallbackDate),
   }
+}
+
+function coerceDate(value: unknown): Date | null {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = new Date(value.trim())
+    if (!Number.isNaN(parsed.getTime())) return parsed
+  }
+  return null
+}
+
+function achievementHasImage(image?: {
+  data?: unknown
+  contentType?: string
+  filename?: string
+}): boolean {
+  if (!image) return false
+  if (image.data) return true
+  return !!(image.contentType && image.filename)
 }
 
 export const achievementController = {
@@ -164,12 +222,12 @@ export const achievementController = {
       const achievementId = paramStr(req.params.id)
       const row = await achievementService.getAchievement(achievementId)
       const img = row?.image
-      if (!img?.data) {
+      const buffer = imageDataToBuffer(img?.data)
+      if (!buffer || buffer.length === 0) {
         res.status(404).json({ error: 'No image' })
         return
       }
-      const buffer = Buffer.from(img.data, 'base64')
-      res.setHeader('Content-Type', img.contentType || 'image/jpeg')
+      res.setHeader('Content-Type', img?.contentType || 'image/jpeg')
       res.setHeader('Cache-Control', 'private, no-cache')
       if (row?.updatedAt) {
         res.setHeader('ETag', `"${achievementId}-${row.updatedAt.getTime()}"`)

@@ -72,8 +72,11 @@ export function CommandBar() {
     navigate('/auth/login')
   }
 
+  // Resolved admin display name: admin-specific override, else fall back to account name
+  const adminName = user?.adminDisplayName || user?.name || 'Admin'
+
   const openProfileModal = () => {
-    setNameDraft(user?.name ?? '')
+    setNameDraft(adminName)
     setProfileOpen(true)
   }
 
@@ -85,9 +88,12 @@ export function CommandBar() {
     }
     setSavingName(true)
     try {
-      const { data } = await api.patch<{ user: { name: string } }>('/auth/me', { name: trimmed })
-      patchUser({ name: data.user.name })
-      toast.success('Display name updated')
+      const { data } = await api.patch<{ user: { name: string; adminDisplayName?: string } }>(
+        '/auth/me',
+        { adminDisplayName: trimmed },
+      )
+      patchUser({ adminDisplayName: data.user.adminDisplayName, name: data.user.name })
+      toast.success('Admin display name updated')
       setProfileOpen(false)
     } catch (err: any) {
       toast.error(err?.response?.data?.error || 'Failed to update name')
@@ -133,7 +139,7 @@ export function CommandBar() {
           {user ? (
             <div className="employee-cmd-bar__identity min-w-0">
               <p className="employee-cmd-bar__name truncate font-display font-extrabold">
-                {user.name}
+                {adminName}
               </p>
               <p className="employee-cmd-bar__page-title truncate font-medium">
                 {pageTitle}
@@ -174,7 +180,7 @@ export function CommandBar() {
             aria-label="Edit display name"
           >
             <Avatar
-              name={user?.name ?? 'Admin'}
+              name={adminName}
               src={user?.avatarUrl}
               size="sm"
               color="#266b1c"
@@ -200,19 +206,19 @@ export function CommandBar() {
           if (savingName) return
           setProfileOpen(false)
         }}
-        title="Edit display name"
+        title="Admin display name"
         size="sm"
       >
         <div className="space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="admin-display-name" className="block text-sm font-medium text-ink">
-              Name
+              Admin portal name
             </label>
             <Input
               id="admin-display-name"
               value={nameDraft}
               onChange={(e) => setNameDraft(e.target.value)}
-              placeholder="Your display name"
+              placeholder="e.g. Epical Admin"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') void handleSaveName()

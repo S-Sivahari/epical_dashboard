@@ -166,21 +166,43 @@ export async function updateUserName(
   if (!trimmed) {
     throw Object.assign(new Error('Name is required'), { status: 400 });
   }
-
   const col = getUserCollection();
   const user = await col.findOne({ id });
   if (!user) {
     throw Object.assign(new Error('User not found'), { status: 404 });
   }
-  if (String(user.role) !== 'Admin') {
-    throw Object.assign(new Error('Only admin accounts can update this profile'), { status: 403 });
-  }
-
   await col.updateOne({ id }, { $set: { name: trimmed, updatedAt: new Date() } });
   const updated = await getUserById(id);
-  if (!updated) {
-    throw Object.assign(new Error('User not found'), { status: 404 });
+  if (!updated) throw Object.assign(new Error('User not found'), { status: 404 });
+  return updated;
+}
+
+/**
+ * Update the admin-portal display name independently of the employee name.
+ * Called only when the user is acting on the admin portal (JWT role = admin).
+ * For pure admin accounts this is the same as their primary name.
+ * For Employee+Admin dual-role accounts this keeps the two identities separate.
+ */
+export async function updateAdminDisplayName(
+  id: string,
+  adminDisplayName: string,
+): Promise<Omit<User, 'passwordHash'>> {
+  const trimmed = adminDisplayName.trim();
+  if (!trimmed) {
+    throw Object.assign(new Error('Name is required'), { status: 400 });
   }
+  const col = getUserCollection();
+  const user = await col.findOne({ id });
+  if (!user) throw Object.assign(new Error('User not found'), { status: 404 });
+
+  // For the pure system-admin account, keep name and adminDisplayName in sync.
+  const isPureAdmin = String(user.role) === 'Admin';
+  const patch: Record<string, unknown> = { adminDisplayName: trimmed, updatedAt: new Date() };
+  if (isPureAdmin) patch.name = trimmed;
+
+  await col.updateOne({ id }, { $set: patch });
+  const updated = await getUserById(id);
+  if (!updated) throw Object.assign(new Error('User not found'), { status: 404 });
   return updated;
 }
 
@@ -200,10 +222,12 @@ export async function createUser(payload: CreateUserPayload): Promise<Omit<User,
   return safeUser;
 }
 
+const DEFAULT_ADMIN_NAME = 'Epical Admin';
+
 function defaultAdminPayload(): CreateUserPayload {
   return {
     id: 'ADM-1',
-    name: env.ADMIN_NAME || 'Epical Admin',
+    name: DEFAULT_ADMIN_NAME,
     email: env.ADMIN_EMAIL,
     password: env.ADMIN_PASSWORD || 'admin123',
     role: 'Admin',
@@ -269,7 +293,9 @@ export async function ensureDefaultAdminUser(): Promise<{ created: boolean; upda
   if (existing.role !== 'Admin') {
     updates.role = 'Admin';
   }
-  if (existing.name !== admin.name) {
+  // Only set the default name when the record has no name at all — never overwrite
+  // a name the admin has already customised via the edit-profile modal.
+  if (!existing.name) {
     updates.name = admin.name;
   }
   if (normalizeLoginEmail(String(existing.email ?? '')) !== admin.email) {

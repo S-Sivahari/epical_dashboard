@@ -275,23 +275,16 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
 
   // Notify admins only — employees are notified when leave is approved/rejected/cancelled.
   try {
-    // Notify all admins
-    const userCollection = getDB().collection('users');
-    const admins = await userCollection.find({ role: 'Admin' }).toArray();
-    for (const admin of admins) {
-      await notificationService.createNotification({
-        recipientId: admin.id,
-        recipientType: 'Admin',
-        type: 'LeaveSubmitted',
-        title: 'New Leave Request',
-        message: `${payload.employeeName} has submitted a ${payload.type} leave request from ${payload.from} to ${payload.to}`,
-        relatedData: {
-          leaveId: id,
-          employeeId: payload.employeeId,
-          employeeName: payload.employeeName,
-        },
-      });
-    }
+    await notificationService.notifyAllAdmins({
+      type: 'LeaveSubmitted',
+      title: 'New Leave Request',
+      message: `${payload.employeeName} has submitted a ${payload.type} leave request from ${payload.from} to ${payload.to}`,
+      relatedData: {
+        leaveId: id,
+        employeeId: payload.employeeId,
+        employeeName: payload.employeeName,
+      },
+    });
   } catch (error) {
     console.error('Error creating notification for leave submission:', error);
     // Don't throw - notification failure shouldn't break leave creation
@@ -364,6 +357,7 @@ export interface LeaveTypeBalanceSummary {
   used: number;
   pending: number;
   remaining: number;
+  usedThisMonth?: number;
 }
 
 export interface EmployeeLeaveSummary {
@@ -732,9 +726,18 @@ async function computeEmployeeYearBalances(
   );
 
   const pendingByType: Record<string, number> = {};
+  const usedThisMonthByType: Record<string, number> = {};
+  const now = new Date();
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
   leaves.forEach((leave) => {
     if (leave.status === 'Pending' && leave.from.startsWith(yearStr)) {
       pendingByType[leave.type] = (pendingByType[leave.type] || 0) + leave.days;
+    }
+    if (leave.status === 'Approved' && leave.from.startsWith(currentMonthStr)) {
+      const lopDays = Number((leave as { lopDays?: number }).lopDays ?? 0) || 0;
+      const paidDays = Math.max(0, (Number(leave.days) || 0) - lopDays);
+      usedThisMonthByType[leave.type] = (usedThisMonthByType[leave.type] || 0) + paidDays;
     }
   });
 
@@ -746,6 +749,7 @@ async function computeEmployeeYearBalances(
       used: bucket.used,
       pending: pendingByType[type] || 0,
       remaining: bucket.remaining,
+      usedThisMonth: usedThisMonthByType[type] || 0,
     };
   });
 }
@@ -1186,23 +1190,17 @@ export async function cancelLeave(
 
   if (options?.notifyAdmins) {
     try {
-      const userCollection = getDB().collection('users');
-      const admins = await userCollection.find({ role: 'Admin' }).toArray();
       const reasonSuffix = cancelReason?.trim() ? ` Reason: ${cancelReason.trim()}` : '';
-      for (const admin of admins) {
-        await notificationService.createNotification({
-          recipientId: admin.id,
-          recipientType: 'Admin',
-          type: 'LeaveCancelled',
-          title: 'Leave Cancelled by Employee',
-          message: `${result.employeeName} cancelled their ${result.type} leave (${result.from} to ${result.to}).${reasonSuffix}`,
-          relatedData: {
-            leaveId: id,
-            employeeId: result.employeeId,
-            employeeName: result.employeeName,
-          },
-        });
-      }
+      await notificationService.notifyAllAdmins({
+        type: 'LeaveCancelled',
+        title: 'Leave Cancelled by Employee',
+        message: `${result.employeeName} cancelled their ${result.type} leave (${result.from} to ${result.to}).${reasonSuffix}`,
+        relatedData: {
+          leaveId: id,
+          employeeId: result.employeeId,
+          employeeName: result.employeeName,
+        },
+      });
     } catch (error) {
       console.error('Error notifying admins about leave cancellation:', error);
     }
@@ -1728,13 +1726,13 @@ import { validateLeaveDates } from '../utils/dateValidation';
  */
 export async function notifyAdminsAboutLeaveRequest(leave: LeaveRequest): Promise<void> {
   try {
-    const userCollection = getDB().collection('users');
-    const admins = await userCollection.find({ role: 'Admin' }).toArray();
-    
+    const admins = await notificationService.listAdminNotificationRecipients();
+
     for (const admin of admins) {
+      if (!admin.recipientEmail) continue;
       await emailService.sendLeaveSubmittedEmail({
-        recipientEmail: admin.email,
-        recipientName: admin.name,
+        recipientEmail: admin.recipientEmail,
+        recipientName: admin.recipientName || 'Admin',
         employeeName: leave.employeeName,
         type: leave.type,
         from: leave.from,
@@ -1743,7 +1741,6 @@ export async function notifyAdminsAboutLeaveRequest(leave: LeaveRequest): Promis
         reason: leave.reason,
       }, `${env.FRONTEND_URL}/admin/leaves`);
     }
-    
   } catch (error) {
     console.error('[Leave Email] Error sending admin notification:', error);
   }

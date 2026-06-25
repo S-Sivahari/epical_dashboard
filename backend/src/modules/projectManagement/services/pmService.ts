@@ -17,6 +17,26 @@ import { EmployeeAuditLogModel } from '../models/EmployeeAuditLog';
 import { AdminAuditLogModel } from '../models/AdminAuditLog';
 import { WorkflowHistoryModel } from '../models/WorkflowHistory';
 import { ReviewHistoryModel } from '../models/ReviewHistory';
+import { listAdminNotificationRecipients } from '../../../services/notificationService';
+
+async function notifyPmAdmins(payload: {
+  title: string;
+  message: string;
+  relatedData?: Record<string, unknown>;
+}): Promise<void> {
+  const recipients = await listAdminNotificationRecipients();
+  await Promise.all(
+    recipients.map((recipient) =>
+      PMNotificationModel.create({
+        recipientId: recipient.recipientId,
+        recipientType: 'Admin',
+        title: payload.title,
+        message: payload.message,
+        relatedData: payload.relatedData,
+      }),
+    ),
+  );
+}
 
 // Approved Layout Stages
 export const LAYOUT_STAGES = [
@@ -291,9 +311,7 @@ export const pmService = {
     });
 
     // Send persistent Admin Notification
-    await PMNotificationModel.create({
-      recipientId: 'admin',
-      recipientType: 'Admin',
+    await notifyPmAdmins({
       title: 'Review Required',
       message: `Cell ${cell.name} (${view.viewType}) is pending review for ${reviewType}.`,
       relatedData: {
@@ -303,8 +321,8 @@ export const pmService = {
         projectId: library!.projectId.toString(),
         reviewId: review._id.toString(),
         viewType: view.viewType,
-        stage: view.currentStage
-      }
+        stage: view.currentStage,
+      },
     });
 
     // Write audit trail

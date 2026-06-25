@@ -1828,6 +1828,7 @@
 
 .emp-dashboard-hero--comb .emp-dashboard-hero__identity-copy {
   min-width: clamp(6.5rem, 6rem + 2.5vw, 8.5rem);
+  overflow: hidden;
 }
 
 .emp-dashboard-hero--comb .emp-dashboard-hero__stats-panel {
@@ -2607,7 +2608,7 @@
   background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  font-size: calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
+  font-size: 1.25rem;
   font-weight: 800;
   color: #ffffff;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
@@ -2648,7 +2649,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 800;
-  font-size: calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
+  font-size: 1.25rem;
 }
 
 .admin-projects-view .projects-hero-create-btn.projects-hero-stat-card {
@@ -2665,7 +2666,7 @@
   background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  font-size: calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
+  font-size: 1.25rem;
   font-weight: 800;
   color: #ffffff;
   line-height: 1.2;
@@ -2703,17 +2704,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 800;
-  font-size: calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
+  font-size: 1.25rem;
 }
 
 .projects-create-project-modal {
-  font-size: 110%;
+  font-size: inherit;
   max-width: min(calc(100% - 2rem), 35.2rem);
-  padding: calc(1.65rem * 1.1) !important;
+  padding: 1.65rem !important;
 }
 
 .projects-create-project-modal [class*='text-lg'] {
-  font-size: calc(1.125rem * 1.1);
+  font-size: 1.125rem;
 }
 
 .admin-projects-view .projects-sidebar--with-footer {
@@ -6451,11 +6452,13 @@
 /* ── Projects hub: full-width light green layout ── */
 .admin-projects-view {
   --admin-projects-ui-scale: 0.8;
-  --admin-projects-font-scale: var(--admin-projects-ui-scale);
+  --admin-projects-font-scale: 1;
   font-family: var(--font-body, var(--tblr-font-sans-serif));
-  font-size: calc(15px * var(--admin-projects-ui-scale));
+  font-size: 0.9375rem;
   line-height: 1.55;
   color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .admin-projects-view button:focus-visible,
@@ -6526,7 +6529,7 @@
 /* Date picker portal is outside .admin-projects-view — define theme + scale locally */
 .projects-date-calendar-portal,
 .projects-date-calendar {
-  --admin-projects-font-scale: calc(1.125 * var(--admin-projects-ui-scale, 0.8));
+  --admin-projects-font-scale: 1;
   --emerald-dark: #266b1c;
   --dash-forest-header: #2f6b4f;
   --dash-forest: #1a4329;
@@ -6548,7 +6551,7 @@
   min-height: 0;
   overflow: hidden;
   padding-bottom: 0;
-  font-size: calc(15px * var(--admin-projects-ui-scale, 0.8));
+  font-size: inherit;
   line-height: 1.55;
 }
 
@@ -6640,7 +6643,7 @@
 }
 
 .admin-projects-view .projects-hero-donut-total {
-  font-size: calc(1.5rem * var(--admin-projects-ui-scale, 0.8));
+  font-size: 1.5rem;
   font-weight: 700;
   line-height: 1;
   color: #ffffff;
@@ -6649,7 +6652,7 @@
 
 .admin-projects-view .projects-hero-donut-label {
   margin-top: calc(0.125rem * var(--admin-projects-ui-scale, 0.8));
-  font-size: calc(9px * var(--admin-projects-ui-scale, 0.8));
+  font-size: 0.5625rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -6797,7 +6800,7 @@
 }
 
 .admin-projects-view .projects-hero-stat-label {
-  font-size: calc(0.8125rem * var(--admin-projects-ui-scale, 0.8));
+  font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -6806,7 +6809,7 @@
 }
 
 .admin-projects-view .projects-hero-stat-value {
-  font-size: calc(1.625rem * var(--admin-projects-ui-scale, 0.8));
+  font-size: 1.625rem;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -7125,7 +7128,7 @@
   background: rgba(255, 255, 255, 0.97);
   padding: calc(24px * var(--admin-projects-ui-scale, 0.8));
   box-shadow: 0 4px 16px -4px rgba(38, 107, 28, 0.08);
-  font-size: calc(15px * var(--admin-projects-ui-scale, 0.8));
+  font-size: inherit;
   line-height: 1.55;
 }
 
@@ -7141,7 +7144,7 @@
 }
 
 .admin-projects-view .projects-section-heading {
-  font-size: calc(22px * var(--admin-projects-ui-scale, 0.8));
+  font-size: 1.375rem;
   font-weight: 700;
   line-height: 1.25;
   color: var(--emerald-dark);
@@ -7150,13 +7153,13 @@
 
 .admin-projects-view .projects-section-subheading {
   margin-top: 0.25rem;
-  font-size: calc(14px * var(--admin-projects-ui-scale, 0.8));
+  font-size: 0.875rem;
   font-weight: 500;
   color: #64748b;
 }
 
 .admin-projects-view .projects-list-row {
-  --projects-card-font-scale: calc(1.3 * var(--admin-projects-ui-scale, 0.8));
+  --projects-card-font-scale: 1;
 }
 
 .admin-projects-view .projects-card {
@@ -7170,7 +7173,7 @@
 }
 
 .admin-projects-view .projects-directory-section {
-  --projects-directory-font-scale: calc(1.35 * var(--admin-projects-ui-scale, 0.8));
+  --projects-directory-font-scale: 1;
   display: flex;
   min-height: 0;
   flex: 1 1 auto;
@@ -7180,7 +7183,7 @@
   border: 1px solid rgba(30, 90, 61, 0.1);
   background: #ffffff;
   box-shadow: 0 4px 24px rgba(30, 90, 61, 0.07);
-  font-size: calc(15px * var(--projects-directory-font-scale));
+  font-size: inherit;
 }
 
 .admin-projects-view .projects-directory-scroll {
@@ -7351,58 +7354,62 @@
 }
 
 .admin-projects-view .projects-directory-table-title {
-  font-size: calc(1.0625rem * var(--projects-directory-font-scale, 1.08));
+  font-size: calc(1.0625rem * var(--projects-directory-font-scale, 1));
   font-weight: 700;
   letter-spacing: 0.02em;
   color: #1a4712;
 }
 
+.admin-projects-view .projects-directory-table-title--main {
+  font-size: calc(1.0625rem * 1.1 * var(--projects-directory-font-scale, 1));
+}
+
 .admin-projects-view .projects-directory-table-subtitle {
   margin-top: 0;
-  font-size: calc(0.9375rem * var(--projects-directory-font-scale, 1.08));
+  font-size: calc(0.9375rem * var(--projects-directory-font-scale, 1));
   font-weight: 500;
   color: #64748b;
   white-space: nowrap;
 }
 
 .admin-projects-view .projects-directory-section .text-xs {
-  font-size: calc(0.75rem * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(0.75rem * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section .text-sm {
-  font-size: calc(0.875rem * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(0.875rem * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section .text-base {
-  font-size: calc(1rem * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(1rem * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section .text-lg {
-  font-size: calc(1.125rem * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(1.125rem * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section .text-xl {
-  font-size: calc(1.25rem * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(1.25rem * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section [class*='text-[9px]'] {
-  font-size: calc(9px * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(9px * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section [class*='text-[10px]'] {
-  font-size: calc(10px * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(10px * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section [class*='text-[11px]'] {
-  font-size: calc(11px * var(--projects-directory-font-scale, 1.08)) !important;
+  font-size: calc(11px * var(--projects-directory-font-scale, 1)) !important;
 }
 
 .admin-projects-view .projects-directory-section .projects-card {
-  --projects-card-font-scale: var(--projects-directory-font-scale, 1.08);
+  --projects-card-font-scale: var(--projects-directory-font-scale, 1);
 }
 
 .admin-projects-view .projects-directory-section .projects-list-row {
-  --projects-card-font-scale: var(--projects-directory-font-scale, 1.08);
+  --projects-card-font-scale: var(--projects-directory-font-scale, 1);
 }
 
 .admin-projects-view .projects-grid {
@@ -7640,7 +7647,7 @@
 }
 
 .admin-projects-view .projects-archived-card {
-  --projects-card-font-scale: calc(1.3 * var(--admin-projects-ui-scale, 0.8));
+  --projects-card-font-scale: 1;
   position: relative;
   overflow: hidden;
   min-width: 0;
@@ -7729,8 +7736,9 @@
 }
 
 .admin-projects-view .projects-ts-table-wrap thead th {
-  font-size: calc(13px * var(--admin-projects-ui-scale, 0.8));
-  letter-spacing: 0.07em;
+  font-size: 0.8125rem;
+  letter-spacing: normal;
+  text-transform: none;
   padding: calc(0.875rem * var(--admin-projects-ui-scale, 0.8)) calc(1.25rem * var(--admin-projects-ui-scale, 0.8));
 }
 
@@ -7777,9 +7785,10 @@
 
 .admin-projects-view .projects-analytics-head h3 {
   color: #ffffff !important;
-  font-size: calc(15px * var(--admin-projects-ui-scale, 0.8));
-  letter-spacing: 0.08em;
+  font-size: 0.9375rem;
+  letter-spacing: normal;
   line-height: 1.35;
+  text-transform: none;
 }
 
 .admin-projects-view .projects-analytics-head h3 > span:first-child {
@@ -7790,7 +7799,7 @@
 .admin-projects-view .projects-analytics-head > span {
   color: rgba(255, 255, 255, 0.9) !important;
   font-weight: 700;
-  font-size: calc(13px * var(--admin-projects-ui-scale, 0.8));
+  font-size: 0.8125rem;
 }
 
 .admin-projects-view .projects-analytics-body {
@@ -7837,8 +7846,8 @@
 }
 
 .admin-projects-view .projects-analytics-embed .admin-analytics-view {
-  --admin-analytics-font-scale: 0.896;
-  font-size: calc(15px * var(--admin-projects-ui-scale, 0.8));
+  --admin-analytics-font-scale: 1;
+  font-size: inherit;
 }
 
 .admin-projects-view .projects-analytics-embed .admin-analytics-view .admin-analytics-hub-header {
@@ -7983,8 +7992,8 @@
 }
 
 .projects-date-calendar-header {
-  background: linear-gradient(135deg, var(--projects-date-accent) 0%, var(--projects-date-accent-dark) 100%) !important;
-  box-shadow: 0 6px 16px rgba(38, 107, 28, 0.18);
+  background: var(--dash-forest-header, #2f6b4f) !important;
+  box-shadow: 0 4px 14px rgba(47, 107, 79, 0.22);
   border-radius: 12px;
   padding: 0.7rem 0.9rem;
   margin-bottom: 1rem;
@@ -8084,9 +8093,9 @@
 }
 
 .projects-date-calendar .projects-date-day-selected {
-  background: linear-gradient(180deg, #266b1c 0%, #1f5516 100%) !important;
+  background: var(--dash-forest-header, #2f6b4f) !important;
   color: #ffffff !important;
-  box-shadow: 0 4px 12px rgba(20, 83, 45, 0.35);
+  box-shadow: 0 4px 12px rgba(47, 107, 79, 0.28);
 }
 
 .projects-date-calendar .projects-date-day-in-range {
@@ -8129,18 +8138,18 @@
 }
 
 .projects-date-action-btn--primary {
-  border: 1px solid #1f5516;
-  background: linear-gradient(180deg, #266b1c 0%, #1f5516 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--dash-forest-header, #2f6b4f) !important;
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff;
-  box-shadow: 0 4px 12px rgba(20, 83, 45, 0.28);
+  box-shadow: 0 4px 12px rgba(47, 107, 79, 0.24);
 }
 
 .projects-date-action-btn--primary:hover {
-  background: linear-gradient(180deg, #2f7d24 0%, #266b1c 100%) !important;
+  background: #357a5c !important;
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff;
-  box-shadow: 0 6px 16px rgba(20, 83, 45, 0.34);
+  box-shadow: 0 6px 16px rgba(47, 107, 79, 0.3);
   transform: translateY(-1px);
 }
 
@@ -8186,10 +8195,10 @@
 }
 
 .projects-date-calendar .projects-date-preset-active {
-  background: linear-gradient(180deg, #266b1c 0%, #1f5516 100%);
+  background: var(--dash-forest-header, #2f6b4f);
   color: #ffffff !important;
   font-weight: 700;
-  box-shadow: 0 3px 10px rgba(20, 83, 45, 0.28);
+  box-shadow: 0 3px 10px rgba(47, 107, 79, 0.24);
 }
 
 /* â”€â”€ Admin Company Calendar â€” dashboard theme + 125% scale â”€â”€ */
@@ -12539,6 +12548,7 @@
   min-height: 0;
   gap: var(--admin-payslips-gap-page);
   padding-bottom: 0.75rem;
+  overflow: hidden;
 }
 
 .admin-payslips-view .admin-payslips-hub-header {
@@ -12752,6 +12762,10 @@
   min-height: 0;
 }
 
+.admin-payslips-view .admin-payslips-body-grid--fill > * {
+  min-height: 0;
+}
+
 .admin-payslips-view .admin-payslips-shell > .admin-payslips-body-grid--fill {
   flex: 1 1 0;
   min-height: 0;
@@ -12807,17 +12821,19 @@
   flex: 1;
   flex-direction: column;
   min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
   border-radius: 1rem;
   border: 1px solid var(--dash-border-green);
   border-left: 4px solid var(--bb-color);
   background: #ffffff;
   padding: var(--admin-payslips-pad-panel);
   box-shadow: 0 1px 3px rgba(26, 67, 41, 0.06);
-  min-height: 420px;
 }
 
 .admin-payslips-view .admin-payslips-body-grid--fill .admin-payslips-main-panel {
   min-height: 0;
+  height: 100%;
 }
 
 .admin-payslips-view .admin-payslips-main-fixed {
@@ -12825,9 +12841,13 @@
 }
 
 .admin-payslips-view .admin-payslips-list-scroll {
+  flex: 1 1 0;
   min-height: 0;
-  flex: 1;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
 }
 
 /* Payroll history — panel grows with content; internal scroll past viewport */
@@ -12846,13 +12866,7 @@
 }
 
 .admin-payslips-view .admin-payslips-list-scroll--history {
-  flex: 1 1 0;
-  min-height: 10rem;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable;
+  padding: 0;
 }
 
 @media (min-width: 640px) {
@@ -12872,15 +12886,10 @@
 }
 
 .admin-payslips-view .admin-payslips-list-scroll--upload {
-  flex: 1 1 0;
-  min-height: 12rem;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
   border-radius: 0.75rem;
   border: 1px solid var(--dash-border-green);
   background: var(--dash-cream-mint-body, #f4faf6);
+  padding: 0;
 }
 
 .admin-payslips-view .admin-payslips-chip-active {
@@ -13399,20 +13408,39 @@
 }
 
 .admin-payslips-view .admin-payslip-table-wrap {
-  border-radius: 0.75rem;
-  border: 1px solid var(--dash-border-green);
-  background: var(--dash-cream-mint-body, #f4faf6);
-  overflow: hidden;
+  background: transparent;
+  overflow: visible;
+  border: none;
+  border-radius: 0;
+  margin: 0;
 }
 
 /* Inner scroll — no white card so header row matches hub bar */
 .admin-payslips-view .admin-payslip-table-wrap .admin-table-scroll {
-  max-height: 70vh;
-  overflow: auto;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  max-height: none !important;
+  overflow-y: visible !important;
+  overflow-x: visible !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Sticky table header flush with list box top */
+.admin-payslips-view .admin-payslips-list-scroll .admin-payslip-table-wrap .admin-payslip-hub-thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.admin-payslips-view .admin-payslips-list-scroll .admin-payslip-table-wrap .admin-payslip-hub-thead th:first-child {
+  border-top-left-radius: calc(0.75rem - 1px);
+}
+
+.admin-payslips-view .admin-payslips-list-scroll .admin-payslip-table-wrap .admin-payslip-hub-thead th:last-child {
+  border-top-right-radius: calc(0.75rem - 1px);
 }
 
 /* Table column headers — same solid green as Payslip Management Hub (--bb-color) */
@@ -13574,6 +13602,24 @@
 .admin-payslips-view input:not([type='file']),
 .admin-payslips-view textarea {
   font-size: calc(0.875rem * var(--admin-payslips-font-scale));
+}
+
+/* Payslips hub — fixed viewport; scroll inside employee list only */
+@media (min-width: 1024px) {
+  .admin-portal .cmd-main:has(.admin-payslips-page) {
+    overflow: hidden;
+  }
+
+  .admin-portal .admin-hub-page-wrap.admin-payslips-page {
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+  }
+
+  .admin-payslips-view.crewiq-dashboard,
+  .admin-payslips-view .admin-payslips-shell {
+    overflow: hidden;
+  }
 }
 
 /* Page scroll — PageWrapper scrolls; inner panels grow with content */
@@ -17142,6 +17188,7 @@ html:has(.admin-portal) .emp-nav-wheel-overlay {
   flex-shrink: 0;
   min-width: 0;
   max-width: var(--cmd-slash-band);
+  overflow: hidden;
 }
 
 .admin-portal .employee-cmd-bar__logo ,.employee-portal .employee-cmd-bar__logo {
@@ -17234,6 +17281,8 @@ html:has(.admin-portal) .emp-nav-wheel-overlay {
   flex-direction: column;
   gap: 0.15rem;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   margin-left: calc(
     var(--cmd-forest-w) - var(--cmd-bar-pad-x) - var(--cmd-logo-w) - var(--cmd-brand-gap)
   );

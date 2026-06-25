@@ -586,6 +586,7 @@
 .admin-notes-accordion {
   display: grid;
   gap: 0.65rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
 }
 
 .admin-notes-accordion__item {

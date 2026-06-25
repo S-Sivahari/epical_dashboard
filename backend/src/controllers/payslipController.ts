@@ -40,7 +40,7 @@ import {
   toEmployeePayslipSummary,
 } from '../services/employeePayslipService'
 import { getPayrollBatch as fetchBatch } from '../services/payrollBatchService'
-import { createNotification } from '../services/notificationService'
+import { createNotification, notifyAllAdmins } from '../services/notificationService'
 import { getDB } from '../config/db'
 
 function getUserCollection() {
@@ -106,41 +106,38 @@ async function notifyAdminsAndEmployee(params: {
     },
   })
 
-  const admins = await getUserCollection().find({ role: 'Admin' }).toArray()
-  for (const admin of admins) {
-    await createNotification({
-      recipientId: String(admin.id),
-      recipientType: 'Admin',
-      type: employeeType,
-      title: regenerated ? 'Payslip Regenerated' : 'Payslip Sent',
-      message: regenerated
-        ? `Regenerated payslip for ${employeeName} (${payMonth}) has been sent to the employee dashboard.`
-        : `Payslip for ${employeeName} (${payMonth}) has been sent successfully.`,
-      relatedData: {
-        employeeId: employeeHrId,
-        employeeName,
-        employeeEmail,
-        payslipId,
-        batchId,
-        payMonth,
-        fileName,
-      },
-    })
-  }
+  await notifyAllAdmins({
+    type: employeeType,
+    title: regenerated ? 'Payslip Regenerated' : 'Payslip Sent',
+    message: regenerated
+      ? `Regenerated payslip for ${employeeName} (${payMonth}) has been sent to the employee dashboard.`
+      : `Payslip for ${employeeName} (${payMonth}) has been sent successfully.`,
+    relatedData: {
+      employeeId: employeeHrId,
+      employeeName,
+      employeeEmail,
+      payslipId,
+      batchId,
+      payMonth,
+      fileName,
+    },
+  })
 }
 
 export const payslipController = {
   /** Download active template — custom if uploaded, else built-in demo */
-  downloadTemplate: async (_req: Request, res: Response): Promise<void> => {
+  downloadTemplate: async (req: Request, res: Response): Promise<void> => {
+    const includeEmployeeData = req.query.includeEmployeeData === 'true'
+    
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    if (existsSync(TEMPLATE_PATH)) {
+    if (existsSync(TEMPLATE_PATH) && !includeEmployeeData) {
       const meta = await templateMetaCollection().findOne({}, { sort: { uploadedAt: -1 } })
       const name = payrollMasterTemplateFileName()
       res.setHeader('Content-Disposition', `attachment; filename="${name}"`)
       const buffer = readFileSync(TEMPLATE_PATH)
       res.send(buffer)
     } else {
-      const buffer = await generatePayrollTemplateBuffer()
+      const buffer = await generatePayrollTemplateBuffer({ includeEmployeeData })
       res.setHeader('Content-Disposition', `attachment; filename="${payrollMasterTemplateFileName()}"`)
       res.send(buffer)
     }

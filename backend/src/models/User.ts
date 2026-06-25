@@ -6,6 +6,8 @@ export interface User {
   _id?: ObjectId;
   id: string;
   name: string;
+  /** Separate display name shown only on the admin portal. Leaves employee-portal name untouched. */
+  adminDisplayName?: string;
   email: string;
   passwordHash: string;
   role: UserRole;

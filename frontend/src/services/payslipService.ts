@@ -91,16 +91,17 @@ async function fetchPdfBlob(url: string, options?: { timeout?: number }): Promis
   return response.data as Blob
 }
 
-export async function downloadPayrollTemplate(filename?: string): Promise<void> {
-  const response = await api.get(`${base}/template`, { responseType: 'blob' })
-  const url = window.URL.createObjectURL(new Blob([response.data]))
+export async function downloadPayrollTemplate(filename?: string, includeEmployeeData?: boolean): Promise<void> {
+  const url = includeEmployeeData ? `${base}/template?includeEmployeeData=true` : `${base}/template`
+  const response = await api.get(url, { responseType: 'blob' })
+  const urlObject = window.URL.createObjectURL(new Blob([response.data]))
   const link = document.createElement('a')
-  link.href = url
+  link.href = urlObject
   link.setAttribute('download', filename || payrollMasterTemplateFileName())
   document.body.appendChild(link)
   link.click()
   link.remove()
-  window.URL.revokeObjectURL(url)
+  window.URL.revokeObjectURL(urlObject)
 }
 
 export interface DuplicatePayPeriodError {

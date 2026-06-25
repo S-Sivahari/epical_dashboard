@@ -108,6 +108,7 @@ export interface LeaveTypeBalanceSummary {
   used: number
   pending: number
   remaining: number
+  usedThisMonth?: number
 }
 
 export interface YearLeaveBalanceRow {

@@ -9,6 +9,7 @@ import {
   CalendarOff,
 } from 'lucide-react'
 import { EmployeePhotoAvatar } from '@components/employee/shared/EmployeePhotoAvatar'
+import { getEmployeeAvatarUrl } from '@/utils/getAvatarUrl'
 import { formatDate } from '@pages/employee/lib/utils'
 import { cn } from '@pages/employee/lib/utils'
 
@@ -157,6 +158,11 @@ export function ProfileCard({
   const roleLabel = profile?.designation ?? profile?.role ?? employee.designation
   const department = profile?.department
 
+  const photoFallback = getEmployeeAvatarUrl(
+    profile ?? {},
+    undefined,
+  ) ?? employee?.avatarUrl
+
   const statsRow = statsLoading ? (
     <div
       className={cn(
@@ -222,6 +228,7 @@ export function ProfileCard({
               <EmployeePhotoAvatar
                 employeeId={employee.id}
                 name={employee.name}
+                fallbackSrc={photoFallback}
                 className="emp-dashboard-hero__avatar h-11 w-11 sm:h-12 sm:w-12"
                 fallbackClassName="bg-transparent text-sm font-semibold text-slate-700 sm:text-base"
               />
@@ -264,6 +271,7 @@ export function ProfileCard({
           <EmployeePhotoAvatar
             employeeId={employee.id}
             name={employee.name}
+            fallbackSrc={photoFallback}
             className={
               compact
                 ? 'h-16 w-16 border-[3px] border-white/40 shadow-md md:h-[4.5rem] md:w-[4.5rem]'

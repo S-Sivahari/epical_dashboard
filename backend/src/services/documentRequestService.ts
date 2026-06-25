@@ -74,21 +74,16 @@ export async function createDocumentRequest(
   
   // Notify all admins about the new document request
   try {
-    const admins = await getDB().collection('users').find({ role: 'Admin' }).toArray();
-    for (const admin of admins) {
-      await notificationService.createNotification({
-        recipientId: admin.id,
-        recipientType: 'Admin',
-        type: 'DocumentRequested',
-        title: 'New Document Request',
-        message: `${ctx.employeeName} requested ${payload.documentName}`,
-        relatedData: {
-          employeeId: ctx.employeeId,
-          employeeName: ctx.employeeName,
-        },
-        relatedId: doc.id,
-      });
-    }
+    await notificationService.notifyAllAdmins({
+      type: 'DocumentRequested',
+      title: 'New Document Request',
+      message: `${ctx.employeeName} requested ${payload.documentName}`,
+      relatedData: {
+        employeeId: ctx.employeeId,
+        employeeName: ctx.employeeName,
+      },
+      relatedId: doc.id,
+    });
   } catch (error) {
     console.error('[Document Request] Failed to create admin notifications:', error);
   }

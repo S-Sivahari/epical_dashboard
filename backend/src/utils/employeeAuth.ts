@@ -230,7 +230,9 @@ export async function syncUserAccountFromEmployee(employee: {
 
   const updates: Record<string, unknown> = {
     id: employee.id,
-    name,
+    // Preserve a manually-set display name; only fall back to employee full name
+    // when the users record has no name yet (e.g. first sync after account creation).
+    name: user.name || name,
     email: normalizeLoginEmail(String(loginEmail)),
     designation: employee.designation || user.designation || 'Employee',
     updatedAt: new Date(),

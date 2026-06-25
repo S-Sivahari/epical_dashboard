@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ImageIcon, Loader2, Plus, Search, Trophy } from 'lucide-react'
 import { Button } from '@components/ui/Button'
 import { Modal } from '@components/ui/Modal'
@@ -214,6 +214,8 @@ export function CompanyAchievementsExperience({
         (e as { response?: { data?: { error?: string } } })?.response?.data?.error ||
         'Failed to load page settings'
       toast.error(msg)
+    } finally {
+      setPageMetaLoaded(true)
     }
   }, [])
 
@@ -238,6 +240,8 @@ export function CompanyAchievementsExperience({
     ]
   }, [categories])
 
+  const [pageMetaLoaded, setPageMetaLoaded] = useState(false)
+
   const defaultSectionTitle = 'Our achievements'
   const employeeSectionSubtitle = 'Celebrating milestones, recognition, and team wins.'
 
@@ -251,19 +255,34 @@ export function CompanyAchievementsExperience({
   const [aTags, setATags] = useState('')
   const [aFile, setAFile] = useState<File | null>(null)
   const [aFilePreviewUrl, setAFilePreviewUrl] = useState<string | null>(null)
+  const aFilePreviewRef = useRef<string | null>(null)
   const [aRemoveImage, setARemoveImage] = useState(false)
   const [aSaving, setASaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<CompanyAchievementRow | null>(null)
 
   useEffect(() => {
     if (!aFile) {
+      if (aFilePreviewRef.current) {
+        URL.revokeObjectURL(aFilePreviewRef.current)
+        aFilePreviewRef.current = null
+      }
       setAFilePreviewUrl(null)
       return
     }
     const preview = URL.createObjectURL(aFile)
+    if (aFilePreviewRef.current) URL.revokeObjectURL(aFilePreviewRef.current)
+    aFilePreviewRef.current = preview
     setAFilePreviewUrl(preview)
-    return () => URL.revokeObjectURL(preview)
   }, [aFile])
+
+  useEffect(() => {
+    return () => {
+      if (aFilePreviewRef.current) {
+        URL.revokeObjectURL(aFilePreviewRef.current)
+        aFilePreviewRef.current = null
+      }
+    }
+  }, [])
 
   const resetForm = () => {
     setATitle('')
@@ -322,18 +341,28 @@ export function CompanyAchievementsExperience({
       fd.append('employeeOrTeamName', aEmployee.trim())
       fd.append('achievementDate', aDate)
       fd.append('tags', aTags.trim())
-      if (aFile) fd.append('image', aFile)
+      if (aFile) fd.append('image', aFile, aFile.name)
       if (editTarget && aRemoveImage && !aFile) fd.append('removeImage', 'true')
 
       if (editTarget) {
-        await updateCompanyAchievement(editTarget.id, fd)
-        toast.success('Achievement updated')
+        const updated = await updateCompanyAchievement(editTarget.id, fd)
+        if (aFile && !updated.hasImage) {
+          toast.warning('Achievement updated, but the image could not be stored. Use JPEG/PNG/WebP under 4 MB.')
+        } else {
+          toast.success('Achievement updated')
+        }
         setAddOpen(false)
+        resetForm()
         void fetchAchievements(1, false)
       } else {
         const created = await createCompanyAchievement(fd)
-        toast.success('Achievement published')
+        if (aFile && !created.hasImage) {
+          toast.warning('Achievement saved, but the image could not be stored. Use JPEG/PNG/WebP under 4 MB.')
+        } else {
+          toast.success('Achievement published')
+        }
         setAddOpen(false)
+        resetForm()
         setSearchQuery('')
         setFilterCategory('')
         setFilterYear('')
@@ -418,20 +447,20 @@ export function CompanyAchievementsExperience({
           )}
         >
           <div className={cn(ep && 'mx-auto max-w-2xl')}>
-            
             <h2
               className={cn(
                 adminHub
                   ? 'admin-achievements-section-title font-display text-2xl font-extrabold text-[#06C033]'
                   : ep
                     ? 'font-sans text-3xl font-bold tracking-tight text-[#06C033] sm:text-4xl'
-                    : 'font-display text-2xl font-semibold text-[#06C033] sm:text-3xl'
+                    : 'font-display text-2xl font-semibold text-[#06C033] sm:text-3xl',
+                !pageMetaLoaded && 'invisible'
               )}
             >
               {displaySectionTitle}
             </h2>
             {employeePresentation ? (
-              <p className="mt-4 font-sans text-base text-slate-600 sm:text-lg">
+              <p className={cn('mt-4 font-sans text-base text-slate-600 sm:text-lg', !pageMetaLoaded && 'invisible')}>
                 {employeeSectionSubtitle}
               </p>
             ) : null}
