@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { EmployeePhotoAvatar } from '@components/employee/shared/EmployeePhotoAvatar'
 import { getEmployeeAvatarUrl } from '@/utils/getAvatarUrl'
-import { getEmployeeFirstName } from '@/utils/employeeDisplayName'
+import { resolveEmployeeDisplayName } from '@/utils/employeeDisplayName'
 import { formatDate } from '@pages/employee/lib/utils'
 import { cn } from '@pages/employee/lib/utils'
 
@@ -164,7 +164,7 @@ export function ProfileCard({
     undefined,
   ) ?? employee?.avatarUrl
 
-  const greetingName = getEmployeeFirstName(profile ?? employee, employee.name)
+  const displayName = resolveEmployeeDisplayName(profile ?? employee, employee?.name)
 
   const statsRow = statsLoading ? (
     <div
@@ -230,7 +230,7 @@ export function ProfileCard({
             <div className="emp-dashboard-hero__avatar-ring shrink-0">
               <EmployeePhotoAvatar
                 employeeId={employee.id}
-                name={greetingName || employee.name}
+                name={displayName || employee.name}
                 fallbackSrc={photoFallback}
                 className="emp-dashboard-hero__avatar h-11 w-11 sm:h-12 sm:w-12"
                 fallbackClassName="bg-transparent text-sm font-semibold text-slate-700 sm:text-base"
@@ -242,7 +242,7 @@ export function ProfileCard({
             <div className="emp-dashboard-hero__identity-copy min-w-0">
               <p className="emp-dashboard-hero__greeting truncate text-black">{greeting()},</p>
               <h2 className="emp-dashboard-hero__name truncate font-heading font-bold uppercase tracking-wide text-black">
-                {greetingName}
+                {displayName}
               </h2>
               <p className="emp-dashboard-hero__role truncate text-xs text-black sm:text-sm">{roleLabel ?? employeeCode}</p>
             </div>
@@ -287,7 +287,7 @@ export function ProfileCard({
             <h2
               className={cn('font-heading font-bold text-white', compact ? 'text-xl md:text-2xl' : 'text-2xl md:text-3xl')}
             >
-              {greetingName}
+              {displayName}
             </h2>
             <p className="mt-1 text-sm text-white/75">{employeeCode}</p>
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/90">

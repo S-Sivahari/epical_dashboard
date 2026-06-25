@@ -89,7 +89,7 @@ function InlineSkeleton({ className = '' }) {
 export default function Dashboard() {
   const employee = useAuthStore((s) => s.user)
   const [loading, setLoading] = useState(true)
-  const [balances, setBalances] = useState(() => formatLeaveBalances())
+  const [balances, setBalances] = useState(() => formatLeaveBalances({}, { includeLop: true }))
   const [leaves, setLeaves] = useState([])
   const [holidays, setHolidays] = useState([])
   const [documents, setDocuments] = useState([])
@@ -115,7 +115,7 @@ export default function Dashboard() {
         const projects = Array.isArray(data.projects) ? data.projects : []
 
         setProfile(data.profile ?? null)
-        setBalances(formatLeaveBalances(balanceData))
+        setBalances(formatLeaveBalances(balanceData, { includeLop: true }))
         setLeaves(Array.isArray(data.leaves) ? data.leaves : [])
         setHolidays(Array.isArray(data.holidays) ? data.holidays : [])
         setDocuments(Array.isArray(data.documents) ? data.documents : [])
@@ -143,7 +143,7 @@ export default function Dashboard() {
     const balanceInterval = setInterval(() => {
       leaveService
         .getBalances()
-        .then((data) => setBalances(formatLeaveBalances(data)))
+        .then((data) => setBalances(formatLeaveBalances(data, { includeLop: true })))
         .catch((error) => console.error('[Dashboard] leave balances refresh failed:', error))
     }, 60_000)
 

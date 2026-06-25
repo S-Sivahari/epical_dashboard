@@ -87,7 +87,7 @@ function LeaveBalanceCard({
           {balance.remaining === 1 ? 'day' : 'days'}
         </li>
         <li className="admin-leaves-balance-card__meta-month">
-          <span>Used this month:</span>{' '}
+          <span>Availed this month:</span>{' '}
           <strong>{balance.usedThisMonth ?? 0}</strong>{' '}
           {(balance.usedThisMonth ?? 0) === 1 ? 'day' : 'days'}
         </li>
@@ -246,7 +246,7 @@ export function YearLeaveBalancesPanel({
                   </div>
                   <ul className="admin-leaves-balance-card__meta">
                     <li className="admin-leaves-balance-card__meta-month">
-                      <span>Used this month:</span>{' '}
+                      <span>Availed this month:</span>{' '}
                       <strong>{row.lopThisMonth ?? 0}</strong>{' '}
                       {(row.lopThisMonth ?? 0) === 1 ? 'day' : 'days'}
                     </li>
