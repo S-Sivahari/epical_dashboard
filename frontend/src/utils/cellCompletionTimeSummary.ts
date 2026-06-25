@@ -1,4 +1,5 @@
 import type { ProjectCell } from '@/types/projectWorkspace'
+import { CELL_WORKFLOW_STAGES } from '@/types/projectWorkspace'
 import { formatWorkflowDurationFromMs } from '@/utils/durationFormat'
 
 export type HoldPeriodSummary = {
@@ -8,6 +9,14 @@ export type HoldPeriodSummary = {
   formatted: string
   reason?: string
   heldBy?: string
+}
+
+export type StageTimeSummary = {
+  stageKey: string
+  label: string
+  totalMs: number
+  formatted: string
+  isActive: boolean
 }
 
 export type CellCompletionTimeSummaryData = {
@@ -20,6 +29,7 @@ export type CellCompletionTimeSummaryData = {
   holdPeriods: HoldPeriodSummary[]
   totalHoldMs: number
   totalHoldFormatted: string
+  stageBreakdown: StageTimeSummary[]
 }
 
 function parseTime(value?: string | null): number | null {
@@ -123,6 +133,20 @@ export function buildCellCompletionTimeSummary(cell: ProjectCell): CellCompletio
   const holdPeriods = parseHoldPeriods(cell.activityLog, completedAt)
   const totalHoldMs = holdPeriods.reduce((sum, period) => sum + period.durationMs, 0)
 
+  const stageBreakdown = (timing?.stages ?? [])
+    .map((stage) => {
+      const meta = CELL_WORKFLOW_STAGES.find((item) => item.key === stage.stageKey)
+      const totalMs = stage.totalMs ?? 0
+      return {
+        stageKey: stage.stageKey,
+        label: meta?.label ?? stage.stageKey,
+        totalMs,
+        formatted: stage.formattedTotal ?? formatWorkflowDurationFromMs(totalMs),
+        isActive: Boolean(stage.isActive),
+      }
+    })
+    .filter((stage) => stage.totalMs > 0 || stage.isActive)
+
   return {
     startedAt,
     completedAt,
@@ -133,5 +157,6 @@ export function buildCellCompletionTimeSummary(cell: ProjectCell): CellCompletio
     holdPeriods,
     totalHoldMs,
     totalHoldFormatted: formatWorkflowDurationFromMs(totalHoldMs),
+    stageBreakdown,
   }
 }

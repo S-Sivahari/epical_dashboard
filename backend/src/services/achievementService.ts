@@ -113,7 +113,7 @@ export async function listAchievements(
 
   const [items, total] = await Promise.all([
     col
-      .find(filter)
+      .find(filter, { projection: { 'image.data': 0 } })
       .sort({ achievementDate: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit)

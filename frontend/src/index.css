@@ -1384,9 +1384,9 @@
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-approvals,
   .admin-dashboard-view[data-admin-dashboard] .dashboard-approvals-panel {
-    flex: 0 1 auto;
-    max-height: min(var(--dash-approvals-max-h, 15rem), 38%);
-    min-height: 6.5rem;
+    flex: 1 1 0;
+    max-height: none;
+    min-height: 12rem;
     overflow: hidden;
   }
 
@@ -1395,7 +1395,7 @@
     display: flex;
     flex-direction: column;
     flex: 1 1 0;
-    min-height: 8rem;
+    min-height: 12rem;
     overflow: hidden;
   }
 
@@ -1412,6 +1412,7 @@
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-approvals-panel--has-items .dashboard-insight-panel-body {
     max-height: none;
+    min-height: 6rem;
     overflow-x: hidden;
     overflow-y: auto;
   }
@@ -4951,13 +4952,11 @@
 }
 
 .dashboard-right-approvals {
-  /* flex-basis 30% allocates 30% of the right stack's height (which is 100% of
-     the right column = full dashboard height).  max-height caps it with an
-     explicit rem fallback so the rule doesn't silently collapse when the parent
-     has no resolved height (e.g. in some browser paint passes). */
-  flex: 0 0 30%;
-  min-height: 0;
-  max-height: min(30%, 18rem);
+  /* Share the right stack equally with the activity log; flex-basis 0 + equal
+     grow lets the two panels split available height 50/50, with a min-height
+     so even an empty state has breathing room beneath the header. */
+  flex: 1 1 0;
+  min-height: 12rem;
 }
 
 .dashboard-right-activity {
@@ -5625,6 +5624,16 @@
   padding: 0 0 0.75rem 0.75rem;
 }
 
+.dashboard-activity-item > .dashboard-activity-time {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.dashboard-activity-item > .dashboard-activity-content > .dashboard-activity-user {
+  padding-right: 4.25rem;
+}
+
 .dashboard-activity-dot {
   position: absolute;
   left: 0;
@@ -5695,6 +5704,7 @@
   font-weight: 500;
   color: #334155;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .dashboard-activity-session-checkout {
@@ -5710,6 +5720,7 @@
 .dashboard-activity-session-value--pending {
   color: #0f766e;
   font-style: italic;
+  white-space: nowrap;
 }
 
 .dashboard-activity-time {

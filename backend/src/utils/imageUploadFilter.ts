@@ -1,11 +1,18 @@
 import type { Request } from 'express'
 import multer from 'multer'
 
-export const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png'] as const
+export const ALLOWED_IMAGE_MIME_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/pjpeg',
+  'image/png',
+  'image/x-png',
+  'image/webp',
+] as const
 
-const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png'] as const
+const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'] as const
 
-export const IMAGE_UPLOAD_ERROR = 'Only JPG, JPEG, and PNG images are allowed.'
+export const IMAGE_UPLOAD_ERROR = 'Only JPEG, PNG, or WebP images are allowed.'
 
 export function isAllowedImageUpload(
   file: Pick<Express.Multer.File, 'mimetype' | 'originalname'>

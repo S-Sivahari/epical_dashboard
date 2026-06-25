@@ -45,6 +45,7 @@ import type { Employee } from '@/types'
 import { formatDateTime } from '@/utils/formatDate'
 import { DependencyGraphView } from './DependencyGraphView'
 import { CellWorkflowPanel } from './CellWorkflowPanel'
+import { CellCompletionTimeSummaryLauncher } from './CellCompletionTimeSummaryLauncher'
 import { ProjectWorkflowOverview } from './ProjectWorkflowOverview'
 import { ProjectTypeChecklistPanel } from './ProjectTypeChecklistPanel'
 import {
@@ -807,6 +808,7 @@ export function ProjectWorkspace() {
                         <th className="admin-projects-table-col-status">Status</th>
                         <th className="admin-projects-table-col-est-hours">Est. Hours</th>
                         <th className="admin-projects-table-col-act-hours">Actual Hours</th>
+                        <th className="admin-projects-table-col-productive-time">Productive Time</th>
                         <th className="admin-projects-table-col-workflow">Workflow</th>
                       </tr>
                     </thead>
@@ -848,6 +850,16 @@ export function ProjectWorkspace() {
                           <td className="admin-projects-table-col-act-hours tabular-nums">
                             {cellActualEffortHours(cell)}h
                           </td>
+                          <td
+                            className="admin-projects-table-col-productive-time"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {cell.status === 'completed' || cell.status === 'in_progress' ? (
+                              <CellCompletionTimeSummaryLauncher cell={cell} />
+                            ) : (
+                              '—'
+                            )}
+                          </td>
                           <td className="admin-projects-table-col-workflow" onClick={(e) => e.stopPropagation()}>
                             <CellWorkflowPanel projectId={projectId} cell={cell} compact />
                           </td>
@@ -855,7 +867,7 @@ export function ProjectWorkspace() {
                       ))}
                       {displayedCells.length === 0 && (
                         <tr>
-                          <td colSpan={showAllCells ? 8 : 7} className="admin-projects-table-empty">
+                          <td colSpan={showAllCells ? 9 : 8} className="admin-projects-table-empty">
                             {showAllCells ? 'No cells in this project.' : 'No cells in this library.'}
                           </td>
                         </tr>

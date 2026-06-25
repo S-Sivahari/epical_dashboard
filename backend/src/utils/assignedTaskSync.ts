@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { getDB } from '../config/db';
 import { ProjectModel } from '../models/Project';
+import { ProjectCellModel } from '../models/ProjectCell';
 import { AssignedTaskModel } from '../models/AssignedTask';
 import { normalizeProjectDescription } from './textLimits';
 
@@ -144,12 +145,42 @@ export function buildAssignedProjectsFilter(identityTokens: string[]) {
   };
 }
 
+/** Active projects an employee may check in against: public, allotted, or cell-assigned. */
+export async function buildCheckInEligibleProjectsFilter(identityTokens: string[]) {
+  const cellProjectIds = await ProjectCellModel.distinct('projectId', {
+    assignedEmployeeId: { $in: identityTokens },
+  });
+
+  const or: Record<string, unknown>[] = [
+    { accessType: 'public' },
+    ...(buildAssignedProjectsFilter(identityTokens).$or as Record<string, unknown>[]),
+  ];
+
+  if (cellProjectIds.length > 0) {
+    or.push({ _id: { $in: cellProjectIds } });
+  }
+
+  return { $or: or };
+}
+
 export async function employeeCanAccessProject(
-  project: { accessType: string; allowedUsers?: string[]; teamLead?: string },
+  project: {
+    _id: Types.ObjectId;
+    accessType: string;
+    allowedUsers?: string[];
+    teamLead?: string;
+  },
   identityTokens: string[]
 ): Promise<boolean> {
+  if (project.accessType === 'public') return true;
   if (project.teamLead && identityTokens.includes(project.teamLead)) return true;
-  return (project.allowedUsers || []).some((u) => identityTokens.includes(u));
+  if ((project.allowedUsers || []).some((u) => identityTokens.includes(u))) return true;
+
+  const hasCell = await ProjectCellModel.exists({
+    projectId: project._id,
+    assignedEmployeeId: { $in: identityTokens },
+  });
+  return !!hasCell;
 }
 
 export async function ensureAssignedTaskForEmployeeOnProject(
@@ -212,7 +243,8 @@ export async function ensureAssignedTasksForEmployee(employee: {
 
   const identityTokens = buildAssignmentIdentityTokens(employee, employeeRecord as any);
 
-  const projects = await ProjectModel.find(buildAssignedProjectsFilter(identityTokens)).lean();
+  const eligibleFilter = await buildCheckInEligibleProjectsFilter(identityTokens);
+  const projects = await ProjectModel.find({ status: 'Active', ...eligibleFilter }).lean();
 
   if (projects.length === 0) return;
 
