@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLeaves } from '@hooks/useLeaves'
-import {
-  approveDocumentRequest,
-  rejectDocumentRequest,
-} from '@services/documentRequestService'
+import { ROUTES } from '@constants/routes'
 import { Button } from '@components/ui/Button'
 import { Modal } from '@components/ui/Modal'
 import { cn } from '@/utils/cn'
@@ -12,6 +11,7 @@ import type { PendingApprovalTask } from './dashboardRightWorkspaceData'
 
 type DashboardPendingApprovalsPanelProps = {
   tasks: PendingApprovalTask[]
+  totalPendingLeaves?: number
   className?: string
 }
 
@@ -20,8 +20,27 @@ function getErrorMessage(err: unknown, fallback: string): string {
   return typeof data === 'string' && data.trim() ? data : fallback
 }
 
+function getLeaveTypeBadgeClass(leaveType?: string): string {
+  switch (leaveType) {
+    case 'Casual Leave':
+      return 'dashboard-approval-leave-type--casual'
+    case 'Sick Leave':
+      return 'dashboard-approval-leave-type--sick'
+    case 'Earned Leave':
+      return 'dashboard-approval-leave-type--earned'
+    case 'Compensation Leave':
+      return 'dashboard-approval-leave-type--comp'
+    case 'LOP':
+    case 'LOP Days':
+      return 'dashboard-approval-leave-type--lop'
+    default:
+      return 'dashboard-approval-leave-type--default'
+  }
+}
+
 export function DashboardPendingApprovalsPanel({
   tasks,
+  totalPendingLeaves,
   className,
 }: DashboardPendingApprovalsPanelProps) {
   const { approveLeave, rejectLeave } = useLeaves()
@@ -32,6 +51,8 @@ export function DashboardPendingApprovalsPanel({
   const [rejectReason, setRejectReason] = useState('')
   const [rejectError, setRejectError] = useState('')
   const [rejectSubmitting, setRejectSubmitting] = useState(false)
+
+  const pendingCount = totalPendingLeaves ?? queue.length
 
   useEffect(() => {
     setQueue((prev) => {
@@ -60,23 +81,13 @@ export function DashboardPendingApprovalsPanel({
     async (task: PendingApprovalTask) => {
       if (processingRef.current.has(task.id)) return
 
-      if (task.kind === 'document' && !task.hasFulfillmentFile) {
-        toast.error('Upload the fulfillment file on the Documents page before approving.')
-        return
-      }
-
       processingRef.current.add(task.id)
       setProcessingIds((prev) => (prev.includes(task.id) ? prev : [...prev, task.id]))
       setQueue((prev) => prev.filter((item) => item.id !== task.id))
 
       try {
-        if (task.kind === 'leave') {
-          await approveLeave(task.sourceId)
-          toast.success('Leave request approved')
-        } else {
-          await approveDocumentRequest(task.sourceId)
-          toast.success('Document request approved')
-        }
+        await approveLeave(task.sourceId)
+        toast.success('Leave request approved')
       } catch (err) {
         toast.error(getErrorMessage(err, 'Approval failed'))
         setQueue((prev) => (prev.some((i) => i.id === task.id) ? prev : [...prev, task]))
@@ -109,13 +120,8 @@ export function DashboardPendingApprovalsPanel({
     setRejectTarget(null)
 
     try {
-      if (task.kind === 'leave') {
-        await rejectLeave(task.sourceId, reason)
-        toast.success('Leave request rejected')
-      } else {
-        await rejectDocumentRequest(task.sourceId, reason)
-        toast.success('Document request rejected')
-      }
+      await rejectLeave(task.sourceId, reason)
+      toast.success('Leave request rejected')
     } catch (err) {
       toast.error(getErrorMessage(err, 'Rejection failed'))
       setQueue((prev) => (prev.some((i) => i.id === task.id) ? prev : [...prev, task]))
@@ -133,15 +139,21 @@ export function DashboardPendingApprovalsPanel({
         className={cn(
           'dashboard-workspace-panel dashboard-workspace-panel--mint dashboard-approvals-panel',
           queue.length > 0 && 'dashboard-approvals-panel--has-items',
+          queue.length > 0 && `dashboard-approvals-panel--items-${Math.min(queue.length, 4)}`,
           className,
         )}
         aria-label="Pending approvals queue"
       >
-        <header className="dashboard-insight-panel-header">
-          <h3 className="dashboard-insight-panel-title">Pending Approvals Queue</h3>
-          <span className="dashboard-insight-panel-count" aria-label={`${queue.length} pending`}>
-            ({queue.length})
-          </span>
+        <header className="dashboard-insight-panel-header dashboard-approvals-header">
+          <div className="dashboard-approvals-header__title-row">
+            <h3 className="dashboard-insight-panel-title">Pending Approvals Queue</h3>
+            <span className="dashboard-insight-panel-count" aria-label={`${pendingCount} pending`}>
+              ({pendingCount})
+            </span>
+          </div>
+          <Link to={ROUTES.LEAVES} className="dashboard-approvals-view-btn">
+            View
+          </Link>
         </header>
 
         <div
@@ -159,41 +171,45 @@ export function DashboardPendingApprovalsPanel({
               {queue.map((task, index) => {
                 const isLast = index === queue.length - 1
                 const busy = processingIds.includes(task.id)
-                const docNeedsUpload = task.kind === 'document' && !task.hasFulfillmentFile
                 return (
                   <li
                     key={task.id}
                     className={cn('dashboard-approval-card', !isLast && 'dashboard-approval-card--bordered')}
                   >
-                    <p className="dashboard-approval-title">{task.title}</p>
-                    {docNeedsUpload ? (
-                      <p className="dashboard-approval-hint text-xs font-medium text-amber-800">
-                        Upload fulfillment file in Documents before approving.
-                      </p>
-                    ) : null}
-                    <div className="dashboard-approval-actions-row">
-                      <span className="dashboard-approval-age">{task.requestedAgo}</span>
+                    <div className="dashboard-approval-row">
+                      <div className="dashboard-approval-main">
+                        <p className="dashboard-approval-title">{task.title}</p>
+                        {task.leaveType ? (
+                          <span
+                            className={cn(
+                              'dashboard-approval-leave-type',
+                              getLeaveTypeBadgeClass(task.leaveType),
+                            )}
+                          >
+                            {task.leaveType}
+                          </span>
+                        ) : null}
+                      </div>
                       <div className="dashboard-approval-buttons">
                         <button
                           type="button"
-                          disabled={busy || docNeedsUpload}
-                          title={
-                            docNeedsUpload
-                              ? 'Upload fulfillment file in Documents first'
-                              : undefined
-                          }
-                          className="dashboard-approval-action-btn dashboard-approval-action-btn--approve dashboard-approval-action-btn--contrast disabled:pointer-events-none disabled:opacity-50"
+                          disabled={busy}
+                          title="Approve"
+                          aria-label={`Approve leave request for ${task.title}`}
+                          className="dashboard-approval-btn dashboard-approval-btn--approve disabled:pointer-events-none disabled:opacity-50"
                           onClick={() => void runApprove(task)}
                         >
-                          Approve
+                          <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
                         </button>
                         <button
                           type="button"
                           disabled={busy}
-                          className="dashboard-approval-action-btn dashboard-approval-action-btn--reject dashboard-approval-action-btn--contrast disabled:pointer-events-none disabled:opacity-50"
+                          title="Reject"
+                          aria-label={`Reject leave request for ${task.title}`}
+                          className="dashboard-approval-btn dashboard-approval-btn--reject disabled:pointer-events-none disabled:opacity-50"
                           onClick={() => openRejectModal(task)}
                         >
-                          Reject
+                          <X className="h-3 w-3" strokeWidth={2.5} aria-hidden />
                         </button>
                       </div>
                     </div>
@@ -208,7 +224,7 @@ export function DashboardPendingApprovalsPanel({
       <Modal
         isOpen={!!rejectTarget}
         onClose={closeRejectModal}
-        title={rejectTarget ? `Reject ${rejectTarget.kind === 'leave' ? 'leave' : 'document'} request` : 'Reject request'}
+        title="Reject leave request"
         size="md"
       >
         <p className="mb-3 text-sm leading-relaxed text-slate-600">
@@ -226,7 +242,7 @@ export function DashboardPendingApprovalsPanel({
             setRejectReason(e.target.value)
             if (rejectError) setRejectError('')
           }}
-          placeholder="e.g. Missing information required to process this request..."
+          placeholder="e.g. Insufficient leave balance for the requested dates..."
           disabled={rejectSubmitting}
         />
         {rejectError ? (

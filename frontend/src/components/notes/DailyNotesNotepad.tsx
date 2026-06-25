@@ -227,6 +227,7 @@ export function DailyNotesNotepad({
                       type="button"
                       size="sm"
                       variant="danger"
+                      className="notes-notepad-pad__delete-btn"
                       icon={<Trash2 className="h-3.5 w-3.5" />}
                       disabled={busy || !hasNotes}
                       onClick={() => setDeleteConfirmOpen(true)}

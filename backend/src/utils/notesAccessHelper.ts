@@ -12,6 +12,20 @@ function todayDateKey(): string {
   return `${year}-${month}-${day}`;
 }
 
+function offsetDateKey(dateKey: string, days: number): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + days);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function yesterdayDateKey(): string {
+  return offsetDateKey(todayDateKey(), -1);
+}
+
 function employeeRecordId(employee: Record<string, unknown>): string {
   return String(employee.id ?? employee.employeeId ?? '').trim();
 }
@@ -38,8 +52,48 @@ export function isNotesAdmin(req: Request): boolean {
   return Boolean(req.user && isAdminRole(req.user.role));
 }
 
+export async function assertEmployeeCanReadNotesForDate(req: Request, date: string): Promise<void> {
+  if (isNotesAdmin(req)) return;
+
+  const employee = await resolveNotesAuthEmployee(req);
+  if (!employee?.id) {
+    throw Object.assign(new Error('Employee profile not found'), { status: 403 });
+  }
+
+  const today = todayDateKey();
+  const dateKey = date.trim();
+
+  if (dateKey === today) {
+    const allowed = await notesDelegationService.isEmployeeDelegatedForDate(employee.id, today);
+    if (!allowed) {
+      throw Object.assign(
+        new Error('You are not assigned to manage daily notes for this date'),
+        { status: 403 },
+      );
+    }
+    return;
+  }
+
+  // Substitutes assigned today may read yesterday's notes to use "copy yesterday".
+  if (dateKey === yesterdayDateKey()) {
+    const allowedToday = await notesDelegationService.isEmployeeDelegatedForDate(employee.id, today);
+    if (!allowedToday) {
+      throw Object.assign(
+        new Error('You are not assigned to manage daily notes for this date'),
+        { status: 403 },
+      );
+    }
+    return;
+  }
+
+  throw Object.assign(
+    new Error('You are not assigned to view daily notes for this date'),
+    { status: 403 },
+  );
+}
+
 export async function assertEmployeeCanAccessNotesForDate(req: Request, date: string): Promise<void> {
-  await assertEmployeeCanMutateNotesForDate(req, date);
+  await assertEmployeeCanReadNotesForDate(req, date);
 }
 
 export async function assertEmployeeCanMutateNotesForDate(req: Request, date: string): Promise<void> {

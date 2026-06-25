@@ -101,6 +101,7 @@ export function DashboardHome() {
             <div className="dashboard-right-stack min-h-0 flex-1">
               <DashboardPendingApprovalsPanel
                 tasks={data.pendingApprovalTasks}
+                totalPendingLeaves={data.pendingLeavesCount}
                 className="dashboard-right-approvals min-h-0"
               />
               <DashboardActivityLogPanel className="dashboard-right-activity min-h-0" />

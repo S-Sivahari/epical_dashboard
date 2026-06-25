@@ -83,9 +83,11 @@ export function CellWorkflowDurationLabel({
   const isCompleted = cellStatus === 'completed'
 
   const isInProgress = cellStatus === 'in_progress'
+
+  const isReady = cellStatus === 'ready'
   const shouldTickLive = !isCompleted && !onHold && Boolean(workflowDuration?.isActive)
 
-  const canOpenSummary = isCompleted && Boolean(onSummaryClick)
+  const canOpenSummary = Boolean(onSummaryClick)
 
   const canHold = holdEnabled && Boolean(onHoldToggle) && !isCompleted && isInProgress
 
@@ -213,6 +215,26 @@ export function CellWorkflowDurationLabel({
 
 
 
+    if (isReady) {
+
+      return {
+
+        formatted: formatDuration(0),
+
+        liveMs: 0,
+
+        label: 'Ready',
+
+        isRunning: false,
+
+        isPaused: false,
+
+      }
+
+    }
+
+
+
     if (shouldTickLive) {
 
       return {
@@ -241,7 +263,7 @@ export function CellWorkflowDurationLabel({
 
         liveMs,
 
-        label: liveMs > 0 ? 'Paused' : 'Ready',
+        label: liveMs > 0 ? 'Paused' : 'Waiting',
 
         isRunning: false,
 
@@ -267,7 +289,7 @@ export function CellWorkflowDurationLabel({
 
     }
 
-  }, [workflowDuration, shouldTickLive, isCompleted, isInProgress, onHold, now, fetchedAt, alwaysVisible, variant])
+  }, [workflowDuration, shouldTickLive, isCompleted, isInProgress, isReady, onHold, now, fetchedAt, alwaysVisible, variant])
 
 
 
@@ -401,7 +423,10 @@ export function CellWorkflowDurationLabel({
 
           aria-label={`${title}. View time summary.`}
 
-          onClick={onSummaryClick}
+          onClick={(event) => {
+            event.stopPropagation()
+            onSummaryClick?.()
+          }}
 
         >
 

@@ -2668,6 +2668,24 @@
   gap: 0.5rem;
 }
 
+[data-admin-notes] .notes-notepad-pad__toolbar .notes-notepad-pad__delete-btn {
+  border-color: #dc2626 !important;
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.25);
+}
+
+[data-admin-notes] .notes-notepad-pad__toolbar .notes-notepad-pad__delete-btn:hover:not(:disabled) {
+  border-color: #b91c1c !important;
+  background: #b91c1c !important;
+  color: #ffffff !important;
+}
+
+[data-admin-notes] .notes-notepad-pad__toolbar .notes-notepad-pad__delete-btn:active:not(:disabled) {
+  border-color: #991b1b !important;
+  background: #991b1b !important;
+}
+
 .notes-notepad-pad__paper {
   position: relative;
   isolation: isolate;

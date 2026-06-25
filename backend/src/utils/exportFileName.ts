@@ -1,3 +1,5 @@
+import { sanitizeExportPersonName } from './personName'
+
 const MONTH_NAMES = [
   'january',
   'february',
@@ -30,6 +32,8 @@ export function sanitizeExportPart(value: string, fallback = 'export'): string {
     .replace(/^_|_$/g, '')
   return (cleaned || fallback).slice(0, 72)
 }
+
+export { sanitizeExportPersonName } from './personName'
 
 export function buildExportFileName(
   category: string,
@@ -83,18 +87,25 @@ function monthYearSlugFromPayMonth(payMonth?: string | null, payPeriodKey?: stri
   return sanitizeExportPart(trimmed, 'period')
 }
 
+function monthYearTitleSlugFromPayMonth(payMonth?: string | null, payPeriodKey?: string | null): string {
+  const slug = monthYearSlugFromPayMonth(payMonth, payPeriodKey)
+  const match = slug.match(/^([a-z]+)_(\d{4})$/i)
+  if (match) {
+    const month = match[1]
+    const year = match[2]
+    return `${month.charAt(0).toUpperCase()}${month.slice(1)}_${year}`
+  }
+  return slug.charAt(0).toUpperCase() + slug.slice(1)
+}
+
 export function formatPayslipDownloadFileName(
   employeeName: string,
   payMonth?: string | null,
   payPeriodKey?: string | null,
-  exportDate = new Date(),
 ): string {
-  return buildExportFileNameWithExtension(
-    'payslip',
-    'pdf',
-    [sanitizeExportPart(employeeName, 'employee'), monthYearSlugFromPayMonth(payMonth, payPeriodKey)],
-    exportDate,
-  )
+  const namePart = sanitizeExportPersonName(employeeName, 'Employee')
+  const periodPart = monthYearTitleSlugFromPayMonth(payMonth, payPeriodKey)
+  return `Payslip_${namePart}_${periodPart}.pdf`
 }
 
 export function formatAllPayslipsDownloadFileName(

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ImageIcon, Loader2, Plus, Search, Trophy } from 'lucide-react'
 import { Button } from '@components/ui/Button'
 import { Modal } from '@components/ui/Modal'
@@ -185,6 +185,7 @@ export function CompanyAchievementsExperience({
   const [loadingMore, setLoadingMore] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [categories, setCategories] = useState<string[]>([])
+  const [pageMetaLoaded, setPageMetaLoaded] = useState(false)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
@@ -263,8 +264,6 @@ export function CompanyAchievementsExperience({
     ]
   }, [categories])
 
-  const [pageMetaLoaded, setPageMetaLoaded] = useState(false)
-
   const defaultSectionTitle = 'Our achievements'
   const employeeSectionSubtitle = 'Celebrating milestones, recognition, and team wins.'
 
@@ -278,19 +277,34 @@ export function CompanyAchievementsExperience({
   const [aTags, setATags] = useState('')
   const [aFile, setAFile] = useState<File | null>(null)
   const [aFilePreviewUrl, setAFilePreviewUrl] = useState<string | null>(null)
+  const aFilePreviewRef = useRef<string | null>(null)
   const [aRemoveImage, setARemoveImage] = useState(false)
   const [aSaving, setASaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<CompanyAchievementRow | null>(null)
 
   useEffect(() => {
     if (!aFile) {
+      if (aFilePreviewRef.current) {
+        URL.revokeObjectURL(aFilePreviewRef.current)
+        aFilePreviewRef.current = null
+      }
       setAFilePreviewUrl(null)
       return
     }
     const preview = URL.createObjectURL(aFile)
+    if (aFilePreviewRef.current) URL.revokeObjectURL(aFilePreviewRef.current)
+    aFilePreviewRef.current = preview
     setAFilePreviewUrl(preview)
-    return () => URL.revokeObjectURL(preview)
   }, [aFile])
+
+  useEffect(() => {
+    return () => {
+      if (aFilePreviewRef.current) {
+        URL.revokeObjectURL(aFilePreviewRef.current)
+        aFilePreviewRef.current = null
+      }
+    }
+  }, [])
 
   const resetForm = () => {
     setATitle('')
@@ -346,18 +360,37 @@ export function CompanyAchievementsExperience({
       fd.append('employeeOrTeamName', aEmployee.trim())
       fd.append('achievementDate', aDate)
       fd.append('tags', aTags.trim())
-      if (aFile) fd.append('image', aFile)
+      if (aFile) fd.append('image', aFile, aFile.name)
       if (editTarget && aRemoveImage && !aFile) fd.append('removeImage', 'true')
 
       if (editTarget) {
-        await updateCompanyAchievement(editTarget.id, fd)
-        toast.success('Achievement updated')
+        const updated = await updateCompanyAchievement(editTarget.id, fd)
+        if (aFile && !updated.hasImage) {
+          toast.warning('Achievement updated, but the image could not be stored. Use JPEG/PNG/WebP under 4 MB.')
+        } else {
+          toast.success('Achievement updated')
+        }
+        setAddOpen(false)
+        resetForm()
+        void fetchAchievements(1, false)
       } else {
-        await createCompanyAchievement(fd)
-        toast.success('Achievement published')
+        const created = await createCompanyAchievement(fd)
+        if (aFile && !created.hasImage) {
+          toast.warning('Achievement saved, but the image could not be stored. Use JPEG/PNG/WebP under 4 MB.')
+        } else {
+          toast.success('Achievement published')
+        }
+        setAddOpen(false)
+        resetForm()
+        setSearchQuery('')
+        setFilterCategory('')
+        setFilterYear('')
+        setFilterMonth('')
+        setRows((prev) => [created, ...prev.filter((r) => r.id !== created.id)])
+        setTotal((t) => t + 1)
+        setHasMore(false)
+        setPage(1)
       }
-      setAddOpen(false)
-      void fetchAchievements(1, false)
       void listAchievementCategories().then(setCategories).catch(() => {})
     } catch (e: unknown) {
       const msg =
@@ -642,10 +675,10 @@ export function CompanyAchievementsExperience({
             required
           />
           <div>
-            <p className="text-sm font-medium text-ink">Image (optional)</p>
+            <p className="text-sm font-medium text-ink">Image (optional, JPEG, PNG, or WebP)</p>
             <input
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
               className="mt-2 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-[#06C033] file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
               onChange={(e) => {
                 setAFile(e.target.files?.[0] ?? null)

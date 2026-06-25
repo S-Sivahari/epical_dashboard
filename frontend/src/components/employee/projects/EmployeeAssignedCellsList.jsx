@@ -12,7 +12,7 @@ import {
 } from '@/utils/cellWorkflowUi'
 import { cellTypeLabel } from '@pages/admin/Projects/projectWorkspaceUi'
 import { formatDateTime } from '@/utils/formatDate'
-import { CellWorkflowDurationLabel } from '@pages/admin/Projects/CellWorkflowDurationLabel'
+import { CellCompletionTimeSummaryLauncher } from '@pages/admin/Projects/CellCompletionTimeSummaryLauncher'
 import { cn } from '@pages/employee/lib/utils'
 
 function cellProgressPercent(cell) {
@@ -80,7 +80,7 @@ export function EmployeeAssignedCellsList({
         const statusLabel = VIEW_PROGRESS_LABELS[status] || status
         const libraryName = libraryNameById[cell.libraryId] || 'Library'
         const effort = Number(cell.estimatedEffort) || 0
-        const workedLabel = cell.workflowDuration?.formatted
+        const workedDuration = cell.productiveWorkDuration ?? cell.workflowDuration
         const latestActivity = cell.workflowTiming?.latestActivityTime
 
         const isUnassigned = !cell.assignedEmployeeId?.trim()
@@ -99,10 +99,17 @@ export function EmployeeAssignedCellsList({
               emphasizeEffort && 'emp-wf-cell-card--effort',
             )}
           >
-            <button
-              type="button"
+            <div
               className="emp-wf-cell-card-open"
+              role="button"
+              tabIndex={0}
               onClick={() => navigate(`/employee/projects/${projectId}/cells/${cell.id}`)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  navigate(`/employee/projects/${projectId}/cells/${cell.id}`)
+                }
+              }}
             >
             <div className="emp-wf-cell-card-top">
               <div className="emp-wf-cell-card-icon" aria-hidden>
@@ -135,11 +142,16 @@ export function EmployeeAssignedCellsList({
                 <Clock3 className="h-3.5 w-3.5" />
                 {effort}h est.
               </span>
-              {workedLabel ? (
-                <span className="emp-wf-cell-card-stat emp-wf-cell-card-stat--timing">
-                  <CellWorkflowDurationLabel
-                    cellStatus={cell.status}
-                    workflowDuration={cell.workflowDuration}
+              {(workedDuration?.formatted || (workedDuration?.totalMs ?? 0) > 0
+                || cell.status === 'completed'
+                || cell.status === 'in_progress') ? (
+                <span
+                  className="emp-wf-cell-card-stat emp-wf-cell-card-stat--timing"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <CellCompletionTimeSummaryLauncher
+                    cell={cell}
                     className="emp-wf-cell-card-duration"
                   />
                 </span>
@@ -168,7 +180,7 @@ export function EmployeeAssignedCellsList({
             >
               {roleLabel}
             </span>
-            </button>
+            </div>
 
             {isTeamLead && isUnassigned ? (
               <label className="emp-wf-cell-card-assign" onClick={(e) => e.stopPropagation()}>

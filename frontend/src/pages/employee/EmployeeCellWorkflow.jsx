@@ -248,7 +248,11 @@ export default function EmployeeCellWorkflow() {
                   onHold={Boolean(cell.onHold)}
                   holdEnabled={canManageWorkflow && cell.status === 'in_progress'}
                   onHoldToggle={(hold) => void handleHoldChange(hold)}
-                  onSummaryClick={cell.status === 'completed' ? () => setTimeSummaryOpen(true) : undefined}
+                  onSummaryClick={
+                  cell.status === 'completed' || cell.status === 'in_progress'
+                    ? () => setTimeSummaryOpen(true)
+                    : undefined
+                }
                 />
               </div>
             </div>
@@ -259,6 +263,7 @@ export default function EmployeeCellWorkflow() {
           cell={cell}
           isOpen={timeSummaryOpen}
           onClose={() => setTimeSummaryOpen(false)}
+          fetchedAt={durationFetchedAt}
         />
 
         <div className="admin-projects-cell-page-body admin-projects-cell-page-body--employee">

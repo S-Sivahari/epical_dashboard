@@ -13,6 +13,7 @@ import {
   workflowStageStatusClass,
 } from './projectWorkspaceUi'
 import { CELL_WORKFLOW_STAGES } from '@/types/projectWorkspace'
+import { CellCompletionTimeSummaryLauncher } from './CellCompletionTimeSummaryLauncher'
 
 type ProjectWorkflowOverviewProps = {
   projectId: string
@@ -70,8 +71,12 @@ export function ProjectWorkflowOverview({
             const workflow = normalizeCellWorkflow(cell.workflow)
             const progress = cellCompletionProgressPercent(cell)
             const workingDuration = cell.productiveWorkDuration ?? cell.workflowDuration
-            const workingHoursLabel = workingDuration?.formatted
-              ?? formatWorkflowDurationFromMs(workingDuration?.totalMs ?? 0)
+            const hasWorkingTime = Boolean(
+              workingDuration?.formatted
+              || (workingDuration?.totalMs ?? 0) > 0
+              || cell.status === 'completed'
+              || cell.status === 'in_progress',
+            )
             return (
               <tr key={cell.id}>
                 <td>
@@ -93,7 +98,13 @@ export function ProjectWorkflowOverview({
                   </div>
                 </td>
                 <td>{cell.estimatedEffort ?? 0}h</td>
-                <td>{workingHoursLabel}</td>
+                <td onClick={(e) => e.stopPropagation()}>
+                  {hasWorkingTime ? (
+                    <CellCompletionTimeSummaryLauncher cell={cell} />
+                  ) : (
+                    formatWorkflowDurationFromMs(workingDuration?.totalMs ?? 0)
+                  )}
+                </td>
                 {workflow.map((stage) => (
                   <td key={`${cell.id}-${stage.stageKey}`}>
                     <span className={cn(

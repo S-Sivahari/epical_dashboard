@@ -8,6 +8,7 @@ import {
   assertEmployeeCanAccessNotesForDate,
   assertEmployeeCanMutateNotesForBlockId,
   assertEmployeeCanMutateNotesForDate,
+  assertEmployeeCanReadNotesForDate,
   getNotesAccessPayload,
   isNotesAdmin,
 } from '../utils/notesAccessHelper';
@@ -186,7 +187,7 @@ export const notesController = {
     try {
       const date = paramStr(req.params.date);
       if (!isNotesAdmin(req)) {
-        await assertEmployeeCanAccessNotesForDate(req, date);
+        await assertEmployeeCanReadNotesForDate(req, date);
       }
       const item = await notesService.getDailyBlockByDate(date);
       if (!item) {
@@ -208,7 +209,7 @@ export const notesController = {
         return;
       }
       if (!isNotesAdmin(req)) {
-        await assertEmployeeCanAccessNotesForDate(req, String(item.date));
+        await assertEmployeeCanReadNotesForDate(req, String(item.date));
       }
       res.json(item);
     } catch (err) {

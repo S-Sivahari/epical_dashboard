@@ -15,6 +15,7 @@ import {
   getWorksheetNames,
   loadExcelWorkbook,
 } from '../utils/excelWorkbook'
+import { formatPayslipPersonName } from '../utils/personName'
 import {
   Document,
   Paragraph,
@@ -397,7 +398,6 @@ export function buildPayslip(
     .filter(Boolean)
     .join(' ')
 
-  const cin = safe(company['CIN'])
   const gstin = safe(company['GSTIN'])
   const cpan = safe(company['Company PAN'])
   const phone = safe(company['Phone'])
@@ -541,7 +541,7 @@ export function buildPayslip(
 
   sections.push(
     new Paragraph({
-      text: [`CIN: ${cin}`, `GSTIN: ${gstin}`, `PAN: ${cpan}`, `Email: ${email}`].join(' | '),
+      text: [`GSTIN: ${gstin}`, `PAN: ${cpan}`, `Email: ${email}`].join(' | '),
       size: 11,
       alignment: AlignmentType.CENTER,
       color: COLORS.MUTED,
@@ -650,7 +650,7 @@ function createEmployeeTable(emp: Employee, company: Company): Table {
       } as any),
       new TableRow({
         cells: [
-          createEmpCell('Name', emp['Name']),
+          createEmpCell('Name', formatPayslipPersonName(emp['Name'])),
           createEmpCell('Department', emp['Department']),
           createEmpCell('Branch', emp['Branch']),
         ],
@@ -711,7 +711,8 @@ const COMPONENT_ALIASES: Record<string, string[]> = {
   'Professional Tax': ['PT'],
   'Income Tax (TDS)': ['TDS'],
   'Loan / Advance Recovery': ['Loan Recovery', 'Loan / Adv. Recovery'],
-  'Loss of Pay': ['LOP', 'LOP Amount'],
+  'LOP Deduction': ['LOP', 'LOP Amount', 'Loss of Pay'],
+  'Loss of Pay': ['LOP Deduction'],
 }
 
 function parseAmount(v: unknown): number {
@@ -781,7 +782,7 @@ export function buildDeductionsData(
   let totalDed = 0
 
   for (const name of orderedComponents(structure, 'Deductions')) {
-    if (name === 'Loss of Pay') continue
+    if (name === 'Loss of Pay' || name === 'LOP Deduction') continue
     const meta = structure[name]
     const amount = resolveComponentAmount(emp, name, meta)
     deductions.push({ name, amount })
@@ -856,12 +857,29 @@ export function resolveLopAmount(
   lopDays: number,
   paidDays: number
 ): number {
-  const explicit = parseAmount(emp['Loss of Pay'])
+  const explicit =
+    parseAmount(emp['LOP Deduction']) ||
+    parseAmount(emp['Loss of Pay'])
   if (explicit > 0) return roundPayrollAmount(explicit)
   if (lopDays > 0 && gross > 0 && paidDays > 0) {
     return roundPayrollAmount((gross / paidDays) * lopDays)
   }
-  return roundPayrollAmount(parseAmount(structure['Loss of Pay']?.default))
+  return roundPayrollAmount(
+    parseAmount(structure['LOP Deduction']?.default) ||
+      parseAmount(structure['Loss of Pay']?.default),
+  )
+}
+
+function isLopDeductionComponent(name: string): boolean {
+  return name === 'Loss of Pay' || name === 'LOP Deduction'
+}
+
+function lopDeductionYtd(emp: Employee, lopAmount: number): number {
+  const ytdMap = emp['_componentYtd'] as Record<string, number> | undefined
+  if (ytdMap && (ytdMap['LOP Deduction'] != null || ytdMap['Loss of Pay'] != null)) {
+    return roundPayrollAmount(ytdMap['LOP Deduction'] ?? ytdMap['Loss of Pay'] ?? lopAmount)
+  }
+  return getComponentYtd(emp, 'LOP Deduction', lopAmount)
 }
 
 /** Single source of truth for earnings, deductions, totals, and net pay. */
@@ -875,22 +893,60 @@ export function buildPayslipPayrollSummary(
   const { workingDays, lopDays, paidDays } = resolvePaidDays(emp, company)
   const lopAmount = resolveLopAmount(emp, structure, structureGross, lopDays, paidDays)
 
-  const allDeductions = deductions.filter((d) => d.name !== 'Loss of Pay')
-  if (lopAmount > 0 || lopDays > 0) {
-    allDeductions.push({ name: 'Loss of Pay', amount: lopAmount })
-  }
-
   const earningsLines: PayslipPayrollLine[] = earnings.map((e) => ({
     name: e.name,
     month: e.amount,
     ytd: getComponentYtd(emp, e.name, e.amount),
   }))
 
-  const deductionLines: PayslipPayrollLine[] = allDeductions.map((d) => ({
-    name: d.name,
-    month: d.amount,
-    ytd: getComponentYtd(emp, d.name, d.amount),
-  }))
+  const deductionLines: PayslipPayrollLine[] = []
+  const structureDeductions = orderedComponents(structure, 'Deductions')
+  let lopInserted = false
+
+  for (const name of structureDeductions) {
+    if (isLopDeductionComponent(name)) {
+      if (!lopInserted) {
+        deductionLines.push({
+          name: 'LOP Deduction',
+          month: lopAmount,
+          ytd: lopDeductionYtd(emp, lopAmount),
+        })
+        lopInserted = true
+      }
+      continue
+    }
+    const fromBuilt = deductions.find((d) => d.name === name)
+    const meta = structure[name]
+    const amount = fromBuilt?.amount ?? resolveComponentAmount(emp, name, meta)
+    deductionLines.push({
+      name,
+      month: amount,
+      ytd: getComponentYtd(emp, name, amount),
+    })
+  }
+
+  if (!lopInserted && structureDeductions.length === 0) {
+    for (const d of deductions) {
+      deductionLines.push({
+        name: d.name,
+        month: d.amount,
+        ytd: getComponentYtd(emp, d.name, d.amount),
+      })
+    }
+    if (lopAmount > 0 || lopDays > 0) {
+      deductionLines.push({
+        name: 'LOP Deduction',
+        month: lopAmount,
+        ytd: lopDeductionYtd(emp, lopAmount),
+      })
+    }
+  } else if (!lopInserted) {
+    deductionLines.push({
+      name: 'LOP Deduction',
+      month: lopAmount,
+      ytd: lopDeductionYtd(emp, lopAmount),
+    })
+  }
 
   const gross = roundPayrollAmount(earningsLines.reduce((sum, row) => sum + row.month, 0))
   const grossYtd = roundPayrollAmount(earningsLines.reduce((sum, row) => sum + row.ytd, 0))

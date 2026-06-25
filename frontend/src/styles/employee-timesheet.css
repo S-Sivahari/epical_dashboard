@@ -774,8 +774,10 @@
 
 .emp-timesheet-break-active-time {
   margin: 0.125rem 0 0;
-  font-size: 0.6875rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
   color: #b45309;
 }
 

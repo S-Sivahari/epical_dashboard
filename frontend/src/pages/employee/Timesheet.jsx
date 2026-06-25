@@ -653,11 +653,6 @@ export default function Timesheet() {
                       <p className="emp-timesheet-break-active-time">
                         {formatBreakCountdown(activeBreakRemainingMs)} remaining
                       </p>
-                      {!canEndBreak ? (
-                        <p className="emp-timesheet-break-active-min text-xs text-muted-foreground mt-0.5">
-                          Return to work in {formatBreakCountdown(activeBreakMinRemainingMs)}
-                        </p>
-                      ) : null}
                     </div>
                     <Button
                       type="button"

@@ -4,6 +4,7 @@ import { format, parseISO, subDays } from 'date-fns'
 import { Copy, NotebookPen, Plus } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
+import { Modal } from '@components/ui/Modal'
 import { DailyNotesEmailModal } from '@components/notes/DailyNotesEmailModal'
 import { DailyNotesNotepad } from '@components/notes/DailyNotesNotepad'
 import { NotesDashboardToolbar } from '@components/notes/NotesDashboardToolbar'
@@ -14,6 +15,7 @@ import { isProjectAnalysisAdminPath } from '@pages/admin/Projects/projectPortal'
 import { NotesDelegationPanel } from '@components/notes/NotesDelegationPanel'
 import {
   createChildBlock,
+  deleteChildBlock,
   deleteDailyBlock,
   getDailyBlockByDate,
   getOrCreateDailyBlock,
@@ -83,6 +85,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   const normalizedBlockSignatures = useRef<Set<string>>(new Set())
   const [delegatedDateKeys, setDelegatedDateKeys] = useState<ReadonlySet<string>>(new Set())
   const [autoOpenAddNoteFor, setAutoOpenAddNoteFor] = useState<string | null>(null)
+  const [copyYesterdayConfirmOpen, setCopyYesterdayConfirmOpen] = useState(false)
 
   const isEmployeeView = variant === 'employee'
   const inProjectManagement =
@@ -383,13 +386,35 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
     isCurrentWeek &&
     (!isEmployeeView || delegatedDateKeys.has(todayDateKey))
 
-  const handleCopyYesterdayNotes = async () => {
+  const todayHasNotes = useMemo(() => {
+    const block = blocksByDate[todayDateKey]
+    return (block?.childBlocks.filter((child) => !child.archived).length ?? 0) > 0
+  }, [blocksByDate, todayDateKey])
+
+  const executeCopyYesterdayNotes = async () => {
     if (!isCurrentWeek || isFutureNotesDay(todayDateKey)) return
     setBusy(true)
     try {
       const yesterdayKey = toDateKey(subDays(new Date(), 1))
-      const yesterdayBlock =
-        blocksByDate[yesterdayKey] ?? (await getDailyBlockByDate(yesterdayKey).catch(() => null))
+      let yesterdayBlock = blocksByDate[yesterdayKey] ?? null
+      if (!yesterdayBlock) {
+        try {
+          yesterdayBlock = await getDailyBlockByDate(yesterdayKey)
+        } catch (err: unknown) {
+          const axiosErr = err as { response?: { status?: number; data?: { error?: string } } }
+          if (axiosErr.response?.status === 404) {
+            setNotice({
+              kind: 'error',
+              title: 'Nothing to copy',
+              details: ['Yesterday has no notes to copy.'],
+            })
+            return
+          }
+          const message = axiosErr.response?.data?.error || 'Could not load yesterday\'s notes'
+          setNotice({ kind: 'error', title: 'Copy failed', details: [message] })
+          return
+        }
+      }
       if (!yesterdayBlock) {
         setNotice({
           kind: 'error',
@@ -412,6 +437,11 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
       }
 
       let todayBlock = blocksByDate[todayDateKey] ?? (await getOrCreateDailyBlock(todayDateKey))
+      const existingEntries = todayBlock.childBlocks.filter((child) => !child.archived)
+      for (const entry of existingEntries) {
+        todayBlock = await deleteChildBlock(todayBlock._id, entry._id)
+      }
+
       for (const entry of sourceEntries) {
         todayBlock = await createChildBlock(todayBlock._id, {
           title: entry.title,
@@ -428,7 +458,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
       setNotice({
         kind: 'success',
         title: 'Notes copied',
-        details: [`Copied ${sourceEntries.length} note(s) from yesterday. Review and edit before sending.`],
+        details: [`Replaced today's notes with ${sourceEntries.length} note(s) from yesterday. Review and edit before sending.`],
       })
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string } } }
@@ -437,6 +467,15 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
     } finally {
       setBusy(false)
     }
+  }
+
+  const handleCopyYesterdayNotes = () => {
+    if (!isCurrentWeek || isFutureNotesDay(todayDateKey)) return
+    if (todayHasNotes) {
+      setCopyYesterdayConfirmOpen(true)
+      return
+    }
+    void executeCopyYesterdayNotes()
   }
 
   const handleDeleteBlock = useCallback(async (dateKey: string, blockId: string) => {
@@ -483,7 +522,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
                   variant="secondary"
                   icon={<Copy className="h-4 w-4" />}
                   disabled={busy || !isCurrentWeek}
-                  onClick={() => void handleCopyYesterdayNotes()}
+                  onClick={handleCopyYesterdayNotes}
                 >
                   Copy yesterday
                 </Button>
@@ -520,7 +559,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
                       variant="secondary"
                       icon={<Copy className="h-4 w-4" />}
                       disabled={busy || !isCurrentWeek}
-                      onClick={() => void handleCopyYesterdayNotes()}
+                      onClick={handleCopyYesterdayNotes}
                     >
                       Copy yesterday
                     </Button>
@@ -633,7 +672,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
                         }}
                         onCopyYesterday={
                           selectedDay.dateKey === todayDateKey && isCurrentWeek
-                            ? () => void handleCopyYesterdayNotes()
+                            ? handleCopyYesterdayNotes
                             : undefined
                         }
                       />
@@ -676,6 +715,38 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
           }}
         />
       ) : null}
+
+      <Modal
+        isOpen={copyYesterdayConfirmOpen}
+        onClose={() => {
+          if (!busy) setCopyYesterdayConfirmOpen(false)
+        }}
+        title="Replace today's notes?"
+        size="md"
+      >
+        <p className="mb-4 text-sm leading-relaxed text-slate-600">
+          Today already has notes. Copying from yesterday will{' '}
+          <strong>replace all of today&apos;s notes</strong> with yesterday&apos;s entries. You can
+          edit them before sending.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" disabled={busy} onClick={() => setCopyYesterdayConfirmOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            disabled={busy}
+            loading={busy}
+            onClick={() => {
+              setCopyYesterdayConfirmOpen(false)
+              void executeCopyYesterdayNotes()
+            }}
+          >
+            Replace with yesterday
+          </Button>
+        </div>
+      </Modal>
     </PageWrapper>
   )
 }
