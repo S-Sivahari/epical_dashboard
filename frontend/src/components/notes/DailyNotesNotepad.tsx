@@ -46,6 +46,8 @@ type Props = {
   onBlockChange: (block: DailyNoteBlock) => void
   onSendEmail: (block: DailyNoteBlock) => void
   onDelete?: () => void
+  autoOpenAddNote?: boolean
+  onAutoOpenAddNoteHandled?: () => void
   onError: (message: string) => void
 }
 
@@ -63,6 +65,8 @@ export function DailyNotesNotepad({
   onBlockChange,
   onSendEmail,
   onDelete,
+  autoOpenAddNote = false,
+  onAutoOpenAddNoteHandled,
   onError,
 }: Props) {
   const title = useMemo(() => formatDailyBlockTitle(date), [date])
@@ -109,6 +113,12 @@ export function DailyNotesNotepad({
       setAddNoteOpen(false)
     }
   }, [canEditNotes])
+
+  useEffect(() => {
+    if (!autoOpenAddNote || !canEditNotes || !hasBlock) return
+    setAddNoteOpen(true)
+    onAutoOpenAddNoteHandled?.()
+  }, [autoOpenAddNote, canEditNotes, hasBlock, onAutoOpenAddNoteHandled])
 
   return (
     <>
@@ -175,7 +185,7 @@ export function DailyNotesNotepad({
 
       {expanded ? (
         <div id={`notes-day-panel-${dateKey}`} className="notes-day-card__panel">
-          {(!hasBlock || !hasNotes) && !isEditing ? (
+          {!hasBlock && !isEditing ? (
             <p className="notes-notepad-pad__no-block">No notes added for today.</p>
           ) : (
             <div className={cn('notes-notepad-pad', isPanelLayout && 'notes-notepad-pad--with-footer')}>

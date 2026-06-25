@@ -79,6 +79,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   const [normalizingBlocks, setNormalizingBlocks] = useState(false)
   const normalizedBlockSignatures = useRef<Set<string>>(new Set())
   const [delegatedDateKeys, setDelegatedDateKeys] = useState<ReadonlySet<string>>(new Set())
+  const [autoOpenAddNoteFor, setAutoOpenAddNoteFor] = useState<string | null>(null)
 
   const isEmployeeView = variant === 'employee'
   const inProjectManagement = !isEmployeeView && isProjectAnalysisAdminPath(pathname)
@@ -297,6 +298,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
       setBlocksByDate((prev) => ({ ...prev, [todayDateKey]: block }))
       setSelectedDateKey(todayDateKey)
       setHighlightDateKey(todayDateKey)
+      setAutoOpenAddNoteFor(todayDateKey)
       setNotice({
         kind: 'success',
         title: "Today's notepad ready",
@@ -500,6 +502,12 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
                         }
                         onError={(message) => {
                           setNotice({ kind: 'error', title: 'Could not save note', details: [message] })
+                        }}
+                        autoOpenAddNote={autoOpenAddNoteFor === selectedDay.dateKey}
+                        onAutoOpenAddNoteHandled={() => {
+                          if (autoOpenAddNoteFor === selectedDay.dateKey) {
+                            setAutoOpenAddNoteFor(null)
+                          }
                         }}
                       />
                     ) : (
