@@ -498,7 +498,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
   }
 
   const closePreview = () => {
-    if (previewUrl) window.URL.revokeObjectURL(previewUrl)
+    if (previewUrl?.startsWith('blob:')) window.URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null)
     setPreviewName('')
   }
