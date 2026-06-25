@@ -1,11 +1,14 @@
+import { useEffect, useMemo, useState } from 'react'
 import type { ProjectCell } from '@/types/projectWorkspace'
 import { formatDateTime } from '@/utils/formatDate'
+import { formatWorkflowDurationFromMs } from '@/utils/durationFormat'
 import { buildCellCompletionTimeSummary } from '@/utils/cellCompletionTimeSummary'
 
 type CellCompletionTimeSummaryProps = {
   cell: ProjectCell
   className?: string
   variant?: 'inline' | 'modal'
+  fetchedAt?: number
 }
 
 function formatHours(value: number) {
@@ -17,11 +20,41 @@ export function CellCompletionTimeSummary({
   cell,
   className,
   variant = 'inline',
+  fetchedAt,
 }: CellCompletionTimeSummaryProps) {
-  if (cell.status !== 'completed') return null
+  const hasTimingData = Boolean(
+    cell.workflowTiming
+      || cell.productiveWorkDuration
+      || cell.workflowDuration
+      || cell.status === 'completed'
+      || cell.status === 'in_progress',
+  )
+
+  if (!hasTimingData) return null
 
   const summary = buildCellCompletionTimeSummary(cell)
   const isModal = variant === 'modal'
+  const isCompleted = cell.status === 'completed'
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (!summary.stageBreakdown.some((stage) => stage.isActive)) return undefined
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [summary.stageBreakdown])
+
+  const stageRows = useMemo(() => {
+    const anchor = fetchedAt ?? Date.now()
+    return summary.stageBreakdown.map((stage) => {
+      if (!stage.isActive) return stage
+      const liveMs = stage.totalMs + Math.max(0, now - anchor)
+      return {
+        ...stage,
+        totalMs: liveMs,
+        formatted: formatWorkflowDurationFromMs(liveMs),
+      }
+    })
+  }, [summary.stageBreakdown, fetchedAt, now])
 
   return (
     <section
@@ -31,12 +64,11 @@ export function CellCompletionTimeSummary({
             ? 'admin-projects-cell-completion-time admin-projects-cell-completion-time--modal'
             : 'admin-projects-cell-completion-time')
       }
-      aria-label="Cell completion time summary"
+      aria-label="Cell time calculation summary"
     >
       {!isModal ? (
         <div className="admin-projects-cell-completion-time-head">
           <h2>Time Summary</h2>
-          <p>Productive time, holds, and completion timestamps for this cell.</p>
         </div>
       ) : null}
 
@@ -53,12 +85,16 @@ export function CellCompletionTimeSummary({
         </div>
 
         <div className="admin-projects-cell-completion-time-item">
-          <span className="admin-projects-cell-completion-time-label">Completed</span>
+          <span className="admin-projects-cell-completion-time-label">
+            {isCompleted ? 'Completed' : 'Status'}
+          </span>
           <strong>
             {summary.completedAt ? (
               <time dateTime={summary.completedAt}>{formatDateTime(summary.completedAt)}</time>
-            ) : (
+            ) : isCompleted ? (
               '—'
+            ) : (
+              'In progress'
             )}
           </strong>
         </div>
@@ -83,6 +119,33 @@ export function CellCompletionTimeSummary({
           <strong>{summary.holdPeriods.length > 0 ? summary.totalHoldFormatted : '—'}</strong>
         </div>
       </div>
+
+      {stageRows.length > 0 ? (
+        <div className="admin-projects-cell-completion-stages">
+          <h3>Calculation Breakdown</h3>
+          <p className="admin-projects-cell-completion-stages-note">
+            Productive time by workflow stage (excludes hold periods).
+          </p>
+          <ul className="admin-projects-cell-completion-stages-list">
+            {stageRows.map((stage) => (
+              <li
+                key={stage.stageKey}
+                className={`admin-projects-cell-completion-stages-item${stage.isActive ? ' is-active' : ''}`}
+              >
+                <span className="admin-projects-cell-completion-stages-label">{stage.label}</span>
+                <strong>{stage.formatted}</strong>
+                {stage.isActive ? (
+                  <span className="admin-projects-cell-completion-stages-badge">Live</span>
+                ) : null}
+              </li>
+            ))}
+            <li className="admin-projects-cell-completion-stages-item is-total">
+              <span className="admin-projects-cell-completion-stages-label">Total productive</span>
+              <strong>{summary.productiveFormatted}</strong>
+            </li>
+          </ul>
+        </div>
+      ) : null}
 
       {summary.holdPeriods.length > 0 ? (
         <div className="admin-projects-cell-completion-holds">

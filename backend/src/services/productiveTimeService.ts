@@ -35,6 +35,21 @@ export function isCellWaitingForReview(workflow: CellWorkflowStage[]): boolean {
   return workflow.some((stage) => stage.status === 'pending_review');
 }
 
+export type ProductiveTimeCellContext = {
+  status?: string;
+  onHold?: boolean;
+  assignedEmployeeId?: string;
+  workflow?: CellWorkflowStage[];
+  viewWorkflow?: unknown;
+};
+
+/** True when the cell is waiting in a review / rejection queue. */
+export function isCellInReviewQueue(cell: Pick<ProductiveTimeCellContext, 'workflow'>): boolean {
+  const workflow = normalizeCellWorkflow(cell.workflow ?? []);
+  if (isCellWaitingForReview(workflow)) return true;
+  return workflow.some((stage) => stage.status === 'rejected');
+}
+
 async function getAssigneeIdentityTokens(assignedEmployeeId?: string | null): Promise<string[]> {
   const id = String(assignedEmployeeId ?? '').trim();
   if (!id) return [];
@@ -98,54 +113,44 @@ export async function isEmployeeCheckedInToProject(
 }
 
 export async function canAccumulateProductiveTime(
-  cell: {
-    status?: string;
-    onHold?: boolean;
-    assignedEmployeeId?: string;
-    workflow?: CellWorkflowStage[];
-  },
-  _projectId: string,
+  cell: ProductiveTimeCellContext,
+  projectId: string,
 ): Promise<boolean> {
   if (cell.status !== 'in_progress') return false;
   if (cell.onHold) return false;
 
   const workflow = normalizeCellWorkflow(cell.workflow ?? []);
   if (!getActiveWorkStage(workflow)) return false;
-  if (isCellWaitingForReview(workflow)) return false;
+  if (isCellInReviewQueue(cell)) return false;
 
   const tokens = await getAssigneeIdentityTokens(cell.assignedEmployeeId);
   if (!tokens.length) return false;
 
-  // Productive time runs whenever the employee is checked in to the office —
-  // no separate project-level check-in (timesheet task) is required.
-  return isEmployeeAttendanceActive(tokens);
+  // Golden rule: assignee must be checked in to this project AND cell must be in progress.
+  return isEmployeeCheckedInToProject(tokens, projectId);
 }
 
 /** Map cell + check-in state to why productive time is stopped (for session close). */
 export function resolveProductiveTimeStopReason(
-  cell: {
-    status?: string;
-    onHold?: boolean;
-    workflow?: CellWorkflowStage[];
-  },
-  checkedIn: boolean,
+  cell: ProductiveTimeCellContext,
+  checkedInToProject: boolean,
 ): WorkSessionReason {
   if (cell.onHold) return WORK_SESSION_REASONS.HOLD;
   if (cell.status === 'completed' || cell.status === 'ready') return WORK_SESSION_REASONS.INACTIVE;
 
   const workflow = normalizeCellWorkflow(cell.workflow ?? []);
-  if (isCellWaitingForReview(workflow)) return WORK_SESSION_REASONS.PENDING_REVIEW;
-  if (workflow.some((stage) => stage.status === 'rejected')) {
-    return WORK_SESSION_REASONS.REJECTED_WAITING;
-  }
-  if (cell.status !== 'in_progress') return WORK_SESSION_REASONS.INACTIVE;
-  if (!getActiveWorkStage(workflow)) {
+  if (isCellInReviewQueue(cell)) {
+    if (workflow.some((stage) => stage.status === 'rejected')) {
+      return WORK_SESSION_REASONS.REJECTED_WAITING;
+    }
     if (workflow.some((stage) => stage.status === 'approved')) {
       return WORK_SESSION_REASONS.PENDING_APPROVAL;
     }
-    return WORK_SESSION_REASONS.INACTIVE;
+    return WORK_SESSION_REASONS.PENDING_REVIEW;
   }
-  if (!checkedIn) return WORK_SESSION_REASONS.PROJECT_CHECKED_OUT;
+  if (cell.status !== 'in_progress') return WORK_SESSION_REASONS.INACTIVE;
+  if (!getActiveWorkStage(workflow)) return WORK_SESSION_REASONS.INACTIVE;
+  if (!checkedInToProject) return WORK_SESSION_REASONS.PROJECT_CHECKED_OUT;
   return WORK_SESSION_REASONS.INACTIVE;
 }
 
@@ -185,17 +190,13 @@ async function closeOpenWorkingLogs(
   );
 }
 
-export function shouldMaintainStageSession(cell: {
-  status?: string;
-  onHold?: boolean;
-  workflow?: CellWorkflowStage[];
-}): boolean {
+export function shouldMaintainStageSession(cell: ProductiveTimeCellContext): boolean {
   if (cell.status !== 'in_progress') return false;
   if (cell.onHold) return false;
 
   const workflow = normalizeCellWorkflow(cell.workflow ?? []);
   if (!getActiveWorkStage(workflow)) return false;
-  if (isCellWaitingForReview(workflow)) return false;
+  if (isCellInReviewQueue(cell)) return false;
   return true;
 }
 
@@ -341,12 +342,7 @@ async function openWorkingLog(
 export async function syncProductiveSessionsForCell(
   projectId: string,
   cellId: string,
-  cell: {
-    status?: string;
-    onHold?: boolean;
-    assignedEmployeeId?: string;
-    workflow?: CellWorkflowStage[];
-  },
+  cell: ProductiveTimeCellContext,
   actor?: WorkflowActor,
   at = new Date(),
 ): Promise<void> {
@@ -524,38 +520,13 @@ export async function closeProductiveSessionsForEmployee(
   );
 }
 
-/** Called on office check-in. Resumes productive time for all in-progress cells assigned to this employee. */
+/** Office check-in alone does not start cell time — project task check-in is required. */
 export async function resumeProductiveSessionsOnEmployeeCheckIn(
-  identityTokens: string[],
-  actor?: WorkflowActor,
-  at = new Date(),
+  _identityTokens: string[],
+  _actor?: WorkflowActor,
+  _at = new Date(),
 ): Promise<void> {
-  if (!identityTokens.length) return;
-
-  // Scan all in-progress, non-held cells to find those assigned to this employee.
-  const cells = await ProjectCellModel.find({
-    status: 'in_progress',
-    onHold: { $ne: true },
-  }).lean();
-
-  const matched: typeof cells = [];
-  for (const cell of cells) {
-    if (await isAssignedToIdentityTokens(cell.assignedEmployeeId, identityTokens)) {
-      matched.push(cell);
-    }
-  }
-
-  await Promise.all(
-    matched.map((cell) =>
-      syncProductiveSessionsForCell(
-        cell.projectId.toString(),
-        cell._id.toString(),
-        cell,
-        actor,
-        at,
-      ),
-    ),
-  );
+  // Intentionally no-op: cell productive time resumes on project task start/resume only.
 }
 
 export async function syncProductiveSessionsFromWorkflowChange(
@@ -563,12 +534,7 @@ export async function syncProductiveSessionsFromWorkflowChange(
   cellId: string,
   prevWorkflow: CellWorkflowStage[],
   nextWorkflow: CellWorkflowStage[],
-  cell: {
-    status?: string;
-    onHold?: boolean;
-    assignedEmployeeId?: string;
-    workflow?: CellWorkflowStage[];
-  },
+  cell: ProductiveTimeCellContext,
   actor?: WorkflowActor,
   at = new Date(),
 ): Promise<void> {
@@ -586,10 +552,6 @@ export async function syncProductiveSessionsFromWorkflowChange(
   }
 
   await syncProductiveSessionsForCell(projectId, cellId, { ...cell, workflow: nextWorkflow }, actor, at);
-}
-
-export function filterCountableLogs<T extends { reason?: string | null }>(logs: T[]): T[] {
-  return logs.filter((log) => isCountableWorkSession(log.reason));
 }
 
 export { WORK_SESSION_REASONS };

@@ -479,6 +479,7 @@ async function toEmployeeCellWithTiming(
       onHold: Boolean(doc.onHold),
       assignedEmployeeId: doc.assignedEmployeeId,
       workflow,
+      viewWorkflow: doc.viewWorkflow,
       activityLog: doc.activityLog ?? [],
     },
   );
@@ -789,6 +790,7 @@ export const employeeProjectController = {
           status: cell.status,
           onHold: cell.onHold,
           assignedEmployeeId: cell.assignedEmployeeId,
+          viewWorkflow: cell.viewWorkflow,
         },
       );
       cell.activityLog.push({
@@ -874,6 +876,7 @@ export const employeeProjectController = {
           status: cell.status,
           onHold: cell.onHold,
           assignedEmployeeId: cell.assignedEmployeeId,
+          viewWorkflow: cell.viewWorkflow,
         },
       );
       cell.activityLog.push({
@@ -1055,6 +1058,7 @@ export const employeeProjectController = {
           status: cell.status,
           onHold: cell.onHold,
           assignedEmployeeId: cell.assignedEmployeeId,
+          viewWorkflow: cell.viewWorkflow,
         },
       );
 
@@ -1883,6 +1887,7 @@ export const employeeProjectController = {
           status: cell.status,
           onHold: cell.onHold,
           assignedEmployeeId: cell.assignedEmployeeId,
+          viewWorkflow: cell.viewWorkflow,
         },
       );
       review.status = 'resolved';
@@ -1915,6 +1920,19 @@ export const employeeProjectController = {
       }
 
       await Promise.all([cell.save(), review.save()]);
+
+      await syncProductiveSessionsForCell(
+        projectId,
+        cellId,
+        {
+          status: cell.status,
+          onHold: cell.onHold,
+          assignedEmployeeId: cell.assignedEmployeeId,
+          workflow: normalizeCellWorkflow(cell.workflow ?? []),
+          viewWorkflow: cell.viewWorkflow,
+        },
+        actor,
+      );
 
       void sendReviewNotificationsFromCell({
         projectId,

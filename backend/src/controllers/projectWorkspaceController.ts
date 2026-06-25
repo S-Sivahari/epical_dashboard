@@ -63,6 +63,7 @@ import {
 } from '../services/productiveTimeService';
 import {
   buildWorkflowDurationMap,
+  buildWorkflowTimingMap,
   ensureWorkLogsInitialized,
   getCellWorkflowDuration,
   getCellWorkflowTiming,
@@ -211,6 +212,7 @@ async function toCellWithDuration(
     onHold: Boolean(doc.onHold),
     assignedEmployeeId: doc.assignedEmployeeId,
     workflow,
+    viewWorkflow: doc.viewWorkflow,
     activityLog: doc.activityLog ?? [],
   };
   const [duration, timing] = await Promise.all([
@@ -227,6 +229,7 @@ function cellProductiveTimePayload(doc: any) {
     onHold: Boolean(doc.onHold),
     assignedEmployeeId: doc.assignedEmployeeId,
     workflow,
+    viewWorkflow: doc.viewWorkflow,
   };
 }
 
@@ -320,12 +323,21 @@ export const projectWorkspaceController = {
           ),
         ),
       );
-      const durationMap = await buildWorkflowDurationMap(projectId, cells);
+      const [durationMap, timingMap] = await Promise.all([
+        buildWorkflowDurationMap(projectId, cells),
+        buildWorkflowTimingMap(projectId, cells),
+      ]);
       const cellsWithMeta = await enrichAssigneeNames(
         await Promise.all(
           cells.map(async (cell) => {
             const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-            return toCell(cell, meta, durationMap.get(cell._id.toString()));
+            const cellId = cell._id.toString();
+            return toCell(
+              cell,
+              meta,
+              durationMap.get(cellId),
+              timingMap.get(cellId),
+            );
           }),
         ),
       );
@@ -1117,6 +1129,7 @@ export const projectWorkspaceController = {
           status: cell.status,
           onHold: cell.onHold,
           assignedEmployeeId: cell.assignedEmployeeId,
+          viewWorkflow: cell.viewWorkflow,
         },
       );
       review.status = 'resolved';
@@ -1150,6 +1163,8 @@ export const projectWorkspaceController = {
 
       await Promise.all([cell.save(), review.save()]);
 
+      await reconcileCellProductiveTime(projectId, cellId, cell, actor);
+
       void sendReviewNotificationsFromCell({
         projectId,
         cellId,
@@ -1164,7 +1179,7 @@ export const projectWorkspaceController = {
         console.error('[workspace] review resolve notification failed:', notifyErr);
       });
 
-      res.json({ cell: toCell(cell), review: toReview(review) });
+      res.json({ cell: await toCellWithDuration(cell, await computeDependencyMeta(new Types.ObjectId(projectId), cell)), review: toReview(review) });
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to resolve review' });
     }
@@ -1213,6 +1228,10 @@ export const projectWorkspaceController = {
       } else if (cell.status === 'in_progress') {
         cell.status = 'ready';
       }
+
+      cell.workflow = nextWorkflow;
+      applyCellWorkflowSync(cell, 'workflow');
+
       await syncWorkLogsFromWorkflowChange(
         projectId,
         cellId,
@@ -1223,11 +1242,10 @@ export const projectWorkspaceController = {
           status: cell.status,
           onHold: cell.onHold,
           assignedEmployeeId: cell.assignedEmployeeId,
+          viewWorkflow: cell.viewWorkflow,
         },
       );
 
-      cell.workflow = nextWorkflow;
-      applyCellWorkflowSync(cell, 'workflow');
       cell.activityLog.push({
         action: 'workflow_update',
         detail: `${stageMeta?.label || stageKey}: ${prevStatus} → ${nextStatus}`,
@@ -1237,6 +1255,8 @@ export const projectWorkspaceController = {
       });
 
       await cell.save();
+
+      await reconcileCellProductiveTime(projectId, cellId, cell, actor);
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
       res.json(await toCellWithDuration(cell, meta));

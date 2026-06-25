@@ -4,6 +4,7 @@ import { TimesheetModel } from '../models/Timesheet';
 import {
   buildAssignedProjectsFilter,
   buildAssignmentIdentityTokens,
+  buildCheckInEligibleProjectsFilter,
   ensureAssignedTasksForEmployee,
 } from './assignedTaskSync';
 
@@ -57,21 +58,8 @@ type AuthUser = { id: string; name: string; email?: string };
 
 /** Projects an employee can open in the layout workspace (broader than timesheet allotment). */
 export async function buildEmployeeWorkspaceProjectsFilter(identityTokens: string[]) {
-  const cellProjectIds = await ProjectCellModel.distinct('projectId', {
-    assignedEmployeeId: { $in: identityTokens },
-  });
-
-  const or: Record<string, unknown>[] = [
-    { accessType: 'public' },
-    { allowedUsers: { $in: identityTokens } },
-    { teamLead: { $in: identityTokens } },
-  ];
-
-  if (cellProjectIds.length > 0) {
-    or.push({ _id: { $in: cellProjectIds } });
-  }
-
-  return { status: 'Active', $or: or };
+  const filter = await buildCheckInEligibleProjectsFilter(identityTokens);
+  return { status: 'Active', ...filter };
 }
 
 export async function getAssignedProjectsForUser(

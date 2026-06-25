@@ -195,7 +195,8 @@ function collectComponentAmounts(
   }
 
   const lopDays = parseFloat(String(emp['LOP Days'] ?? 0)) || 0
-  const lopAmt = parseFloat(String(emp['Loss of Pay'] ?? 0)) || 0
+  const lopAmt =
+    parseFloat(String(emp['Loss of Pay'] ?? emp['LOP Deduction'] ?? 0)) || 0
   if (lopAmt > 0 || lopDays > 0) {
     map['Loss of Pay'] = round2(lopAmt)
   }

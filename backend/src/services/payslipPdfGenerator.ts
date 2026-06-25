@@ -34,7 +34,7 @@ const PAGE = {
 const LAYOUT = {
   netPayH: 68,
   netPayGapAfterTable: 8,
-  footerGap: 0,
+  footerGap: 20,
   footerBlockH: 44,
   tableHeaderH: 20,
   tableEmptyRowsAfter: 2,
@@ -282,7 +282,7 @@ function registerPayslipFonts(doc: InstanceType<typeof PDFDocument>): FontSet {
 }
 
 function bottomReservedHeight(): number {
-  return LAYOUT.netPayH + LAYOUT.netPayGapAfterTable + footerBlockHeight() + 4;
+  return LAYOUT.netPayH + LAYOUT.netPayGapAfterTable + footerBlockHeight() + LAYOUT.footerGap + 4;
 }
 
 /** Y below which salary table rows must not draw (net pay band + footer). */
@@ -446,7 +446,7 @@ function drawCompanyFooter(
   });
 
   const h = footerBlockHeight(metaLines.length, true);
-  const top = PAGE.bottom - h;
+  const top = PAGE.bottom - h - LAYOUT.footerGap;
 
   doc.fillColor(FOOTER.bg);
   doc.rect(PAGE.left, top, PAGE.width, h).fill();

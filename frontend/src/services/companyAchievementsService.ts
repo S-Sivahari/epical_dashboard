@@ -65,12 +65,15 @@ export async function fetchAchievementImageBlob(
   revision?: string | null
 ): Promise<Blob | null> {
   try {
-    const { data, status } = await api.get<Blob>(`/company-achievements/${id}/image`, {
+    const { data, status, headers } = await api.get<Blob>(`/company-achievements/${id}/image`, {
       responseType: 'blob',
       params: revision ? { v: revision } : undefined,
     })
     if (status !== 200) return null
-    return data
+    const contentType = headers['content-type'] || ''
+    if (contentType.includes('application/json')) return null
+    if (data instanceof Blob && data.size > 0) return data
+    return null
   } catch {
     return null
   }
@@ -78,7 +81,6 @@ export async function fetchAchievementImageBlob(
 
 export async function createCompanyAchievement(formData: FormData): Promise<CompanyAchievementRow> {
   const { data } = await api.post<CompanyAchievementRow>('/company-achievements', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 60000,
   })
   return data
@@ -92,7 +94,6 @@ export async function updateCompanyAchievement(
     `/company-achievements/${id}`,
     formData,
     {
-      headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 60000,
     }
   )

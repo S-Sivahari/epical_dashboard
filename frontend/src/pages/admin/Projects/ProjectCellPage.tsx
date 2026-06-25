@@ -484,7 +484,11 @@ export function ProjectCellPage() {
                 onHold={Boolean(cell.onHold)}
                 holdEnabled={canEditCells && cell.status === 'in_progress'}
                 onHoldToggle={canEditCells ? (hold) => void handleHoldToggle(hold) : undefined}
-                onSummaryClick={cell.status === 'completed' ? () => setTimeSummaryOpen(true) : undefined}
+                onSummaryClick={
+                  cell.status === 'completed' || cell.status === 'in_progress'
+                    ? () => setTimeSummaryOpen(true)
+                    : undefined
+                }
               />
               </div>
             </div>
@@ -494,6 +498,7 @@ export function ProjectCellPage() {
             cell={cell}
             isOpen={timeSummaryOpen}
             onClose={() => setTimeSummaryOpen(false)}
+            fetchedAt={durationFetchedAt}
           />
 
           <CellDescriptionModal

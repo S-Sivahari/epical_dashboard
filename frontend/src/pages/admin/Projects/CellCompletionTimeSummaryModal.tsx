@@ -11,14 +11,17 @@ type CellCompletionTimeSummaryModalProps = {
   cell: ProjectCell
   isOpen: boolean
   onClose: () => void
+  fetchedAt?: number
 }
 
 export function CellCompletionTimeSummaryModal({
   cell,
   isOpen,
   onClose,
+  fetchedAt,
 }: CellCompletionTimeSummaryModalProps) {
-  if (cell.status !== 'completed') return null
+  const canShowSummary = cell.status === 'completed' || cell.status === 'in_progress'
+  if (!canShowSummary) return null
 
   return (
     <Dialog.Root
@@ -52,7 +55,7 @@ export function CellCompletionTimeSummaryModal({
           </header>
 
           <div className="admin-projects-cell-completion-time-modal-body">
-            <CellCompletionTimeSummary cell={cell} variant="modal" />
+            <CellCompletionTimeSummary cell={cell} variant="modal" fetchedAt={fetchedAt} />
           </div>
         </Dialog.Content>
       </Dialog.Portal>
