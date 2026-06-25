@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
+import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { Button } from '@components/ui/Button'
 import { Input } from '@components/ui/Input'
 import { cn } from '@/utils/cn'
@@ -16,6 +17,7 @@ import {
   isStageLocked,
   isWorkStageKey,
   normalizeCellWorkflow,
+  workStageResetNeedsConfirmation,
   workStageSelectValue,
   workflowProgressPercent,
   workflowStageStatusClass,
@@ -37,6 +39,7 @@ type CellWorkflowPanelProps = {
   onReviewCommentChange?: (value: string) => void
   onRequestReview?: () => void | Promise<void>
   onPostReviewReply?: (reviewId: string, body: string) => void | Promise<void>
+  timingFetchedAt?: number
 }
 
 const REVIEW_ACTION_OPTIONS: { value: 'approved' | 'rejected'; label: string }[] = [
@@ -117,9 +120,14 @@ export function CellWorkflowPanel({
   onReviewCommentChange,
   onRequestReview,
   onPostReviewReply,
+  timingFetchedAt,
 }: CellWorkflowPanelProps) {
   const [savingStage, setSavingStage] = useState<CellWorkflowStageKey | null>(null)
   const [review2RejectOpen, setReview2RejectOpen] = useState(false)
+  const [resetConfirm, setResetConfirm] = useState<{
+    stageKey: CellWorkflowStageKey
+    status: WorkflowStageStatus
+  } | null>(null)
   const authRole = useAuthStore((s) => s.role)
   const authUser = useAuthStore((s) => s.user)
   const isAdmin = authRole === 'admin' || authUser?.role === 'Admin'
@@ -227,6 +235,12 @@ export function CellWorkflowPanel({
     }
 
     if (value === currentStatus && !cell.onHold) return
+
+    if (workStageResetNeedsConfirmation(workflow, stageKey, currentStatus, value as WorkflowStageStatus)) {
+      setResetConfirm({ stageKey, status: value as WorkflowStageStatus })
+      return
+    }
+
     await handleStatusChange(stageKey, value as WorkflowStageStatus)
   }
 
@@ -315,6 +329,7 @@ export function CellWorkflowPanel({
                       timing={stageTiming}
                       status={stage.status}
                       compact
+                      fetchedAt={timingFetchedAt}
                     />
                   </div>
 
@@ -480,6 +495,20 @@ export function CellWorkflowPanel({
           )}
         </div>
       )}
+      <ConfirmModal
+        isOpen={resetConfirm != null}
+        title="Reset stage progress?"
+        description="Current progress up to this stage will be lost, including any completed downstream stages. Do you want to continue?"
+        confirmLabel="Reset progress"
+        danger
+        onClose={() => setResetConfirm(null)}
+        onConfirm={async () => {
+          if (!resetConfirm) return
+          const pending = resetConfirm
+          setResetConfirm(null)
+          await handleStatusChange(pending.stageKey, pending.status)
+        }}
+      />
     </div>
   )
 }

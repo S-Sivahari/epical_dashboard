@@ -3,6 +3,7 @@ import multer from 'multer'
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import { payslipController } from '../controllers/payslipController'
 import { authMiddleware, requireRole } from '../middleware/authMiddleware'
+import { createImageUpload } from '../utils/imageUploadFilter'
 
 export const payslipRoutes = Router()
 
@@ -24,25 +25,7 @@ const payslipResendEmailLimiter = rateLimit({
   },
 })
 
-const imageUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
-    const ext = file.originalname.toLowerCase()
-    if (
-      allowed.includes(file.mimetype) ||
-      ext.endsWith('.png') ||
-      ext.endsWith('.jpg') ||
-      ext.endsWith('.jpeg') ||
-      ext.endsWith('.webp')
-    ) {
-      cb(null, true)
-    } else {
-      cb(new Error('Invalid file type. Only PNG, JPG, or WebP images are allowed.'))
-    }
-  },
-})
+const imageUpload = createImageUpload({ maxFileSize: 2 * 1024 * 1024 })
 
 const excelUpload = multer({
   storage: multer.memoryStorage(),

@@ -1,5 +1,9 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
+import {
+  preventModalCloseOnTabSwitch,
+  preventModalCloseWhileHidden,
+} from '@/utils/modalDismissGuards'
 
 type CellDescriptionModalProps = {
   description: string
@@ -27,6 +31,9 @@ export function CellDescriptionModal({
         <Dialog.Content
           className="admin-projects-cell-description-modal"
           onOpenAutoFocus={(event) => event.preventDefault()}
+          onFocusOutside={preventModalCloseOnTabSwitch}
+          onInteractOutside={preventModalCloseWhileHidden}
+          onPointerDownOutside={preventModalCloseWhileHidden}
         >
           <header className="admin-projects-cell-description-modal-head">
             <div className="admin-projects-cell-description-modal-head-pattern" aria-hidden />

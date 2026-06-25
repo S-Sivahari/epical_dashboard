@@ -15,3 +15,15 @@ export function isCountableWorkSession(reason?: string | null): boolean {
   if (!reason || reason === WORK_SESSION_REASONS.WORKING) return true;
   return false;
 }
+
+/** Logs that contribute to productive-time totals (open working sessions + closed work with recorded time). */
+export function filterCountableLogs<T extends { reason?: string | null; checkOutTime?: Date | null; workedMs?: number }>(
+  logs: T[],
+): T[] {
+  return logs.filter((log) => {
+    if (log.checkOutTime != null) {
+      return (log.workedMs ?? 0) > 0 || isCountableWorkSession(log.reason);
+    }
+    return isCountableWorkSession(log.reason);
+  });
+}

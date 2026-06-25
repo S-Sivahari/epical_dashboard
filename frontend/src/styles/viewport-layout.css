@@ -1080,9 +1080,22 @@ body,
   justify-content: flex-end;
 }
 
+.metal-routing-pdk-list-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.metal-routing-pdk-list-row__action {
+  min-width: 2rem;
+  padding-left: 0.45rem;
+  padding-right: 0.45rem;
+}
+
 .metal-routing-pdk-list-row__view {
   flex: 0 0 auto;
-  margin-left: auto;
 }
 
 .metal-routing-pdk-list {

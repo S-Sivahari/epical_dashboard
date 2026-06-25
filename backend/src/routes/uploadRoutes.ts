@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { uploadController } from '../controllers/uploadController';
 import { authMiddleware } from '../middleware/authMiddleware';
+import { createImageUpload, imageUploadFileFilter } from '../utils/imageUploadFilter';
 
 const router = Router();
 
@@ -13,14 +14,15 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024, // 5MB max per file
   },
   fileFilter: (req: any, file: any, cb: any) => {
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only PDF, JPG, JPEG, and PNG are allowed.'));
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true)
+      return
     }
+    imageUploadFileFilter(req, file, cb)
   },
 });
+
+const photoUpload = createImageUpload({ maxFileSize: 2 * 1024 * 1024 });
 
 router.use(authMiddleware);
 
@@ -47,7 +49,7 @@ router.post(
 );
 
 // Upload profile photo for an employee
-router.post('/employees/:id/photo', upload.single('photo'), uploadController.uploadPhoto);
+router.post('/employees/:id/photo', photoUpload.single('photo'), uploadController.uploadPhoto);
 
 // List uploaded documents for an employee
 router.get('/employees/:id/documents', uploadController.listDocuments);

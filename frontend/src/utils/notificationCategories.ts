@@ -64,7 +64,6 @@ export function getNotificationTypesForPath(pathname: string): NotificationData[
   if (
     path.startsWith('/admin/projects') ||
     path.startsWith('/admin/project-management') ||
-    path.startsWith('/admin/project-mgmt') ||
     path.startsWith('/admin/project-analysis')
   ) {
     return ['CellReviewRequested', 'CellCreatedUnassigned']

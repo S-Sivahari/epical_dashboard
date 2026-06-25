@@ -2,20 +2,23 @@ import { useEffect, useState } from 'react'
 import { useAuthStore } from '@store/authStore'
 import * as employeeService from '@services/employeeService'
 import { getEmployeeAvatarUrl } from '@/utils/getAvatarUrl'
-import { buildEmployeeFullName } from '@/utils/employeeDisplayName'
+import { getEmployeeFirstName } from '@/utils/employeeDisplayName'
 
-/** Keep command-bar avatar and display name aligned with the canonical employee profile. */
-export function useMyEmployeeAvatar(): string | undefined {
+/** Command-bar avatar + stable first-name label from the employee profile. */
+export function useMyEmployeeAvatar(): { avatarUrl?: string; firstName: string } {
   const user = useAuthStore((s) => s.user)
-  const role = useAuthStore((s) => s.role)
   const patchUser = useAuthStore((s) => s.patchUser)
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(user?.avatarUrl)
+  const [firstName, setFirstName] = useState(() => getEmployeeFirstName(undefined, user?.name))
 
   useEffect(() => {
     if (!user?.id) {
       setAvatarUrl(undefined)
+      setFirstName('')
       return
     }
+
+    setFirstName(getEmployeeFirstName(undefined, user.name))
 
     let cancelled = false
     void (async () => {
@@ -24,25 +27,26 @@ export function useMyEmployeeAvatar(): string | undefined {
         if (cancelled) return
         const url = getEmployeeAvatarUrl(emp) ?? user.avatarUrl
         setAvatarUrl(url)
+        setFirstName(getEmployeeFirstName(emp, user.name))
 
-        const patch: { avatarUrl?: string; name?: string } = {}
+        const patch: { avatarUrl?: string } = {}
         if (url && url !== user.avatarUrl) patch.avatarUrl = url
-        // Only sync the employee full name when on the employee portal.
-        // Admins manage their own display name separately via the admin profile.
-        if (role === 'employee') {
-          const nextName = buildEmployeeFullName(emp)
-          if (nextName && nextName !== user.name) patch.name = nextName
-        }
         if (Object.keys(patch).length > 0) patchUser(patch)
       } catch {
-        if (!cancelled) setAvatarUrl(user.avatarUrl)
+        if (!cancelled) {
+          setAvatarUrl(user.avatarUrl)
+          setFirstName(getEmployeeFirstName(undefined, user.name))
+        }
       }
     })()
 
     return () => {
       cancelled = true
     }
-  }, [user?.id, user?.avatarUrl, user?.name, role, patchUser])
+  }, [user?.id, user?.name, user?.avatarUrl, patchUser])
 
-  return avatarUrl ?? user?.avatarUrl
+  return {
+    avatarUrl: avatarUrl ?? user?.avatarUrl,
+    firstName: firstName || getEmployeeFirstName(undefined, user?.name) || 'Employee',
+  }
 }

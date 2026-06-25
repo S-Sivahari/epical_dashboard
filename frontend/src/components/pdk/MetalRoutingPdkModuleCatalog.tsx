@@ -7,7 +7,9 @@ import {
   ChevronRight,
   Filter,
   Layers,
+  Pencil,
   Search,
+  Trash2,
 } from 'lucide-react'
 import {
   MetalRoutingCardGridSkeleton,
@@ -180,6 +182,8 @@ export function MetalRoutingPdkModuleCatalog({
   onSearchChange,
   onNodeFilterChange,
   onOpenModule,
+  onEditModule,
+  onDeleteModule,
   highlightedModuleId = null,
   onHighlightModule,
 }: {
@@ -190,6 +194,8 @@ export function MetalRoutingPdkModuleCatalog({
   onSearchChange: (value: string) => void
   onNodeFilterChange: (value: string) => void
   onOpenModule: (id: string) => void
+  onEditModule?: (id: string) => void
+  onDeleteModule?: (id: string) => void
   highlightedModuleId?: string | null
   onHighlightModule?: (id: string) => void
 }) {
@@ -290,6 +296,8 @@ export function MetalRoutingPdkModuleCatalog({
                   isHighlighted={highlightedModuleId === mod._id}
                   onHighlight={() => onHighlightModule?.(mod._id)}
                   onOpen={() => onOpenModule(mod._id)}
+                  onEdit={() => onEditModule?.(mod._id)}
+                  onDelete={() => onDeleteModule?.(mod._id)}
                 />
               ))}
             </div>
@@ -303,6 +311,8 @@ export function MetalRoutingPdkModuleCatalog({
                 isHighlighted={highlightedModuleId === mod._id}
                 onHighlight={() => onHighlightModule?.(mod._id)}
                 onOpen={() => onOpenModule(mod._id)}
+                onEdit={() => onEditModule?.(mod._id)}
+                onDelete={() => onDeleteModule?.(mod._id)}
               />
             ))}
           </div>
@@ -359,12 +369,16 @@ function PdkModuleTile({
   isHighlighted,
   onHighlight,
   onOpen,
+  onEdit,
+  onDelete,
   layout,
 }: {
   module: PdkModule
   isHighlighted?: boolean
   onHighlight?: () => void
   onOpen: () => void
+  onEdit?: () => void
+  onDelete?: () => void
   layout: 'list' | 'grid'
 }) {
   const seed = module._id || module.name
@@ -397,18 +411,50 @@ function PdkModuleTile({
       <p className="metal-routing-pdk-list-row__name metal-routing-pdk-list-row__name--inline">
         {module.name}
       </p>
-      <Button
-        type="button"
-        size="sm"
-        variant="secondary"
-        className="metal-routing-pdk-list-row__view shrink-0"
-        onClick={(e) => {
-          e.stopPropagation()
-          onOpen()
-        }}
-      >
-        View
-      </Button>
+      <div className="metal-routing-pdk-list-row__actions">
+        {onEdit ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="metal-routing-pdk-list-row__action shrink-0"
+            aria-label={`Edit ${module.name}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit()
+            }}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        ) : null}
+        {onDelete ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="metal-routing-pdk-list-row__action shrink-0 text-red-600 hover:text-red-700"
+            aria-label={`Delete ${module.name}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete()
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        ) : null}
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          className="metal-routing-pdk-list-row__view shrink-0"
+          onClick={(e) => {
+            e.stopPropagation()
+            onOpen()
+          }}
+        >
+          View
+        </Button>
+      </div>
     </>
   )
 
@@ -424,11 +470,15 @@ function PdkModuleCard({
   isHighlighted,
   onHighlight,
   onOpen,
+  onEdit,
+  onDelete,
 }: {
   module: PdkModule
   isHighlighted?: boolean
   onHighlight?: () => void
   onOpen: () => void
+  onEdit?: () => void
+  onDelete?: () => void
 }) {
   return (
     <PdkModuleTile
@@ -436,6 +486,8 @@ function PdkModuleCard({
       isHighlighted={isHighlighted}
       onHighlight={onHighlight}
       onOpen={onOpen}
+      onEdit={onEdit}
+      onDelete={onDelete}
       layout="grid"
     />
   )
@@ -446,11 +498,15 @@ function PdkModuleListRow({
   isHighlighted,
   onHighlight,
   onOpen,
+  onEdit,
+  onDelete,
 }: {
   module: PdkModule
   isHighlighted?: boolean
   onHighlight?: () => void
   onOpen: () => void
+  onEdit?: () => void
+  onDelete?: () => void
 }) {
   return (
     <PdkModuleTile
@@ -458,6 +514,8 @@ function PdkModuleListRow({
       isHighlighted={isHighlighted}
       onHighlight={onHighlight}
       onOpen={onOpen}
+      onEdit={onEdit}
+      onDelete={onDelete}
       layout="list"
     />
   )

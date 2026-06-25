@@ -3,6 +3,7 @@
   --notes-accent-soft: rgba(30, 90, 61, 0.08);
   --notes-project-color: #dc2626;
   --notes-border: rgba(30, 90, 61, 0.14);
+  --notes-font-scale: 0.252;
 }
 
 .admin-notes-page-wrap {
@@ -25,10 +26,7 @@
 .admin-notes-scroll-body {
   flex: 1 1 0;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden; /* inner panel scrolls, not the page */
 }
 
 @media (min-width: 640px) {
@@ -2404,7 +2402,7 @@
 }
 
 .admin-notes-scroll-body {
-  padding-bottom: 0.35rem;
+  padding-bottom: 0;
 }
 
 .notes-week-board {
@@ -2414,8 +2412,11 @@
   box-shadow:
     0 1px 2px rgba(30, 90, 61, 0.04),
     0 8px 28px rgba(30, 90, 61, 0.05);
-  overflow: hidden;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
 }
 
 .notes-week-board::before {
@@ -2477,6 +2478,11 @@
 .notes-day-card--highlight {
   background: rgba(30, 90, 61, 0.03);
   box-shadow: inset 3px 0 0 var(--notes-accent);
+}
+
+.notes-day-card--panel-layout.notes-day-card--highlight {
+  background: #fff;
+  box-shadow: none !important;
 }
 
 .notes-day-card--highlight .notes-day-card__header {
@@ -2700,12 +2706,18 @@
 }
 
 .notes-notepad-pad__no-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
   margin: 0;
-  padding: 1rem 0.5rem;
-  font-size: 0.8125rem;
-  color: #94a3b8;
-  font-style: italic;
+  padding: 4rem 2rem;
+  font-size: 0.875rem !important;
+  font-weight: 600;
+  color: #475569 !important;
   text-align: center;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
 }
 
 .notes-notepad-pad__letter {
@@ -3607,4 +3619,274 @@
 
 [data-admin-notes] .dashboard-page-bg-pattern {
   opacity: 0.12;
+}
+
+/* Horizontal date bar + compact note typography */
+.notes-date-bar-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0.5rem 0.65rem 0;
+}
+
+.notes-date-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.15rem 0 0.35rem;
+  flex-shrink: 0;
+}
+
+.notes-date-bar__chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.7rem 0.5rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--notes-border);
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.notes-date-bar__chip:hover {
+  border-color: rgba(30, 90, 61, 0.28);
+  background: #f8fcf9;
+}
+
+.notes-date-bar__chip.is-active {
+  border-color: var(--notes-accent);
+  background: var(--notes-accent-soft);
+  box-shadow: 0 0 0 2px rgba(30, 90, 61, 0.12);
+  color: var(--notes-accent);
+}
+
+.notes-date-bar__weekday {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.notes-date-bar__date {
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.notes-date-bar__status {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--notes-muted, #64748b);
+}
+
+.notes-date-bar__chip.is-active .notes-date-bar__status {
+  color: var(--notes-accent);
+}
+
+/* Fills remaining height; content scrolls inside */
+.notes-day-panel {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4.5rem; /* clearance above fixed send bar */
+}
+
+.notes-day-card--panel-layout {
+  display: flex;
+  flex-direction: column;
+  border-radius: 0.75rem;
+  border: 1px solid var(--notes-border);
+  background: #fff;
+  min-height: 100%;
+  /* kill the left green highlight inset line — not needed in panel view */
+  box-shadow: none !important;
+}
+
+.notes-day-card--panel-layout .notes-day-card__header--panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.95);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.notes-day-card--panel-layout .notes-day-card__panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 100%;
+  padding: 0;
+}
+
+.notes-day-card--panel-layout .notes-day-card__panel > .notes-notepad-pad__no-block {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.notes-day-card--panel-layout .notes-day-card__meta {
+  display: flex;
+  margin-left: 0;
+}
+
+[data-admin-notes] .notes-notepad-pad__letter,
+[data-admin-notes] .notes-notepad-pad__note-line,
+[data-admin-notes] .notes-notepad-pad__employee-names,
+[data-admin-notes] .notes-notepad-pad__employee-name,
+[data-admin-notes] .notes-notepad-pad__project-name,
+[data-admin-notes] .notes-notepad-pad__empty-title,
+[data-admin-notes] .notes-notepad-pad__empty-text,
+[data-admin-notes] .notes-notepad-pad__no-updates,
+[data-admin-notes] .notes-notepad-pad__read-only-hint,
+[data-admin-notes] .notes-notepad-inline-editor__textarea,
+[data-admin-notes] .notes-day-card__title,
+[data-admin-notes] .notes-day-card__meta,
+[data-admin-notes] .notes-day-card__badge {
+  font-size: calc(1em * var(--notes-font-scale));
+}
+
+[data-admin-notes] .notes-notepad-pad__letter {
+  font-size: calc(0.8125rem * var(--notes-font-scale));
+}
+
+[data-admin-notes] .notes-notepad-pad__project-name {
+  font-size: calc(0.75rem * var(--notes-font-scale));
+}
+
+[data-admin-notes] .notes-notepad-pad__note-line,
+[data-admin-notes] .notes-notepad-pad__employee-names {
+  font-size: calc(0.8125rem * var(--notes-font-scale));
+}
+
+[data-admin-notes] .notes-notepad-inline-editor__textarea {
+  font-size: calc(0.8125rem * var(--notes-font-scale));
+  line-height: 1.55;
+}
+
+[data-admin-notes] .notes-day-card__title {
+  font-size: calc(0.9375rem * var(--notes-font-scale));
+}
+
+[data-admin-notes] .notes-day-card__badge {
+  font-size: calc(0.625rem * var(--notes-font-scale));
+}
+
+[data-admin-notes] .notes-day-card__meta {
+  font-size: calc(0.6875rem * var(--notes-font-scale));
+}
+
+/* ── Notepad with send footer ──────────────────────────────── */
+
+.notes-notepad-pad--with-footer {
+  padding-bottom: 0;
+}
+
+/* ── Fixed send footer — pinned to bottom of viewport ──────── */
+
+.notes-notepad-send-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  padding: 0.6rem 1.25rem 0.7rem;
+  border-top: 1px solid var(--notes-border);
+  background: rgba(248, 252, 250, 0.97);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 -2px 12px rgba(30, 90, 61, 0.08);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+}
+
+
+.notes-notepad-send-footer__info {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-right: auto;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.notes-notepad-send-footer__pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  background: rgba(30, 90, 61, 0.1);
+  padding: 0.15rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--notes-accent);
+  white-space: nowrap;
+}
+
+.notes-notepad-send-footer__pill--muted {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.notes-notepad-send-footer__sent-meta {
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Delete confirmation dialog ───────────────────────────── */
+
+.notes-delete-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.notes-delete-confirm-modal {
+  width: min(26rem, calc(100vw - 2rem));
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 1.5rem;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18);
+}
+
+.notes-delete-confirm-modal__title {
+  margin: 0 0 0.65rem;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.notes-delete-confirm-modal__body {
+  margin: 0 0 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.notes-delete-confirm-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }

@@ -1,40 +1,12 @@
-import path from 'path'
 import { Router, Request, Response, NextFunction } from 'express'
-import multer from 'multer'
 import { achievementController } from '../controllers/achievementController'
 import { authMiddleware, requireRole } from '../middleware/authMiddleware'
+import { createImageUpload } from '../utils/imageUploadFilter'
 
 export const achievementRoutes = Router()
 
-const ALLOWED_IMAGE_MIMES = new Set([
-  'image/jpeg',
-  'image/jpg',
-  'image/pjpeg',
-  'image/png',
-  'image/x-png',
-  'image/webp',
-])
+const achievementImageUpload = createImageUpload({ maxFileSize: 4 * 1024 * 1024 })
 
-const ALLOWED_IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp'])
-
-function isAllowedAchievementImage(file: Express.Multer.File): boolean {
-  const mime = (file.mimetype || '').toLowerCase()
-  if (ALLOWED_IMAGE_MIMES.has(mime)) return true
-  const ext = path.extname(file.originalname || '').toLowerCase()
-  return ALLOWED_IMAGE_EXT.has(ext)
-}
-
-const achievementImageUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 4 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (isAllowedAchievementImage(file)) {
-      cb(null, true)
-      return
-    }
-    cb(new Error('Only JPEG, PNG, or WebP images are allowed (max 4 MB)'))
-  },
-})
 function uploadAchievementImage(req: Request, res: Response, next: NextFunction): void {
   achievementImageUpload.single('image')(req, res, (err: unknown) => {
     if (err) {

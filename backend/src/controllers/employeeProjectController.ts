@@ -26,6 +26,7 @@ import {
 } from '../services/cellWorkflowWorkLogService';
 import {
   closeProductiveSessionsForCell,
+  isEmployeeAttendanceActive,
   syncProductiveSessionsForCell,
   WORK_SESSION_REASONS,
 } from '../services/productiveTimeService';
@@ -67,6 +68,7 @@ import {
   resolveStoredCellWorkflow,
   normalizeViewWorkflow,
   normalizeWorkflowStageStatus,
+  cellHasWorkflowActivity,
   returnOptionsForReview,
   syncCellWorkflowFromViewWorkflow,
   syncViewsFromViewWorkflow,
@@ -83,6 +85,7 @@ import {
   defaultSchematicWorkflow,
   isValidSchematicStageKey,
   normalizeSchematicWorkflow,
+  schematicHasWorkflowActivity,
   SCHEMATIC_WORKFLOW_STAGES,
   syncSchematicWorkflowFromView,
 } from '../utils/schematicWorkflow';
@@ -386,6 +389,12 @@ function toLibrary(doc: any) {
   };
 }
 
+function actualEffortHoursFromTiming(timing?: CellWorkflowTiming): number {
+  const ms = timing?.workflowDuration?.totalMs ?? 0;
+  if (ms <= 0) return 0;
+  return Math.round((ms / 3_600_000) * 10) / 10;
+}
+
 function toEmployeeCell(
   doc: any,
   tokens: string[],
@@ -407,7 +416,7 @@ function toEmployeeCell(
     baseHours: deriveBaseHours(doc.estimatedEffort ?? 0, doc.complexity, doc.baseHours),
     estimatedEffort: doc.estimatedEffort ?? 0,
     smartEstimate: doc.smartEstimate ?? doc.estimatedEffort ?? 0,
-    actualEffort: doc.actualEffort ?? 0,
+    actualEffort: actualEffortHoursFromTiming(workflowTiming),
     estimateConfidence: doc.estimateConfidence === 'High' ? 'High' : 'Low',
     assignedEmployeeId: doc.assignedEmployeeId || '',
     assignedEmployeeName: doc.assignedEmployeeName || '',
@@ -470,6 +479,7 @@ async function toEmployeeCellWithTiming(
       onHold: Boolean(doc.onHold),
       assignedEmployeeId: doc.assignedEmployeeId,
       workflow,
+      viewWorkflow: doc.viewWorkflow,
       activityLog: doc.activityLog ?? [],
     },
   );
@@ -652,6 +662,11 @@ export const employeeProjectController = {
       const tokens = await getAssignmentTokens(req);
       const actor = actorFromReq(req);
 
+      if (!(await isEmployeeAttendanceActive(tokens))) {
+        res.status(403).json({ error: 'Check in to the office before updating cell workflow', requiresCheckIn: true });
+        return;
+      }
+
       const cell = await assertManageableCell(projectId, cellId, tokens);
       if (!cell) {
         res.status(404).json({ error: 'Cell not found or you cannot manage this cell' });
@@ -775,6 +790,7 @@ export const employeeProjectController = {
           status: cell.status,
           onHold: cell.onHold,
           assignedEmployeeId: cell.assignedEmployeeId,
+          viewWorkflow: cell.viewWorkflow,
         },
       );
       cell.activityLog.push({
@@ -810,6 +826,11 @@ export const employeeProjectController = {
         return;
       }
 
+      if (!(await isEmployeeAttendanceActive(tokens))) {
+        res.status(403).json({ error: 'Check in to the office before updating cell workflow stages', requiresCheckIn: true });
+        return;
+      }
+
       const project = await assertProjectAccess(projectId, tokens, req);
       if (!project) {
         res.status(404).json({ error: 'Project not found or access denied' });
@@ -838,8 +859,12 @@ export const employeeProjectController = {
 
       cell.workflow = result.workflow;
       applyCellWorkflowSync(cell, 'workflow');
-      if (cell.status === 'completed' || cell.status === 'ready') {
-        cell.status = 'in_progress';
+      if (cellHasWorkflowActivity(result.workflow)) {
+        if (cell.status === 'ready') {
+          cell.status = 'in_progress';
+        }
+      } else if (cell.status === 'in_progress') {
+        cell.status = 'ready';
       }
       await syncWorkLogsFromWorkflowChange(
         projectId,
@@ -851,6 +876,7 @@ export const employeeProjectController = {
           status: cell.status,
           onHold: cell.onHold,
           assignedEmployeeId: cell.assignedEmployeeId,
+          viewWorkflow: cell.viewWorkflow,
         },
       );
       cell.activityLog.push({
@@ -887,6 +913,11 @@ export const employeeProjectController = {
         return;
       }
 
+      if (!(await isEmployeeAttendanceActive(tokens))) {
+        res.status(403).json({ error: 'Check in to the office before updating cell workflow stages', requiresCheckIn: true });
+        return;
+      }
+
       const project = await assertProjectAccess(projectId, tokens, req);
       if (!project) {
         res.status(404).json({ error: 'Project not found or access denied' });
@@ -917,8 +948,14 @@ export const employeeProjectController = {
 
       cell.schematicWorkflow = result.workflow;
       applySchematicWorkflowSync(cell, 'schematicWorkflow');
-      if (cell.status === 'completed' || cell.status === 'ready') {
-        cell.status = 'in_progress';
+      const layoutActive = cellHasWorkflowActivity(normalizeCellWorkflow(cell.workflow));
+      const schematicActive = schematicHasWorkflowActivity(result.workflow);
+      if (layoutActive || schematicActive) {
+        if (cell.status === 'ready') {
+          cell.status = 'in_progress';
+        }
+      } else if (cell.status === 'in_progress') {
+        cell.status = 'ready';
       }
       cell.activityLog.push({
         action: 'schematic_workflow_update',
@@ -1021,6 +1058,7 @@ export const employeeProjectController = {
           status: cell.status,
           onHold: cell.onHold,
           assignedEmployeeId: cell.assignedEmployeeId,
+          viewWorkflow: cell.viewWorkflow,
         },
       );
 
@@ -1849,6 +1887,7 @@ export const employeeProjectController = {
           status: cell.status,
           onHold: cell.onHold,
           assignedEmployeeId: cell.assignedEmployeeId,
+          viewWorkflow: cell.viewWorkflow,
         },
       );
       review.status = 'resolved';
@@ -1881,6 +1920,19 @@ export const employeeProjectController = {
       }
 
       await Promise.all([cell.save(), review.save()]);
+
+      await syncProductiveSessionsForCell(
+        projectId,
+        cellId,
+        {
+          status: cell.status,
+          onHold: cell.onHold,
+          assignedEmployeeId: cell.assignedEmployeeId,
+          workflow: normalizeCellWorkflow(cell.workflow ?? []),
+          viewWorkflow: cell.viewWorkflow,
+        },
+        actor,
+      );
 
       void sendReviewNotificationsFromCell({
         projectId,

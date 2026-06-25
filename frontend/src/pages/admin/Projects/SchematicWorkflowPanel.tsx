@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { ConfirmModal } from '@components/modals/ConfirmModal'
 import { Button } from '@components/ui/Button'
 import { cn } from '@/utils/cn'
 import { useAuthStore } from '@store/authStore'
@@ -7,6 +8,7 @@ import type { ProjectCell, WorkflowStageStatus } from '@/types/projectWorkspace'
 import { setCellHold, updateSchematicWorkflowStage } from '@/services/projectWorkspaceService'
 import {
   editableWorkStageStatuses,
+  stageStatusResetNeedsConfirmation,
   WORKFLOW_HOLD_LABEL,
   WORKFLOW_HOLD_VALUE,
   WORKFLOW_STATUS_LABELS,
@@ -73,6 +75,10 @@ export function SchematicWorkflowPanel({
 }: SchematicWorkflowPanelProps) {
   const [savingStage, setSavingStage] = useState<SchematicWorkflowStageKey | null>(null)
   const [rejectOpen, setRejectOpen] = useState(false)
+  const [resetConfirm, setResetConfirm] = useState<{
+    stageKey: SchematicWorkflowStageKey
+    status: WorkflowStageStatus
+  } | null>(null)
   const authRole = useAuthStore((s) => s.role)
   const authUser = useAuthStore((s) => s.user)
   const isAdmin = authRole === 'admin' || authUser?.role === 'Admin'
@@ -114,6 +120,12 @@ export function SchematicWorkflowPanel({
     }
 
     if (value === currentStatus && !cell.onHold) return
+
+    if (stageStatusResetNeedsConfirmation(workflow, stageKey, currentStatus, value as WorkflowStageStatus)) {
+      setResetConfirm({ stageKey, status: value as WorkflowStageStatus })
+      return
+    }
+
     setSavingStage(stageKey)
     try {
       const updated = await updateSchematicWorkflowStage(
@@ -332,6 +344,35 @@ export function SchematicWorkflowPanel({
           })}
         </div>
       </div>
+      <ConfirmModal
+        isOpen={resetConfirm != null}
+        title="Reset stage progress?"
+        description="Current progress up to this stage will be lost, including any completed downstream stages. Do you want to continue?"
+        confirmLabel="Reset progress"
+        danger
+        onClose={() => setResetConfirm(null)}
+        onConfirm={async () => {
+          if (!resetConfirm) return
+          const pending = resetConfirm
+          setResetConfirm(null)
+          setSavingStage(pending.stageKey)
+          try {
+            const updated = await updateSchematicWorkflowStage(
+              projectId,
+              cell.id,
+              pending.stageKey,
+              pending.status,
+            )
+            onUpdated?.(updated)
+            toast.success('Schematic stage updated')
+          } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+            toast.error(msg || 'Failed to update schematic stage')
+          } finally {
+            setSavingStage(null)
+          }
+        }}
+      />
     </div>
   )
 }

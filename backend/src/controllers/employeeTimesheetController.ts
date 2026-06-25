@@ -8,7 +8,7 @@ import { getDB } from '../config/db';
 import { getUserById } from '../services/authService';
 import { resolveEmployeeForAuthUser, getEmployeeOfficialEmail } from '../utils/employeeAuth';
 import { syncProjectForTimesheet, getTimesheetWorkflowStatus } from '../utils/syncProject';
-import { buildAssignedProjectsFilter, buildAssignmentIdentityTokens, ensureAssignedTasksForEmployee } from '../utils/assignedTaskSync';
+import { buildAssignmentIdentityTokens, buildCheckInEligibleProjectsFilter, ensureAssignedTasksForEmployee } from '../utils/assignedTaskSync';
 import { openAttendanceFilter } from '../utils/attendanceQueries';
 import { computeTotalHoursDecimal } from '../utils/durationFormat';
 import { getAutoCheckoutSettings, updateAutoCheckoutSettings } from '../services/autoCheckoutService';
@@ -408,16 +408,17 @@ async function fetchActiveTaskPayload(employee: ResolvedEmployee) {
 
 async function fetchAssignedTasksForEmployee(employee: ResolvedEmployee) {
   const recentApprovedCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const allottedProjects = await ProjectModel.find(
-    { $and: [{ status: 'Active' }, buildAssignedProjectsFilter(employee.identityTokens)] },
+  const eligibleFilter = await buildCheckInEligibleProjectsFilter(employee.identityTokens);
+  const eligibleProjects = await ProjectModel.find(
+    { $and: [{ status: 'Active' }, eligibleFilter] },
     { _id: 1 },
   ).lean();
-  const allottedProjectIds = allottedProjects.map((p) => p._id);
-  if (allottedProjectIds.length === 0) return [];
+  const eligibleProjectIds = eligibleProjects.map((p) => p._id);
+  if (eligibleProjectIds.length === 0) return [];
 
   const tasks = await AssignedTaskModel.find({
     $and: [
-      { projectId: { $in: allottedProjectIds } },
+      { projectId: { $in: eligibleProjectIds } },
       {
         $or: [
           { employeeId: { $in: employee.identityTokens } },
@@ -803,6 +804,8 @@ export const employeeTimesheetController = {
         autoCheckedOut: false,
         sessionStatus: 'Active',
       });
+
+      // Cell productive time resumes when a project task is started (see startTask).
 
       res.status(201).json({
         serverTime: new Date().toISOString(),

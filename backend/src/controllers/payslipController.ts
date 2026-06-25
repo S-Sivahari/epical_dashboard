@@ -6,7 +6,6 @@ import { resolveLogoPath } from '../services/payslipPdfGenerator'
 import { savePayslipAsPdf } from '../services/payslipPdfGenerator'
 import {
   generatePayrollTemplateBuffer,
-  PAYROLL_TEMPLATE_FILENAME,
 } from '../services/payrollTemplate'
 import {
   processPayrollUpload,
@@ -230,7 +229,7 @@ export const payslipController = {
         const meta = await templateMetaCollection().findOne({}, { sort: { uploadedAt: -1 } })
         res.json({ hasCustom: true, name: meta?.name, uploadedAt: meta?.uploadedAt, size: meta?.size })
       } else {
-        res.json({ hasCustom: false, name: PAYROLL_TEMPLATE_FILENAME })
+        res.json({ hasCustom: false, name: payrollMasterTemplateFileName() })
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to get template info'

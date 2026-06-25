@@ -124,7 +124,7 @@ export function payrollUploadExcelFileName(
 }
 
 export function payrollMasterTemplateFileName(exportDate = new Date()): string {
-  return buildExportFileNameWithExtension('payroll_master_template', 'xlsx', [], exportDate)
+  return `Payroll_Template_${formatExportDateDDMMYYYY(exportDate)}.xlsx`
 }
 
 export function documentDownloadFileName(documentName: string, documentType?: string): string {

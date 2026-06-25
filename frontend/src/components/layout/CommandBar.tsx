@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, LogOut } from 'lucide-react'
 import { toast } from 'sonner'
@@ -15,29 +15,7 @@ import api from '@services/api'
 import { shouldShowAdminBackButton } from '@constants/adminNavigation'
 import { ROUTES } from '@constants/routes'
 import { cn } from '@/utils/cn'
-
-function titleCase(slug: string) {
-  return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-const routeTitles: Record<string, string> = {
-  '/admin': 'Dashboard',
-  '/admin/employees': 'Employees',
-  '/admin/leaves': 'Leave Management',
-  '/admin/timesheet': 'Projects & Timesheets',
-  '/admin/project-management': 'Project Management',
-  '/admin/project-analysis': 'Project Management',
-  '/admin/projects': 'Projects',
-  '/admin/tickets': 'Tickets',
-  '/admin/payslips': 'Payslips',
-  '/admin/calendar': 'Calendar',
-  '/admin/news': 'News',
-  '/admin/documents': 'Documents',
-  '/admin/settings': 'Settings',
-  '/admin/analytics': 'Analytics',
-  '/admin/achievements': 'Achievements',
-  '/admin/training': 'Training',
-}
+import { useEmployeeCmdBarSlashBand } from '@hooks/useEmployeeCmdBarSlashBand'
 
 export function CommandBar() {
   const { pathname } = useLocation()
@@ -50,21 +28,6 @@ export function CommandBar() {
   const [nameDraft, setNameDraft] = useState('')
   const [savingName, setSavingName] = useState(false)
 
-  const pageTitle = useMemo(() => {
-    if (pathname.startsWith('/admin/project-management') || pathname.startsWith('/admin/project-analysis')) {
-      return 'Project Management'
-    }
-    if (routeTitles[pathname]) return routeTitles[pathname]
-    const parts = pathname.split('/').filter(Boolean)
-    if (parts.length > 2) {
-      const parentPath = `/${parts[0]}/${parts[1]}`
-      if (routeTitles[parentPath]) return routeTitles[parentPath]
-    }
-    const last = parts[parts.length - 1] ?? 'dashboard'
-    if (last.match(/^[a-z0-9-]+$/i) && last.length < 24) return titleCase(last)
-    return 'Admin'
-  }, [pathname])
-
   const showBack = shouldShowAdminBackButton(pathname)
 
   const handleLogout = () => {
@@ -74,6 +37,10 @@ export function CommandBar() {
 
   // Resolved admin display name: admin-specific override, else fall back to account name
   const adminName = user?.adminDisplayName || user?.name || 'Admin'
+  const headerRef = useRef<HTMLElement>(null)
+  const brandRef = useRef<HTMLDivElement>(null)
+
+  useEmployeeCmdBarSlashBand(headerRef, brandRef, [adminName, showBack])
 
   const openProfileModal = () => {
     setNameDraft(adminName)
@@ -105,8 +72,9 @@ export function CommandBar() {
   return (
     <>
       <header
+        ref={headerRef}
         className={cn(
-          'cmd-bar employee-cmd-bar flex h-16 shrink-0 items-center gap-2 px-4 sm:gap-3 lg:px-5',
+          'cmd-bar employee-cmd-bar flex min-h-16 shrink-0 items-center gap-2 px-4 py-2 sm:gap-3 lg:px-5',
           portalAdmin && 'employee-cmd-bar--dual-portal',
         )}
       >
@@ -126,7 +94,7 @@ export function CommandBar() {
           <span className="employee-cmd-bar__slash-accent employee-cmd-bar__slash-accent--bottom" />
         </div>
 
-        <div className="employee-cmd-bar__brand flex shrink-0 items-center gap-2.5 sm:gap-3">
+        <div ref={brandRef} className="employee-cmd-bar__brand flex shrink-0 items-center gap-2.5 sm:gap-3">
           <Link
             to={ROUTES.DASHBOARD}
             className="employee-cmd-bar__logo-link inline-flex shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--neon-green)]"
@@ -137,21 +105,12 @@ export function CommandBar() {
           </Link>
 
           {user ? (
-            <div className="employee-cmd-bar__identity min-w-0">
-              <p className="employee-cmd-bar__name truncate font-display font-extrabold">
+            <div className="employee-cmd-bar__identity">
+              <p className="employee-cmd-bar__name font-display font-extrabold">
                 {adminName}
               </p>
-              <p className="employee-cmd-bar__page-title truncate font-medium">
-                {pageTitle}
-              </p>
             </div>
-          ) : (
-            <div className="employee-cmd-bar__identity min-w-0">
-              <p className="truncate font-display text-lg font-semibold tracking-tight text-[var(--text-primary)] lg:text-xl">
-                {pageTitle}
-              </p>
-            </div>
-          )}
+          ) : null}
 
           {showBack && (
             <button

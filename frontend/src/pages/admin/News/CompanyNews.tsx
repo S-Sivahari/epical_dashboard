@@ -282,7 +282,7 @@ export function CompanyNews() {
   }
 
   const handleAdd = async () => {
-    if (!title || !content || !isValidNewsDateInput(publishDate)) {
+    if (!title.trim() || !isValidNewsDateInput(publishDate)) {
       return
     }
     setSaving(true)
@@ -368,7 +368,7 @@ export function CompanyNews() {
 
   const handleUpdate = async () => {
     if (!editing) return
-    if (!editTitle || !editContent) {
+    if (!editTitle.trim()) {
       return
     }
     setUpdating(true)
@@ -587,7 +587,7 @@ export function CompanyNews() {
 
                       <label className="admin-news-publish-content-field">
                         <span className="text-sm font-semibold text-slate-800">
-                          News Content <span className="text-danger">*</span>
+                          News Content
                         </span>
                         <textarea
                           className="admin-news-textarea admin-news-publish-textarea w-full resize-y rounded-lg border text-sm font-medium text-slate-800 shadow-sm outline-none transition-ui placeholder:text-slate-400"
@@ -626,7 +626,7 @@ export function CompanyNews() {
                         </span>
                         <input
                           type="file"
-                          accept="image/jpeg,image/png,image/webp"
+                          accept="image/*"
                           className="admin-news-file-input block w-full text-sm text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:px-3 file:py-2 file:text-sm file:font-bold"
                           onChange={(e) => handleImageFileChange(e.target.files?.[0] ?? null)}
                         />
@@ -680,7 +680,6 @@ export function CompanyNews() {
                       disabled={
                         saving ||
                         !title.trim() ||
-                        !content.trim() ||
                         !isValidNewsDateInput(publishDate)
                       }
                     >
@@ -950,7 +949,7 @@ export function CompanyNews() {
             <span className="text-sm font-medium text-ink">Upload image (optional)</span>
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/*"
               className="block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary"
               onChange={(e) => handleImageFileChange(e.target.files?.[0] ?? null, true)}
             />

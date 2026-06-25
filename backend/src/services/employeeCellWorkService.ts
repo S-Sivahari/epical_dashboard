@@ -179,6 +179,7 @@ export async function beginCellWorkForEmployee(
       onHold: cell.onHold,
       assignedEmployeeId: cell.assignedEmployeeId,
       workflow: normalizeCellWorkflow(cell.workflow ?? []),
+      viewWorkflow: cell.viewWorkflow,
     },
     actor,
     now,
@@ -190,6 +191,7 @@ export async function beginCellWorkForEmployee(
       onHold: cell.onHold,
       assignedEmployeeId: cell.assignedEmployeeId,
       workflow: normalizeCellWorkflow(cell.workflow ?? []),
+      viewWorkflow: cell.viewWorkflow,
     },
     projectId,
   );

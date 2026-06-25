@@ -31,7 +31,7 @@ export function defaultSchematicWorkflow(): SchematicWorkflowStage[] {
   return SCHEMATIC_WORKFLOW_STAGES.map((stage) => ({
     stageKey: stage.key,
     stageLabel: stage.label,
-    status: stage.key === 'design' ? 'in_progress' : 'not_started',
+    status: 'not_started',
   }))
 }
 

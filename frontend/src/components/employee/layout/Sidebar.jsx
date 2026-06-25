@@ -15,7 +15,6 @@ import {
 } from 'lucide-react'
 import { cn } from '@pages/employee/lib/utils'
 import { useUIStore } from '@store/employee/uiStore'
-import { company } from '@pages/employee/data/mockData'
 import { employeeNavGroups } from '@constants/employeeNav'
 import { prefetchEmployeeRoute } from '@/utils/prefetchEmployeeRoutes'
 
@@ -119,7 +118,7 @@ export function Sidebar() {
             title="Go to dashboard"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-emerald-600 font-heading text-sm font-bold text-white shadow-sm transition-ui group-hover:scale-[1.03]">
-              {company.logo}
+              E
             </div>
             {!sidebarCollapsed && (
               <motion.div
@@ -128,7 +127,7 @@ export function Sidebar() {
                 className="min-w-0"
               >
                 <p className="truncate font-heading text-sm font-semibold text-slate-900">
-                  {company.name}
+                  Epical Technologies
                 </p>
                 <p className="truncate text-[11px] font-medium text-slate-500">Employee Portal</p>
               </motion.div>

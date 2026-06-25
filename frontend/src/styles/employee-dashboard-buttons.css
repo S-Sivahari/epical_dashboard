@@ -720,7 +720,99 @@
   z-index: 1;
 }
 
-/* Compact leave balance tiles inside leave card */
+/* Employee dashboard — admin-style leave balance cards (read-only, no +/-) */
+.employee-portal [data-employee-page] .emp-dash-leave-grid .admin-leaves-balance-card,
+[data-employee-dashboard] .emp-dash-leave-grid .admin-leaves-balance-card {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(26, 67, 41, 0.12);
+  padding: 0.5rem 0.45rem;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.15rem;
+}
+
+.employee-portal [data-employee-page] .emp-dash-leave-grid .admin-leaves-balance-card--casual,
+[data-employee-dashboard] .emp-dash-leave-grid .admin-leaves-balance-card--casual {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%);
+}
+
+.employee-portal [data-employee-page] .emp-dash-leave-grid .admin-leaves-balance-card--sick,
+[data-employee-dashboard] .emp-dash-leave-grid .admin-leaves-balance-card--sick {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: linear-gradient(180deg, #eff6ff 0%, #f0f9ff 100%);
+}
+
+.employee-portal [data-employee-page] .emp-dash-leave-grid .admin-leaves-balance-card--earned,
+[data-employee-dashboard] .emp-dash-leave-grid .admin-leaves-balance-card--earned {
+  border-color: rgba(139, 92, 246, 0.35);
+  background: linear-gradient(180deg, #f5f3ff 0%, #faf5ff 100%);
+}
+
+.employee-portal [data-employee-page] .emp-dash-leave-grid .admin-leaves-balance-card--comp,
+[data-employee-dashboard] .emp-dash-leave-grid .admin-leaves-balance-card--comp {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.employee-portal [data-employee-page] .emp-dash-leave-grid .admin-leaves-balance-card__title,
+[data-employee-dashboard] .emp-dash-leave-grid .admin-leaves-balance-card__title {
+  margin: 0;
+  font-size: 0.5625rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--dash-forest, #1a4329);
+  line-height: 1.2;
+}
+
+.employee-portal [data-employee-page] .emp-dash-leave-grid .admin-leaves-balance-card__controls,
+[data-employee-dashboard] .emp-dash-leave-grid .admin-leaves-balance-card__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0.15rem 0;
+}
+
+.employee-portal [data-employee-page] .emp-dash-leave-grid .admin-leaves-balance-card__controls--static,
+[data-employee-dashboard] .emp-dash-leave-grid .admin-leaves-balance-card__controls--static {
+  justify-content: center;
+}
+
+.employee-portal [data-employee-page] .emp-dash-leave-grid .admin-leaves-balance-card__value,
+[data-employee-dashboard] .emp-dash-leave-grid .admin-leaves-balance-card__value {
+  min-width: 0;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--dash-forest, #1a4329);
+  line-height: 1.1;
+}
+
+.employee-portal [data-employee-page] .emp-dash-leave-grid .admin-leaves-balance-card__meta,
+[data-employee-dashboard] .emp-dash-leave-grid .admin-leaves-balance-card__meta {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.employee-portal [data-employee-page] .emp-dash-leave-grid .admin-leaves-balance-card__meta span,
+[data-employee-dashboard] .emp-dash-leave-grid .admin-leaves-balance-card__meta span {
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* Legacy tint bars — superseded by admin-style cards on dashboard */
 .employee-portal [data-employee-page] .emp-dash-leave-grid > [class*='emp-leave-tint'],
 [data-employee-dashboard] .emp-dash-leave-grid > [class*='emp-leave-tint'] {
   position: relative;

@@ -2,6 +2,7 @@ import { Response } from 'express';
 import * as employeeService from '../services/employeeService';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { rejectUnlessAdmin, rejectUnlessAdminOrSelf } from '../utils/accessControl';
+import { IMAGE_UPLOAD_ERROR, isAllowedImageUpload } from '../utils/imageUploadFilter';
 
 export const uploadController = {
   listDocuments: async (req: AuthRequest, res: Response): Promise<void> => {
@@ -93,9 +94,8 @@ export const uploadController = {
         return;
       }
 
-      const allowedPhotoTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
-      if (!allowedPhotoTypes.has(file.mimetype)) {
-        res.status(400).json({ error: 'Photo must be JPEG, PNG, or WebP' });
+      if (!isAllowedImageUpload(file)) {
+        res.status(400).json({ error: IMAGE_UPLOAD_ERROR });
         return;
       }
       if (file.size > 2 * 1024 * 1024) {

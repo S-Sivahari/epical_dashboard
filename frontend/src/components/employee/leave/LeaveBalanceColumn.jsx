@@ -1,5 +1,5 @@
 import { BarChart3 } from 'lucide-react'
-import { LeaveBalanceTile } from './LeaveBalanceTile'
+import { LeaveCard } from '@components/employee/shared/LeaveCard'
 
 const LEAVE_TYPE_TO_KEY = {
   'Casual Leave': 'casual',
@@ -20,11 +20,14 @@ export function LeaveBalanceColumn({ balances, selectedLeaveType }) {
       </div>
       <div className="emp-leave-balance-column__list">
         {balances.map((balance) => (
-          <LeaveBalanceTile
+          <LeaveCard
             key={balance.key}
-            balance={balance}
-            isSelected={selectedKey === balance.key}
-            variant="sidebar"
+            compact
+            type={balance.type}
+            used={balance.used}
+            total={balance.total}
+            remaining={balance.remaining}
+            selected={selectedKey === balance.key}
           />
         ))}
       </div>

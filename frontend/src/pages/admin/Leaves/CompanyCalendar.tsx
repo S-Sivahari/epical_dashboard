@@ -1188,7 +1188,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                   'flex min-h-0 flex-col rounded-lg',
                   sidebarLeaves.length > 0 &&
                     (useAdminLayout
-                      ? 'admin-cal-side-section--active admin-cal-side-section--active-leaves admin-cal-side-section--scroll'
+                      ? 'admin-cal-side-section--active admin-cal-side-section--active-leaves admin-cal-side-section--fills'
                       : 'border border-lime-100/90 bg-lime-50/50 px-2 py-1.5'),
                 )}
               >
@@ -1217,7 +1217,9 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                   <div
                     className={cn(
                       'min-h-0 space-y-1 overflow-y-auto pr-1 custom-scrollbar',
-                      useAdminLayout ? 'admin-cal-side-section-list' : 'admin-cal-side-section-list max-h-[6.75rem]',
+                      useAdminLayout
+                        ? 'admin-cal-side-section-list admin-cal-side-section-list--fills'
+                        : 'admin-cal-side-section-list max-h-[6.75rem]',
                     )}
                   >
                     {sidebarLeaves.map((leave) => {

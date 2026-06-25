@@ -21,6 +21,7 @@ import {
   normalizeCellWorkflow,
   resolveStoredCellWorkflow,
   normalizeWorkflowStageStatus,
+  cellHasWorkflowActivity,
   returnOptionsForReview,
   syncCellWorkflowFromViewWorkflow,
   syncViewsFromViewWorkflow,
@@ -62,6 +63,7 @@ import {
 } from '../services/productiveTimeService';
 import {
   buildWorkflowDurationMap,
+  buildWorkflowTimingMap,
   ensureWorkLogsInitialized,
   getCellWorkflowDuration,
   getCellWorkflowTiming,
@@ -72,6 +74,7 @@ import {
 import {
   applySchematicWorkflowStageUpdate,
   defaultSchematicWorkflow,
+  schematicHasWorkflowActivity,
   isValidSchematicStageKey,
   normalizeSchematicWorkflow,
   SCHEMATIC_WORKFLOW_STAGES,
@@ -115,6 +118,12 @@ function toLibrary(doc: any) {
   };
 }
 
+function actualEffortHoursFromDuration(duration?: CellWorkflowDuration): number {
+  const ms = duration?.totalMs ?? 0;
+  if (ms <= 0) return 0;
+  return Math.round((ms / 3_600_000) * 10) / 10;
+}
+
 function toCell(
   doc: any,
   dependencyMeta?: { isBlocked: boolean; isReady: boolean },
@@ -138,7 +147,7 @@ function toCell(
     baseHours: deriveBaseHours(doc.estimatedEffort ?? 0, doc.complexity, doc.baseHours),
     estimatedEffort: doc.estimatedEffort ?? 0,
     smartEstimate: doc.smartEstimate ?? doc.estimatedEffort ?? 0,
-    actualEffort: doc.actualEffort ?? 0,
+    actualEffort: actualEffortHoursFromDuration(workflowDuration ?? workflowTiming?.workflowDuration),
     estimateConfidence: doc.estimateConfidence === 'High' ? 'High' : 'Low',
     assignedEmployeeId: doc.assignedEmployeeId || '',
     assignedEmployeeName: doc.assignedEmployeeName || '',
@@ -203,6 +212,7 @@ async function toCellWithDuration(
     onHold: Boolean(doc.onHold),
     assignedEmployeeId: doc.assignedEmployeeId,
     workflow,
+    viewWorkflow: doc.viewWorkflow,
     activityLog: doc.activityLog ?? [],
   };
   const [duration, timing] = await Promise.all([
@@ -219,6 +229,7 @@ function cellProductiveTimePayload(doc: any) {
     onHold: Boolean(doc.onHold),
     assignedEmployeeId: doc.assignedEmployeeId,
     workflow,
+    viewWorkflow: doc.viewWorkflow,
   };
 }
 
@@ -312,12 +323,21 @@ export const projectWorkspaceController = {
           ),
         ),
       );
-      const durationMap = await buildWorkflowDurationMap(projectId, cells);
+      const [durationMap, timingMap] = await Promise.all([
+        buildWorkflowDurationMap(projectId, cells),
+        buildWorkflowTimingMap(projectId, cells),
+      ]);
       const cellsWithMeta = await enrichAssigneeNames(
         await Promise.all(
           cells.map(async (cell) => {
             const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-            return toCell(cell, meta, durationMap.get(cell._id.toString()));
+            const cellId = cell._id.toString();
+            return toCell(
+              cell,
+              meta,
+              durationMap.get(cellId),
+              timingMap.get(cellId),
+            );
           }),
         ),
       );
@@ -599,7 +619,7 @@ export const projectWorkspaceController = {
       const previousAssignee = cell.assignedEmployeeId?.trim() || '';
       const fields = [
         'name', 'description', 'cellType', 'technologyNode', 'complexity',
-        'baseHours', 'estimatedEffort', 'actualEffort', 'views',
+        'baseHours', 'estimatedEffort', 'views',
       ] as const;
 
       for (const field of fields) {
@@ -661,10 +681,6 @@ export const projectWorkspaceController = {
         userName: actor.userName,
         at: new Date(),
       });
-
-      if (cell.status === 'completed' || cell.status === 'ready') {
-        cell.status = 'in_progress';
-      }
 
       await cell.save();
 
@@ -867,12 +883,8 @@ export const projectWorkspaceController = {
         return;
       }
 
-      const becameInProgress = cell.status === 'ready';
-      if (becameInProgress) {
-        cell.status = 'in_progress';
-        await cell.save();
-        await reconcileCellProductiveTime(projectId, cellId, cell);
-      }
+      const actor = actorFromReq(req);
+      await reconcileCellProductiveTime(projectId, cellId, cell, actor);
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
       res.json(await toCellWithDuration(cell, meta));
@@ -1117,6 +1129,7 @@ export const projectWorkspaceController = {
           status: cell.status,
           onHold: cell.onHold,
           assignedEmployeeId: cell.assignedEmployeeId,
+          viewWorkflow: cell.viewWorkflow,
         },
       );
       review.status = 'resolved';
@@ -1150,6 +1163,8 @@ export const projectWorkspaceController = {
 
       await Promise.all([cell.save(), review.save()]);
 
+      await reconcileCellProductiveTime(projectId, cellId, cell, actor);
+
       void sendReviewNotificationsFromCell({
         projectId,
         cellId,
@@ -1164,7 +1179,7 @@ export const projectWorkspaceController = {
         console.error('[workspace] review resolve notification failed:', notifyErr);
       });
 
-      res.json({ cell: toCell(cell), review: toReview(review) });
+      res.json({ cell: await toCellWithDuration(cell, await computeDependencyMeta(new Types.ObjectId(projectId), cell)), review: toReview(review) });
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to resolve review' });
     }
@@ -1206,9 +1221,17 @@ export const projectWorkspaceController = {
       }
 
       const nextWorkflow = result.workflow;
-      if (cell.status === 'completed' || cell.status === 'ready') {
-        cell.status = 'in_progress';
+      if (cellHasWorkflowActivity(nextWorkflow)) {
+        if (cell.status === 'ready') {
+          cell.status = 'in_progress';
+        }
+      } else if (cell.status === 'in_progress') {
+        cell.status = 'ready';
       }
+
+      cell.workflow = nextWorkflow;
+      applyCellWorkflowSync(cell, 'workflow');
+
       await syncWorkLogsFromWorkflowChange(
         projectId,
         cellId,
@@ -1219,11 +1242,10 @@ export const projectWorkspaceController = {
           status: cell.status,
           onHold: cell.onHold,
           assignedEmployeeId: cell.assignedEmployeeId,
+          viewWorkflow: cell.viewWorkflow,
         },
       );
 
-      cell.workflow = nextWorkflow;
-      applyCellWorkflowSync(cell, 'workflow');
       cell.activityLog.push({
         action: 'workflow_update',
         detail: `${stageMeta?.label || stageKey}: ${prevStatus} → ${nextStatus}`,
@@ -1233,6 +1255,8 @@ export const projectWorkspaceController = {
       });
 
       await cell.save();
+
+      await reconcileCellProductiveTime(projectId, cellId, cell, actor);
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
       res.json(await toCellWithDuration(cell, meta));
@@ -1281,8 +1305,14 @@ export const projectWorkspaceController = {
 
       cell.schematicWorkflow = result.workflow;
       applySchematicWorkflowSync(cell, 'schematicWorkflow');
-      if (cell.status === 'completed' || cell.status === 'ready') {
-        cell.status = 'in_progress';
+      const layoutActive = cellHasWorkflowActivity(normalizeCellWorkflow(cell.workflow));
+      const schematicActive = schematicHasWorkflowActivity(result.workflow);
+      if (layoutActive || schematicActive) {
+        if (cell.status === 'ready') {
+          cell.status = 'in_progress';
+        }
+      } else if (cell.status === 'in_progress') {
+        cell.status = 'ready';
       }
       cell.activityLog.push({
         action: 'schematic_workflow_update',

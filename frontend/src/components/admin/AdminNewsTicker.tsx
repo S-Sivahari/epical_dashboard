@@ -203,7 +203,7 @@ export function AdminNewsTicker({
   }
 
   const handleUpdate = async () => {
-    if (!editing || !editTitle.trim() || !editContent.trim()) return
+    if (!editing || !editTitle.trim()) return
     setUpdating(true)
     try {
       const updated = await updateNews(editing.id, {
@@ -319,7 +319,7 @@ export function AdminNewsTicker({
             <span className="text-sm font-medium text-ink">Upload image (optional)</span>
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/*"
               className="block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary"
               onChange={(e) => handleEditImageChange(e.target.files?.[0] ?? null)}
             />

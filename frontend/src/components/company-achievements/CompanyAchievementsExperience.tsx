@@ -31,27 +31,36 @@ function useBlobUrl(
 ) {
   const [url, setUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     if (!enabled) {
       setUrl(null)
       setLoading(false)
+      setFailed(false)
       return
     }
     let alive = true
     let objectUrl: string | null = null
     setUrl(null)
+    setFailed(false)
     setLoading(true)
-    void loader().then((blob) => {
-      if (!alive) return
-      if (blob && blob.size > 0) {
-        objectUrl = URL.createObjectURL(blob)
-        setUrl(objectUrl)
-      } else {
-        setUrl(null)
-      }
-      setLoading(false)
-    })
+    loader()
+      .then((blob) => {
+        if (!alive) return
+        if (blob && blob.size > 0) {
+          objectUrl = URL.createObjectURL(blob)
+          setUrl(objectUrl)
+        } else {
+          setFailed(true)
+        }
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!alive) return
+        setFailed(true)
+        setLoading(false)
+      })
     return () => {
       alive = false
       if (objectUrl) URL.revokeObjectURL(objectUrl)
@@ -59,7 +68,7 @@ function useBlobUrl(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, ...deps])
 
-  return { url, loading }
+  return { url, loading, failed }
 }
 
 function AchievementPhoto({
@@ -82,9 +91,9 @@ function AchievementPhoto({
         : Promise.resolve(null),
     [achievementId, hasImage, imageRevision]
   )
-  const { url, loading } = useBlobUrl(load, [achievementId, hasImage, imageRevision], hasImage)
+  const { url, loading, failed } = useBlobUrl(load, [achievementId, hasImage, imageRevision], hasImage)
 
-  if (!hasImage) {
+  if (!hasImage || failed) {
     return (
       <div
         className={cn(
@@ -93,15 +102,29 @@ function AchievementPhoto({
         )}
       >
         <ImageIcon className="mb-2 h-12 w-12 opacity-50" />
-        <span className="text-sm">No image</span>
+        <span className="text-sm">{failed ? 'Image unavailable' : 'No image'}</span>
       </div>
     )
   }
 
-  if (loading || !url) {
+  if (loading) {
     return (
       <div className={cn('flex h-full w-full items-center justify-center bg-slate-50', className)}>
         <Loader2 className="h-8 w-8 animate-spin text-[#06C033]" />
+      </div>
+    )
+  }
+
+  if (!url) {
+    return (
+      <div
+        className={cn(
+          'flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-[#f0fdf4] text-muted',
+          className
+        )}
+      >
+        <ImageIcon className="mb-2 h-12 w-12 opacity-50" />
+        <span className="text-sm">Image unavailable</span>
       </div>
     )
   }
@@ -162,6 +185,7 @@ export function CompanyAchievementsExperience({
   const [loadingMore, setLoadingMore] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [categories, setCategories] = useState<string[]>([])
+  const [pageMetaLoaded, setPageMetaLoaded] = useState(false)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
@@ -239,8 +263,6 @@ export function CompanyAchievementsExperience({
         .map((c) => ({ value: c, label: c })),
     ]
   }, [categories])
-
-  const [pageMetaLoaded, setPageMetaLoaded] = useState(false)
 
   const defaultSectionTitle = 'Our achievements'
   const employeeSectionSubtitle = 'Celebrating milestones, recognition, and team wins.'
@@ -323,10 +345,7 @@ export function CompanyAchievementsExperience({
       toast.error('Category is required')
       return
     }
-    if (!aEmployee.trim()) {
-      toast.error('Employee or team name is required')
-      return
-    }
+
     if (!aDate) {
       toast.error('Achievement date is required')
       return
@@ -646,26 +665,17 @@ export function CompanyAchievementsExperience({
               label="Employee / team name"
               value={aEmployee}
               onChange={(e) => setAEmployee(e.target.value)}
-              required
             />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input
-              label="Achievement date"
-              type="date"
-              value={aDate}
-              onChange={(e) => setADate(e.target.value)}
-              required
-            />
-            <Input
-              label="Tags (optional)"
-              value={aTags}
-              onChange={(e) => setATags(e.target.value)}
-              placeholder="innovation, milestone"
-            />
-          </div>
+          <Input
+            label="Achievement date"
+            type="date"
+            value={aDate}
+            onChange={(e) => setADate(e.target.value)}
+            required
+          />
           <div>
-            <p className="text-sm font-medium text-ink">Image (JPEG, PNG, or WebP)</p>
+            <p className="text-sm font-medium text-ink">Image (optional, JPEG, PNG, or WebP)</p>
             <input
               type="file"
               accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp"

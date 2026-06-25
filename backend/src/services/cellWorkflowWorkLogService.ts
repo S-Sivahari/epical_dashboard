@@ -8,11 +8,10 @@ import {
   type WorkflowStageStatus,
 } from '../utils/cellWorkflow';
 import { formatWorkflowDurationFromMs } from '../utils/durationFormat';
-import { WORK_SESSION_REASONS } from '../utils/workSessionReason';
-import { isCountableWorkSession } from '../utils/workSessionReason';
+import { WORK_SESSION_REASONS, isCountableWorkSession, filterCountableLogs } from '../utils/workSessionReason';
 import {
   canAccumulateProductiveTime,
-  filterCountableLogs,
+  getActiveWorkStage,
   syncProductiveSessionsForCell,
   syncProductiveSessionsFromWorkflowChange,
 } from './productiveTimeService';
@@ -138,48 +137,66 @@ function buildStageTiming(
     reason?: string | null;
   }>,
   stageStatus: WorkflowStageStatus,
+  stageUpdatedAt?: Date | null,
   now = new Date(),
   canAccumulateLive = false,
 ): StageWorkflowTiming {
-  const stageLogs = filterCountableLogs(logs.filter((log) => log.stageKey === stageKey));
-  let totalMs = 0;
-  let openLog: (typeof stageLogs)[number] | null = null;
+  const stageLogsAll = logs.filter((log) => log.stageKey === stageKey);
+  const stageLogs = filterCountableLogs(stageLogsAll);
+  let closedCountableMs = 0;
+  let openCountableLog: (typeof stageLogs)[number] | null = null;
+  const openStageLog = stageLogsAll.find((log) => !log.checkOutTime) ?? null;
 
   for (const log of stageLogs) {
     if (!log.checkOutTime) {
-      openLog = log;
-      if (canAccumulateLive) {
-        totalMs += logWorkedMs(log.checkInTime, now);
-      }
+      openCountableLog = log;
       continue;
     }
-    totalMs += log.workedMs && log.workedMs > 0
+    closedCountableMs += log.workedMs && log.workedMs > 0
       ? log.workedMs
       : logWorkedMs(log.checkInTime, log.checkOutTime);
   }
 
-  const firstLog = stageLogs[0] ?? null;
-  const latestLog = stageLogs.reduce<(typeof stageLogs)[number] | null>((latest, log) => {
+  const firstLog = stageLogsAll[0] ?? null;
+  const latestLog = stageLogsAll.reduce<(typeof stageLogsAll)[number] | null>((latest, log) => {
     if (!latest) return log;
     return log.latestActivityTime > latest.latestActivityTime ? log : latest;
   }, null);
 
-  const completionLog = stageLogs.find((log) => log.stageCompletionTime) ?? null;
+  const completionLog = stageLogsAll.find((log) => log.stageCompletionTime) ?? null;
+  const stageInProgress = isActiveStageStatus(stageStatus);
+  const stageStart = firstLog?.stageStartTime ?? stageUpdatedAt ?? null;
+  let totalMs = closedCountableMs;
+
+  if (openCountableLog && canAccumulateLive) {
+    totalMs += logWorkedMs(openCountableLog.checkInTime, now);
+  } else if (stageInProgress && openStageLog && !isCountableWorkSession(openStageLog.reason)) {
+    const sessionStart = openStageLog.stageStartTime ?? openStageLog.checkInTime;
+    totalMs += logWorkedMs(sessionStart, now);
+  } else if (stageInProgress && stageUpdatedAt && !openStageLog) {
+    totalMs += logWorkedMs(stageUpdatedAt, now);
+  }
+
+  const hasOpenSession = Boolean(openStageLog);
 
   return {
     stageKey,
-    checkInTime: toIso(openLog?.checkInTime ?? (isActiveStageStatus(stageStatus) ? latestLog?.checkInTime : null)),
+    checkInTime: toIso(openCountableLog?.checkInTime ?? (stageInProgress ? openStageLog?.checkInTime ?? latestLog?.checkInTime : null)),
     checkOutTime: toIso(
-      !openLog && isCompleteStageStatus(stageStatus)
+      !openCountableLog && !openStageLog && isCompleteStageStatus(stageStatus)
         ? completionLog?.checkOutTime ?? latestLog?.checkOutTime ?? null
         : null,
     ),
-    stageStartTime: toIso(firstLog?.stageStartTime ?? null),
+    stageStartTime: toIso(stageStart),
     stageCompletionTime: toIso(completionLog?.stageCompletionTime ?? null),
     latestActivityTime: toIso(latestLog?.latestActivityTime ?? null),
     totalMs,
     formattedTotal: formatWorkflowDurationFromMs(totalMs),
-    isActive: Boolean(openLog) && canAccumulateLive,
+    isActive: stageInProgress && (
+      (Boolean(openCountableLog) && canAccumulateLive)
+      || hasOpenSession
+      || Boolean(stageUpdatedAt)
+    ),
   };
 }
 
@@ -202,7 +219,14 @@ function buildCellWorkflowTiming(
 ): CellWorkflowTiming {
   const stages = CELL_WORKFLOW_STAGES.map(({ key }) => {
     const stage = workflow.find((item) => item.stageKey === key);
-    return buildStageTiming(key, logs, stage?.status ?? 'not_started', now, canAccumulateLive);
+    return buildStageTiming(
+      key,
+      logs,
+      stage?.status ?? 'not_started',
+      stage?.updatedAt ?? null,
+      now,
+      canAccumulateLive,
+    );
   });
 
   const latestActivityTime = stages
@@ -288,6 +312,7 @@ export async function syncWorkLogsFromWorkflowChange(
     onHold?: boolean;
     assignedEmployeeId?: string;
     workflow?: CellWorkflowStage[];
+    viewWorkflow?: unknown;
   },
 ): Promise<void> {
   await syncProductiveSessionsFromWorkflowChange(
@@ -305,6 +330,7 @@ type CellDurationContext = {
   onHold?: boolean;
   assignedEmployeeId?: string;
   workflow?: CellWorkflowStage[];
+  viewWorkflow?: unknown;
   activityLog?: CellActivityEntry[];
 };
 
@@ -318,6 +344,7 @@ async function resolveCanAccumulateLive(
       onHold: cell.onHold,
       assignedEmployeeId: cell.assignedEmployeeId,
       workflow: normalizeCellWorkflow(cell.workflow ?? []),
+      viewWorkflow: cell.viewWorkflow,
     },
     projectId,
   );
@@ -419,4 +446,67 @@ export async function buildWorkflowDurationMap(
   }
 
   return durationMap;
+}
+
+export async function buildWorkflowTimingMap(
+  projectId: string,
+  cells: Array<{
+    _id: Types.ObjectId | string;
+    status?: string;
+    activityLog?: CellActivityEntry[];
+    onHold?: boolean;
+    assignedEmployeeId?: string;
+    workflow?: CellWorkflowStage[];
+  }>,
+): Promise<Map<string, CellWorkflowTiming>> {
+  const projectObjectId = toObjectId(projectId);
+  if (!projectObjectId || cells.length === 0) return new Map();
+
+  const cellIds = cells
+    .map((cell) => toObjectId(String(cell._id)))
+    .filter((id): id is Types.ObjectId => Boolean(id));
+
+  const logs = await CellWorkflowWorkLogModel.find({
+    projectId: projectObjectId,
+    cellId: { $in: cellIds },
+  }).sort({ checkInTime: 1 });
+
+  const logsByCell = new Map<string, typeof logs>();
+  for (const log of logs) {
+    const key = log.cellId.toString();
+    const bucket = logsByCell.get(key) ?? [];
+    bucket.push(log);
+    logsByCell.set(key, bucket);
+  }
+
+  const timingMap = new Map<string, CellWorkflowTiming>();
+  for (const cell of cells) {
+    const cellId = String(cell._id);
+    const cellLogs = logsByCell.get(cellId) ?? [];
+    const workflow = normalizeCellWorkflow(cell.workflow ?? []);
+    const cellStatus = cell.status || 'ready';
+    const canAccumulateLive = await resolveCanAccumulateLive(projectId, cell);
+    const duration = computeDurationFromLogs(
+      cellLogs,
+      cellStatus,
+      cell.activityLog ?? [],
+      new Date(),
+      Boolean(cell.onHold),
+      canAccumulateLive,
+    );
+    timingMap.set(
+      cellId,
+      buildCellWorkflowTiming(
+        workflow,
+        cellLogs,
+        duration,
+        cellStatus,
+        cell.activityLog ?? [],
+        new Date(),
+        canAccumulateLive,
+      ),
+    );
+  }
+
+  return timingMap;
 }

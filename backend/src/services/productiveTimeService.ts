@@ -35,6 +35,21 @@ export function isCellWaitingForReview(workflow: CellWorkflowStage[]): boolean {
   return workflow.some((stage) => stage.status === 'pending_review');
 }
 
+export type ProductiveTimeCellContext = {
+  status?: string;
+  onHold?: boolean;
+  assignedEmployeeId?: string;
+  workflow?: CellWorkflowStage[];
+  viewWorkflow?: unknown;
+};
+
+/** True when the cell is waiting in a review / rejection queue. */
+export function isCellInReviewQueue(cell: Pick<ProductiveTimeCellContext, 'workflow'>): boolean {
+  const workflow = normalizeCellWorkflow(cell.workflow ?? []);
+  if (isCellWaitingForReview(workflow)) return true;
+  return workflow.some((stage) => stage.status === 'rejected');
+}
+
 async function getAssigneeIdentityTokens(assignedEmployeeId?: string | null): Promise<string[]> {
   const id = String(assignedEmployeeId ?? '').trim();
   if (!id) return [];
@@ -52,6 +67,16 @@ async function getAssigneeIdentityTokens(assignedEmployeeId?: string | null): Pr
   );
 
   return buildAssignmentIdentityTokens({ id, employeeId: id }, employee as Parameters<typeof buildAssignmentIdentityTokens>[1]);
+}
+
+export async function isEmployeeAttendanceActive(identityTokens: string[]): Promise<boolean> {
+  if (!identityTokens.length) return false;
+  const result = await EmployeeAttendanceModel.exists({
+    employeeId: { $in: identityTokens },
+    $or: [{ checkOutTime: { $exists: false } }, { checkOutTime: null }],
+    sessionStatus: { $in: ['Active', 'Paused'] },
+  });
+  return Boolean(result);
 }
 
 export async function isEmployeeCheckedInToProject(
@@ -88,12 +113,7 @@ export async function isEmployeeCheckedInToProject(
 }
 
 export async function canAccumulateProductiveTime(
-  cell: {
-    status?: string;
-    onHold?: boolean;
-    assignedEmployeeId?: string;
-    workflow?: CellWorkflowStage[];
-  },
+  cell: ProductiveTimeCellContext,
   projectId: string,
 ): Promise<boolean> {
   if (cell.status !== 'in_progress') return false;
@@ -101,39 +121,36 @@ export async function canAccumulateProductiveTime(
 
   const workflow = normalizeCellWorkflow(cell.workflow ?? []);
   if (!getActiveWorkStage(workflow)) return false;
-  if (isCellWaitingForReview(workflow)) return false;
+  if (isCellInReviewQueue(cell)) return false;
 
   const tokens = await getAssigneeIdentityTokens(cell.assignedEmployeeId);
   if (!tokens.length) return false;
 
+  // Golden rule: assignee must be checked in to this project AND cell must be in progress.
   return isEmployeeCheckedInToProject(tokens, projectId);
 }
 
 /** Map cell + check-in state to why productive time is stopped (for session close). */
 export function resolveProductiveTimeStopReason(
-  cell: {
-    status?: string;
-    onHold?: boolean;
-    workflow?: CellWorkflowStage[];
-  },
-  checkedIn: boolean,
+  cell: ProductiveTimeCellContext,
+  checkedInToProject: boolean,
 ): WorkSessionReason {
   if (cell.onHold) return WORK_SESSION_REASONS.HOLD;
   if (cell.status === 'completed' || cell.status === 'ready') return WORK_SESSION_REASONS.INACTIVE;
 
   const workflow = normalizeCellWorkflow(cell.workflow ?? []);
-  if (isCellWaitingForReview(workflow)) return WORK_SESSION_REASONS.PENDING_REVIEW;
-  if (workflow.some((stage) => stage.status === 'rejected')) {
-    return WORK_SESSION_REASONS.REJECTED_WAITING;
-  }
-  if (cell.status !== 'in_progress') return WORK_SESSION_REASONS.INACTIVE;
-  if (!getActiveWorkStage(workflow)) {
+  if (isCellInReviewQueue(cell)) {
+    if (workflow.some((stage) => stage.status === 'rejected')) {
+      return WORK_SESSION_REASONS.REJECTED_WAITING;
+    }
     if (workflow.some((stage) => stage.status === 'approved')) {
       return WORK_SESSION_REASONS.PENDING_APPROVAL;
     }
-    return WORK_SESSION_REASONS.INACTIVE;
+    return WORK_SESSION_REASONS.PENDING_REVIEW;
   }
-  if (!checkedIn) return WORK_SESSION_REASONS.PROJECT_CHECKED_OUT;
+  if (cell.status !== 'in_progress') return WORK_SESSION_REASONS.INACTIVE;
+  if (!getActiveWorkStage(workflow)) return WORK_SESSION_REASONS.INACTIVE;
+  if (!checkedInToProject) return WORK_SESSION_REASONS.PROJECT_CHECKED_OUT;
   return WORK_SESSION_REASONS.INACTIVE;
 }
 
@@ -173,6 +190,106 @@ async function closeOpenWorkingLogs(
   );
 }
 
+export function shouldMaintainStageSession(cell: ProductiveTimeCellContext): boolean {
+  if (cell.status !== 'in_progress') return false;
+  if (cell.onHold) return false;
+
+  const workflow = normalizeCellWorkflow(cell.workflow ?? []);
+  if (!getActiveWorkStage(workflow)) return false;
+  if (isCellInReviewQueue(cell)) return false;
+  return true;
+}
+
+async function isAssignedToIdentityTokens(
+  assignedEmployeeId: string | undefined,
+  identityTokens: string[],
+): Promise<boolean> {
+  const assigneeTokens = await getAssigneeIdentityTokens(assignedEmployeeId);
+  if (!assigneeTokens.length) return false;
+  const normalized = new Set(assigneeTokens.map((token) => token.trim().toLowerCase()));
+  return identityTokens.some((token) => normalized.has(token.trim().toLowerCase()));
+}
+
+async function closeAllOpenStageLogs(
+  projectId: string,
+  cellId: string,
+  at: Date,
+  reason: WorkSessionReason,
+  actor?: WorkflowActor,
+  stageKey?: CellWorkflowStageKey,
+) {
+  const projectObjectId = toObjectId(projectId);
+  const cellObjectId = toObjectId(cellId);
+  if (!projectObjectId || !cellObjectId) return;
+
+  const query: Record<string, unknown> = {
+    projectId: projectObjectId,
+    cellId: cellObjectId,
+    checkOutTime: null,
+  };
+  if (stageKey) query.stageKey = stageKey;
+
+  const openLogs = await CellWorkflowWorkLogModel.find(query);
+  await Promise.all(
+    openLogs.map(async (log) => {
+      if (isCountableWorkSession(log.reason)) {
+        log.workedMs = logWorkedMs(log.checkInTime, at);
+      }
+      log.checkOutTime = at;
+      log.latestActivityTime = at;
+      if (isCountableWorkSession(log.reason)) {
+        log.reason = reason;
+      }
+      if (actor) {
+        log.closedById = actor.userId;
+        log.closedByName = actor.userName;
+      }
+      await log.save();
+    }),
+  );
+}
+
+async function ensureStageTrackingLog(
+  projectId: string,
+  cellId: string,
+  stageKey: CellWorkflowStageKey,
+  at: Date,
+  actor?: WorkflowActor,
+  employeeId?: string,
+) {
+  const projectObjectId = toObjectId(projectId);
+  const cellObjectId = toObjectId(cellId);
+  if (!projectObjectId || !cellObjectId) return;
+
+  const existingOpen = await CellWorkflowWorkLogModel.findOne({
+    projectId: projectObjectId,
+    cellId: cellObjectId,
+    stageKey,
+    checkOutTime: null,
+  });
+  if (existingOpen) {
+    existingOpen.latestActivityTime = at;
+    await existingOpen.save();
+    return;
+  }
+
+  await CellWorkflowWorkLogModel.create({
+    projectId: projectObjectId,
+    cellId: cellObjectId,
+    stageKey,
+    checkInTime: at,
+    checkOutTime: null,
+    stageStartTime: at,
+    stageCompletionTime: null,
+    latestActivityTime: at,
+    workedMs: 0,
+    reason: WORK_SESSION_REASONS.INACTIVE,
+    employeeId,
+    openedById: actor?.userId,
+    openedByName: actor?.userName,
+  });
+}
+
 async function openWorkingLog(
   projectId: string,
   cellId: string,
@@ -190,10 +307,17 @@ async function openWorkingLog(
     cellId: cellObjectId,
     stageKey,
     checkOutTime: null,
-    reason: WORK_SESSION_REASONS.WORKING,
   });
   if (existingOpen) {
+    existingOpen.reason = WORK_SESSION_REASONS.WORKING;
     existingOpen.latestActivityTime = at;
+    if (!existingOpen.employeeId && employeeId) {
+      existingOpen.employeeId = employeeId;
+    }
+    if (actor) {
+      existingOpen.openedById = actor.userId;
+      existingOpen.openedByName = actor.userName;
+    }
     await existingOpen.save();
     return;
   }
@@ -218,40 +342,49 @@ async function openWorkingLog(
 export async function syncProductiveSessionsForCell(
   projectId: string,
   cellId: string,
-  cell: {
-    status?: string;
-    onHold?: boolean;
-    assignedEmployeeId?: string;
-    workflow?: CellWorkflowStage[];
-  },
+  cell: ProductiveTimeCellContext,
   actor?: WorkflowActor,
   at = new Date(),
 ): Promise<void> {
   const workflow = normalizeCellWorkflow(cell.workflow ?? []);
   const activeStage = getActiveWorkStage(workflow);
-  const canWork = await canAccumulateProductiveTime(cell, projectId);
+  const shouldTrack = shouldMaintainStageSession({ ...cell, workflow });
+  const canWork = await canAccumulateProductiveTime({ ...cell, workflow }, projectId);
 
-  if (!canWork || !activeStage) {
+  if (!shouldTrack || !activeStage) {
     const tokens = await getAssigneeIdentityTokens(cell.assignedEmployeeId);
     const checkedIn = tokens.length
       ? await isEmployeeCheckedInToProject(tokens, projectId)
       : false;
-    const reason = resolveProductiveTimeStopReason(cell, checkedIn);
-    await closeOpenWorkingLogs(projectId, cellId, at, reason, actor);
+    const reason = resolveProductiveTimeStopReason({ ...cell, workflow }, checkedIn);
+    await closeAllOpenStageLogs(projectId, cellId, at, reason, actor);
     return;
   }
 
   for (const stage of workflow) {
     if (stage.stageKey !== activeStage.stageKey) {
-      await closeOpenWorkingLogs(projectId, cellId, at, WORK_SESSION_REASONS.INACTIVE, actor, stage.stageKey);
+      await closeAllOpenStageLogs(projectId, cellId, at, WORK_SESSION_REASONS.INACTIVE, actor, stage.stageKey);
     }
   }
 
-  await openWorkingLog(
+  if (canWork) {
+    await openWorkingLog(
+      projectId,
+      cellId,
+      activeStage.stageKey,
+      at,
+      actor,
+      cell.assignedEmployeeId,
+    );
+    return;
+  }
+
+  await closeOpenWorkingLogs(projectId, cellId, at, WORK_SESSION_REASONS.PROJECT_CHECKED_OUT, actor, activeStage.stageKey);
+  await ensureStageTrackingLog(
     projectId,
     cellId,
     activeStage.stageKey,
-    at,
+    activeStage.updatedAt ?? at,
     actor,
     cell.assignedEmployeeId,
   );
@@ -303,13 +436,19 @@ export async function resumeProductiveSessionsForProjectEmployee(
 
   const cells = await ProjectCellModel.find({
     projectId: projectObjectId,
-    assignedEmployeeId: { $in: identityTokens },
     status: 'in_progress',
     onHold: { $ne: true },
   });
 
+  const matched: typeof cells = [];
+  for (const cell of cells) {
+    if (await isAssignedToIdentityTokens(cell.assignedEmployeeId, identityTokens)) {
+      matched.push(cell);
+    }
+  }
+
   await Promise.all(
-    cells.map((cell) =>
+    matched.map((cell) =>
       syncProductiveSessionsForCell(projectId, cell._id.toString(), cell, actor, at),
     ),
   );
@@ -350,20 +489,30 @@ export async function closeProductiveSessionsForEmployee(
 ): Promise<void> {
   if (!identityTokens.length) return;
 
-  const openTasks = await TimesheetModel.find({
-    taskStatus: { $in: ['In Progress', 'Paused', 'Session Incomplete'] },
-    $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
-    $and: [
-      {
-        $or: [
-          { employeeId: { $in: identityTokens } },
-          { employee: { $in: identityTokens } },
-        ],
-      },
-    ],
-  }).select('projectId');
+  // Find all projects that have open work logs for this employee.
+  const openWorkLogs = await CellWorkflowWorkLogModel.find({
+    checkOutTime: null,
+  }).select('projectId').lean();
 
-  const projectIds = [...new Set(openTasks.map((task) => task.projectId.toString()))];
+  const projectIds = [...new Set(openWorkLogs.map((log) => log.projectId.toString()))];
+
+  if (!projectIds.length) {
+    // Fall back to timesheet-based project discovery
+    const openTasks = await TimesheetModel.find({
+      taskStatus: { $in: ['In Progress', 'Paused', 'Session Incomplete'] },
+      $or: [{ logoutTime: { $exists: false } }, { logoutTime: null }],
+      $and: [
+        {
+          $or: [
+            { employeeId: { $in: identityTokens } },
+            { employee: { $in: identityTokens } },
+          ],
+        },
+      ],
+    }).select('projectId');
+    projectIds.push(...new Set(openTasks.map((task) => task.projectId.toString())));
+  }
+
   await Promise.all(
     projectIds.map((projectId) =>
       closeProductiveSessionsForProjectEmployee(projectId, identityTokens, reason, at),
@@ -371,17 +520,21 @@ export async function closeProductiveSessionsForEmployee(
   );
 }
 
+/** Office check-in alone does not start cell time — project task check-in is required. */
+export async function resumeProductiveSessionsOnEmployeeCheckIn(
+  _identityTokens: string[],
+  _actor?: WorkflowActor,
+  _at = new Date(),
+): Promise<void> {
+  // Intentionally no-op: cell productive time resumes on project task start/resume only.
+}
+
 export async function syncProductiveSessionsFromWorkflowChange(
   projectId: string,
   cellId: string,
   prevWorkflow: CellWorkflowStage[],
   nextWorkflow: CellWorkflowStage[],
-  cell: {
-    status?: string;
-    onHold?: boolean;
-    assignedEmployeeId?: string;
-    workflow?: CellWorkflowStage[];
-  },
+  cell: ProductiveTimeCellContext,
   actor?: WorkflowActor,
   at = new Date(),
 ): Promise<void> {
@@ -394,15 +547,11 @@ export async function syncProductiveSessionsFromWorkflowChange(
       if (stage.status === 'pending_review') reason = WORK_SESSION_REASONS.PENDING_REVIEW;
       if (stage.status === 'approved') reason = WORK_SESSION_REASONS.PENDING_APPROVAL;
       if (stage.status === 'rejected') reason = WORK_SESSION_REASONS.REJECTED_WAITING;
-      await closeOpenWorkingLogs(projectId, cellId, at, reason, actor, stage.stageKey);
+      await closeAllOpenStageLogs(projectId, cellId, at, reason, actor, stage.stageKey);
     }
   }
 
   await syncProductiveSessionsForCell(projectId, cellId, { ...cell, workflow: nextWorkflow }, actor, at);
-}
-
-export function filterCountableLogs<T extends { reason?: string | null }>(logs: T[]): T[] {
-  return logs.filter((log) => isCountableWorkSession(log.reason));
 }
 
 export { WORK_SESSION_REASONS };

@@ -257,10 +257,6 @@ export const achievementController = {
         res.status(400).json({ error: 'Category is required' })
         return
       }
-      if (!employeeOrTeamName.trim()) {
-        res.status(400).json({ error: 'Employee or team name is required' })
-        return
-      }
       if (!achievementDate) {
         res.status(400).json({ error: 'Achievement date is required' })
         return
@@ -301,10 +297,6 @@ export const achievementController = {
       }
       if (!category.trim()) {
         res.status(400).json({ error: 'Category is required' })
-        return
-      }
-      if (!employeeOrTeamName.trim()) {
-        res.status(400).json({ error: 'Employee or team name is required' })
         return
       }
       if (!achievementDate) {

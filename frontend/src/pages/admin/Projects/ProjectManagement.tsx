@@ -55,7 +55,6 @@ import api from '@/services/api'
 import { getEmployees } from '@/services/employeeService'
 import { filterAllocatableEmployees } from '@/utils/employeeView'
 import { useEmployeeStore } from '@store/employeeStore'
-import { MOCK_EMPLOYEES } from '@/services/mockData'
 import type { Employee } from '@/types'
 import { cn } from '@/utils/cn'
 import { formatDurationFromMs } from '@/utils/durationFormat'
@@ -2751,7 +2750,6 @@ export function ProjectManagement() {
   const tsEmployeeFilterOptions = useMemo(() => {
     const names = new Set<string>()
     employees.forEach((e) => names.add(employeeDisplayName(e)))
-    MOCK_EMPLOYEES.forEach((e) => names.add(`${e.firstName} ${e.lastName ?? ''}`.trim()))
     timesheets.forEach((t) => {
       if (t.employeeName) names.add(t.employeeName)
     })

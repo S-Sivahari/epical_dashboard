@@ -392,7 +392,7 @@ export function EmployeeList() {
                 type="text"
                 value={searchInput}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search by Name, Email, or EPL..."
+                placeholder="Search by name, email or ID."
                 className="employee-directory-search-input"
               />
               {searchInput ? (

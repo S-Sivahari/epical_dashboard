@@ -69,9 +69,23 @@ async function migrateLegacyIopCellType(): Promise<void> {
   const { CellTypeChecklistResponseModel } = await import('../models/CellTypeChecklistResponse');
   const { CellCustomChecklistItemModel } = await import('../models/CellCustomChecklistItem');
 
+  // For models with unique indexes on cellType, delete the IOP doc if IO already exists,
+  // otherwise rename. For other models, a plain updateMany is safe.
+  const ioChecklistExists = await ChecklistModel.exists({ cellType: 'IO' });
+  if (ioChecklistExists) {
+    await ChecklistModel.deleteMany({ cellType: 'IOP' });
+  } else {
+    await ChecklistModel.updateMany({ cellType: 'IOP' }, { $set: { cellType: 'IO' } });
+  }
+
+  const ioDefExists = await CellTypeChecklistDefinitionModel.exists({ cellType: 'IO' });
+  if (ioDefExists) {
+    await CellTypeChecklistDefinitionModel.deleteMany({ cellType: 'IOP' });
+  } else {
+    await CellTypeChecklistDefinitionModel.updateMany({ cellType: 'IOP' }, { $set: { cellType: 'IO' } });
+  }
+
   await Promise.all([
-    ChecklistModel.updateMany({ cellType: 'IOP' }, { $set: { cellType: 'IO' } }),
-    CellTypeChecklistDefinitionModel.updateMany({ cellType: 'IOP' }, { $set: { cellType: 'IO' } }),
     ProjectCellModel.updateMany({ cellType: 'IOP' }, { $set: { cellType: 'IO' } }),
     ProjectTypeChecklistModel.updateMany({ cellType: 'IOP' }, { $set: { cellType: 'IO' } }),
     CellTypeChecklistResponseModel.updateMany({ cellType: 'IOP' }, { $set: { cellType: 'IO' } }),
