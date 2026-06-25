@@ -1390,12 +1390,19 @@
     overflow: hidden;
   }
 
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-right-approvals.dashboard-approvals-panel--has-items,
+  .admin-dashboard-view[data-admin-dashboard] .dashboard-approvals-panel--has-items {
+    flex: 1 1 0;
+    max-height: none;
+    min-height: 12rem;
+  }
+
   .admin-dashboard-view[data-admin-dashboard] .dashboard-right-activity,
   .admin-dashboard-view[data-admin-dashboard] .dashboard-activity-panel {
     display: flex;
     flex-direction: column;
     flex: 1 1 0;
-    min-height: 8rem;
+    min-height: 12rem;
     overflow: hidden;
   }
 
@@ -1412,6 +1419,7 @@
 
   .admin-dashboard-view[data-admin-dashboard] .dashboard-approvals-panel--has-items .dashboard-insight-panel-body {
     max-height: none;
+    min-height: 6rem;
     overflow-x: hidden;
     overflow-y: auto;
   }
@@ -5625,6 +5633,16 @@
   padding: 0 0 0.75rem 0.75rem;
 }
 
+.dashboard-activity-item > .dashboard-activity-time {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.dashboard-activity-item > .dashboard-activity-content > .dashboard-activity-user {
+  padding-right: 4.25rem;
+}
+
 .dashboard-activity-dot {
   position: absolute;
   left: 0;
@@ -5695,6 +5713,7 @@
   font-weight: 500;
   color: #334155;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .dashboard-activity-session-checkout {
@@ -5710,6 +5729,7 @@
 .dashboard-activity-session-value--pending {
   color: #0f766e;
   font-style: italic;
+  white-space: nowrap;
 }
 
 .dashboard-activity-time {
