@@ -8,6 +8,7 @@ import {
   assertEmployeeCanAccessNotesForDate,
   assertEmployeeCanMutateNotesForBlockId,
   assertEmployeeCanMutateNotesForDate,
+  assertEmployeeCanCopyLatestNotesForDate,
   assertEmployeeCanReadNotesForDate,
   getNotesAccessPayload,
   isNotesAdmin,
@@ -197,6 +198,23 @@ export const notesController = {
       res.json(item);
     } catch (err) {
       handleError(res, err, 'Failed to load daily block');
+    }
+  },
+
+  getLatestBefore: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const beforeDate = paramStr(req.params.date);
+      if (!isNotesAdmin(req)) {
+        await assertEmployeeCanCopyLatestNotesForDate(req, beforeDate);
+      }
+      const item = await notesService.getLatestDailyBlockWithNotesBefore(beforeDate);
+      if (!item) {
+        res.status(404).json({ error: 'No earlier daily notes found to copy' });
+        return;
+      }
+      res.json(item);
+    } catch (err) {
+      handleError(res, err, 'Failed to load latest daily notes');
     }
   },
 

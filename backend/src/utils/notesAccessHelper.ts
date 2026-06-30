@@ -74,7 +74,7 @@ export async function assertEmployeeCanReadNotesForDate(req: Request, date: stri
     return;
   }
 
-  // Substitutes assigned today may read yesterday's notes to use "copy yesterday".
+  // Substitutes assigned today may read yesterday's notes (common copy-latest source).
   if (dateKey === yesterdayDateKey()) {
     const allowedToday = await notesDelegationService.isEmployeeDelegatedForDate(employee.id, today);
     if (!allowedToday) {
@@ -94,6 +94,15 @@ export async function assertEmployeeCanReadNotesForDate(req: Request, date: stri
 
 export async function assertEmployeeCanAccessNotesForDate(req: Request, date: string): Promise<void> {
   await assertEmployeeCanReadNotesForDate(req, date);
+}
+
+/** Employees delegated for `targetDate` may fetch the latest prior notes to copy into that day. */
+export async function assertEmployeeCanCopyLatestNotesForDate(
+  req: Request,
+  targetDate: string,
+): Promise<void> {
+  if (isNotesAdmin(req)) return;
+  await assertEmployeeCanMutateNotesForDate(req, targetDate);
 }
 
 export async function assertEmployeeCanMutateNotesForDate(req: Request, date: string): Promise<void> {
