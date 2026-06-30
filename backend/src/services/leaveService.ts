@@ -242,6 +242,7 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
       balanceOptions,
       undefined,
       payload.from,
+      new Date(),
     );
     lopDays = split.lopDays;
   } else if (leaveBalance && leaveBalance.remaining < requestedDays) {
@@ -1085,6 +1086,7 @@ export async function updateLeaveStatus(
         balanceOptions,
         leave.id,
         leave.from,
+        leave.createdAt ?? leave.updatedAt,
       );
       updateDoc.lopDays = split.lopDays;
     } else {
