@@ -93,6 +93,11 @@ export async function getDailyBlockByDate(date: string) {
   return res.data
 }
 
+export async function getLatestDailyBlockBefore(beforeDate: string) {
+  const res = await api.get<DailyNoteBlock>(`/notes/latest-before/${beforeDate}`)
+  return res.data
+}
+
 export async function getOrCreateDailyBlock(date: string, status?: DailyNoteStatus) {
   try {
     return await getDailyBlockByDate(date)

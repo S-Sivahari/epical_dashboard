@@ -92,3 +92,21 @@ export function buildWeekDays(
     return { date, dateKey, block: blocksByDate[dateKey] ?? null }
   })
 }
+
+export function blockHasActiveNotes(block: DailyNoteBlock): boolean {
+  return block.childBlocks.some((child) => !child.archived)
+}
+
+/** Latest loaded block strictly before `beforeDateKey` that still has active notes. */
+export function findLatestBlockWithNotesBefore(
+  beforeDateKey: string,
+  blocksByDate: Record<string, DailyNoteBlock | null | undefined>,
+): DailyNoteBlock | null {
+  const match = Object.entries(blocksByDate)
+    .filter(
+      ([dateKey, block]) =>
+        dateKey < beforeDateKey && block != null && blockHasActiveNotes(block),
+    )
+    .sort(([a], [b]) => b.localeCompare(a))[0]
+  return match?.[1] ?? null
+}
