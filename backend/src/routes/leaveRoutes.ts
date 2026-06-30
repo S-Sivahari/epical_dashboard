@@ -30,6 +30,11 @@ router.patch(
   roleMiddleware('Admin'),
   leaveController.adjustEmployeeBalance
 );
+router.patch(
+  '/employee/:employeeId/balance-adjustments',
+  roleMiddleware('Admin'),
+  leaveController.adjustEmployeeBalances
+);
 router.get('/year-balances', roleMiddleware('Admin'), leaveController.getYearBalances);
 router.get(
   '/allocation-activities',

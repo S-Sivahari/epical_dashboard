@@ -34,6 +34,12 @@ export function buildClockTimeOnDate(dateKey: string, hours: number, minutes: nu
   );
 }
 
+export function calendarDayBounds(dateKey: string): { start: Date; end: Date } {
+  const start = buildClockTimeOnDate(dateKey, 0, 0);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
+  return { start, end };
+}
+
 /** Next occurrence of HH:mm in scheduler timezone (IST by default), strictly after `from`. */
 export function buildNextSchedulerClockTime(from: Date, hours: number, minutes: number): Date {
   const dateKey = getSchedulerDateKey(from);

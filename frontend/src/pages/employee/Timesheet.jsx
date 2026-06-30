@@ -22,7 +22,7 @@ import {
 } from '@components/employee/ui/dialog'
 import {
   WORK_BREAK_OPTIONS,
-  computeNetAttendanceMs,
+  computeGrossAttendanceMs,
   formatBreakCountdown,
 } from '@utils/workBreaks'
 import { EmployeePageLoading } from '@components/employee/layout/EmployeePageLoading'
@@ -88,10 +88,7 @@ function segmentHours(seg, checkedIn, liveNow) {
   }
   const isOpen = checkedIn && !seg.checkOutTime
   return hoursFromMs(
-    computeNetAttendanceMs(seg.checkInTime, seg.checkOutTime, {
-      now: isOpen ? liveNow : undefined,
-      breaks: seg.breaks,
-    }),
+    computeGrossAttendanceMs(seg.checkInTime, seg.checkOutTime, isOpen ? liveNow : undefined),
   )
 }
 
@@ -189,8 +186,14 @@ export default function Timesheet() {
   useEffect(() => {
     if (!initialized || !checkedIn) return undefined
     const sync = () => void useTimesheetStore.getState().syncAttendanceWithBackend()
-    const id = setInterval(sync, 30000)
-    return () => clearInterval(id)
+    const refreshElapsed = () => void useTimesheetStore.getState().fetchBackendElapsedData()
+    refreshElapsed()
+    const syncId = setInterval(sync, 30000)
+    const elapsedId = setInterval(refreshElapsed, 15000)
+    return () => {
+      clearInterval(syncId)
+      clearInterval(elapsedId)
+    }
   }, [initialized, checkedIn])
 
   useEffect(() => {
@@ -215,7 +218,10 @@ export default function Timesheet() {
   )
 
   const taskStatusCounts = useMemo(() => {
-    const total = assignedTasks.length
+    const uniqueProjectIds = new Set(
+      assignedTasks.map((t) => t.projectId || t.projectName).filter(Boolean),
+    )
+    const total = uniqueProjectIds.size
     const inProgress = assignedTasks.filter(
       (t) =>
         t.status === 'in_progress' ||
@@ -252,21 +258,6 @@ export default function Timesheet() {
     : 0
   const canEndBreak = activeBreak?.canEnd ?? activeBreakMinRemainingMs <= 0
   const onBreak = Boolean(activeBreak)
-
-  useEffect(() => {
-    if (!checkedIn || !activeBreak?.endsAt || !canEndBreak) return undefined
-    const endsAt = new Date(activeBreak.endsAt).getTime()
-    if (endsAt <= liveNow) {
-      void endBreak().catch(() => {})
-      return undefined
-    }
-    const id = window.setInterval(() => {
-      if (Date.now() + (serverTimeSkew || 0) >= endsAt) {
-        void endBreak().catch(() => {})
-      }
-    }, 1000)
-    return () => window.clearInterval(id)
-  }, [checkedIn, activeBreak?.endsAt, canEndBreak, liveNow, endBreak, serverTimeSkew])
 
   useEffect(() => {
     if (checkedIn && currentWorkTask) {
@@ -476,7 +467,7 @@ export default function Timesheet() {
     attendanceHistory.forEach((seg) => {
       if (seg.date === todayKey) {
         const isOpen = checkedIn && !seg.checkOutTime
-        totalMs += computeNetAttendanceMs(
+        totalMs += computeGrossAttendanceMs(
           seg.checkInTime,
           seg.checkOutTime,
           isOpen ? liveNow : undefined,
@@ -539,9 +530,9 @@ export default function Timesheet() {
             audience="employee"
             className="project-analysis-launch-btn--hero emp-timesheet-hero-stat emp-timesheet-hero-stat--launch"
           />
-          <div className="emp-timesheet-hero-metrics" aria-label="Project task counts">
+          <div className="emp-timesheet-hero-metrics" aria-label="Assigned project counts">
           <div className="emp-timesheet-hero-stat">
-            <span className="emp-timesheet-hero-stat-label">Total</span>
+            <span className="emp-timesheet-hero-stat-label">Projects</span>
             <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.total}</span>
           </div>
           <div className="emp-timesheet-hero-stat emp-timesheet-hero-stat--blue">

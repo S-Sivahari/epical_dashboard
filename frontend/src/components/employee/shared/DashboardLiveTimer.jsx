@@ -11,6 +11,8 @@ export function DashboardLiveTimer({ className }) {
   const activeTask = useTimesheetStore((s) => s.activeTask)
   const pausedTasks = useTimesheetStore((s) => s.pausedTasks)
   const serverTimeSkew = useTimesheetStore((s) => s.serverTimeSkew)
+  const backendElapsedMs = useTimesheetStore((s) => s.backendElapsedMs)
+  const backendElapsedLastFetch = useTimesheetStore((s) => s.backendElapsedLastFetch)
   const hydrate = useTimesheetStore((s) => s.hydrate)
 
   useEffect(() => {
@@ -35,6 +37,8 @@ export function DashboardLiveTimer({ className }) {
         activeTask={activeTask}
         pausedTasks={pausedTasks}
         serverTimeSkew={serverTimeSkew}
+        backendElapsedMs={backendElapsedMs}
+        backendElapsedLastFetch={backendElapsedLastFetch}
         inline
       />
     </div>

@@ -66,6 +66,34 @@ export function openTimesheetsForAttendanceFilter(
   return { $and: clauses };
 }
 
+/** All timesheet rows logged during one attendance check-in session. */
+export function sessionTimesheetsForAttendanceFilter(
+  identityTokens: string[],
+  checkInTime: Date,
+  checkoutTime: Date,
+) {
+  return {
+    $and: [
+      openTimesheetsIdentityFilter(identityTokens),
+      { loginTime: { $gte: checkInTime, $lte: checkoutTime } },
+    ],
+  };
+}
+
+/** All timesheet rows logged on a calendar day (scheduler timezone date key). */
+export function timesheetsForCalendarDayFilter(
+  identityTokens: string[],
+  dayStart: Date,
+  dayEnd: Date,
+) {
+  return {
+    $and: [
+      openTimesheetsIdentityFilter(identityTokens),
+      { loginTime: { $gte: dayStart, $lte: dayEnd } },
+    ],
+  };
+}
+
 /** Resolve all employee/timesheet identity tokens for an attendance row (auth id, HR id, name, email). */
 export async function resolveIdentityTokensForAttendance(attendance: {
   employeeId?: string;

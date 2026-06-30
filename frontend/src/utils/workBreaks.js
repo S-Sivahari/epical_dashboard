@@ -13,34 +13,21 @@ export function formatBreakCountdown(ms) {
   return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
 
-const BREAK_DURATION_MS = {
-  morning: 10 * 60 * 1000,
-  lunch: 30 * 60 * 1000,
-  evening: 10 * 60 * 1000,
+/** Attendance charts: gross check-in to check-out (breaks affect project hours only). */
+export function computeGrossAttendanceMs(checkInTime, checkOutTime, now = Date.now()) {
+  const start = new Date(checkInTime).getTime()
+  const end = checkOutTime ? new Date(checkOutTime).getTime() : now
+  return Math.max(0, end - start)
 }
 
-export function computeUsedBreakMs(breaks) {
-  if (!breaks) return 0
-  let total = 0
-  if (breaks.morning?.used) total += BREAK_DURATION_MS.morning
-  if (breaks.lunch?.used) total += BREAK_DURATION_MS.lunch
-  if (breaks.evening?.used) total += BREAK_DURATION_MS.evening
-  return total
-}
-
+/** @deprecated Use computeGrossAttendanceMs — breaks no longer reduce attendance display time. */
 export function computeNetAttendanceMs(checkInTime, checkOutTime, nowOrOptions) {
   let now
-  let breaks
   if (typeof nowOrOptions === 'number') {
     now = nowOrOptions
   } else if (nowOrOptions && typeof nowOrOptions === 'object') {
     now = nowOrOptions.now
-    breaks = nowOrOptions.breaks
   }
-  const start = new Date(checkInTime).getTime()
   const end = checkOutTime ? new Date(checkOutTime).getTime() : (now ?? Date.now())
-  const gross = Math.max(0, end - start)
-  const usedBreakMs = computeUsedBreakMs(breaks)
-  const deduction = usedBreakMs > 0 ? usedBreakMs : DAILY_STANDARD_BREAK_MINUTES * 60 * 1000
-  return Math.max(0, gross - deduction)
+  return computeGrossAttendanceMs(checkInTime, checkOutTime, end)
 }

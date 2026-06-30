@@ -22,19 +22,20 @@ import {
   resolveSchedulerAutoCheckoutDeadline,
 } from '../utils/istClock';
 import {
+  recordCompletedBreakDuration,
+  activeBreakExpired,
+} from '../utils/workBreaks';
+import {
+  applyDailyCappedBreakDeduction,
+  markDailyBreakSlotCompleted,
+  resolveDefaultCheckoutBreakDeduction,
+} from './dailyBreakStateService';
+import { finalizeOpenTimesheetsForCheckout } from './projectBreakDeductionService';
+import { resumeBreakPausedTask } from './timesheetBreakService';
+import {
   closeProductiveSessionsForEmployee,
   WORK_SESSION_REASONS,
 } from './productiveTimeService';
-
-function finalizePauseAccumulation(
-  timesheet: { pausedAt?: Date | null; totalPausedMs?: number },
-  now: Date
-) {
-  if (!timesheet.pausedAt) return;
-  const pausedMs = now.getTime() - new Date(timesheet.pausedAt).getTime();
-  timesheet.totalPausedMs = (timesheet.totalPausedMs || 0) + Math.max(0, pausedMs);
-  timesheet.pausedAt = null;
-}
 
 function isTransactionUnsupportedError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
@@ -250,22 +251,46 @@ async function performAutoCheckoutForAttendance(
   const checkInTime = claimed.checkInTime;
   const { openLogs, identityTokens } = await findOpenTimesheetsForAutoCheckout(claimed, session);
 
+  const defaultBreakDeductionMs = await resolveDefaultCheckoutBreakDeduction(
+    claimed.employeeId,
+    claimed.date,
+  );
+
   console.log(
     `[Auto-Checkout Job] Found ${openLogs.length} open timesheet log(s) for ${claimed.employeeName} (tokens=${identityTokens.join(',')}).`
   );
 
-  for (const log of openLogs) {
-    if (log.taskStatus === 'Paused') {
-      finalizePauseAccumulation(log, checkoutTimestamp);
-    }
-    log.logoutTime = checkoutTimestamp;
-    log.totalHours = computeTotalHoursDecimal(log.loginTime, checkoutTimestamp, log.totalPausedMs, log.overriddenHours);
-    log.autoCheckedOut = true;
-    if (['In Progress', 'Paused', 'Session Incomplete'].includes(log.taskStatus || '')) {
-      log.taskStatus = 'Session Incomplete';
+  if (claimed.activeBreakType) {
+    const breakType = claimed.activeBreakType;
+    const timesheetId = claimed.breakPausedTimesheetId;
+    const endedAt =
+      claimed.activeBreakEndsAt && activeBreakExpired(claimed, checkoutTimestamp)
+        ? claimed.activeBreakEndsAt
+        : checkoutTimestamp;
+    const breakMs = recordCompletedBreakDuration(claimed, breakType, endedAt);
+    await markDailyBreakSlotCompleted(claimed.employeeId, claimed.date, breakType, endedAt, breakMs);
+    const appliedMs = await applyDailyCappedBreakDeduction(claimed.employeeId, claimed.date, breakMs);
+    await resumeBreakPausedTask(timesheetId, identityTokens, appliedMs);
+    claimed.activeBreakType = undefined;
+    claimed.activeBreakStartedAt = undefined;
+    claimed.activeBreakEndsAt = undefined;
+    claimed.breakPausedTimesheetId = undefined;
+  }
+
+  const updatedLogs = finalizeOpenTimesheetsForCheckout(claimed, openLogs, checkoutTimestamp, {
+    incompleteTaskStatus: true,
+    defaultBreakDeductionMs,
+  });
+
+  const openLogIds = new Set(openLogs.map((log) => log._id.toString()));
+  for (const log of updatedLogs) {
+    if (openLogIds.has(log._id.toString())) {
+      log.autoCheckedOut = true;
     }
     await log.save(session ? { session } : undefined);
     await syncProjectForTimesheet(log, session);
+
+    if (!openLogIds.has(log._id.toString())) continue;
 
     const assignedQuery = AssignedTaskModel.findOne({ timesheetId: log._id });
     if (session) assignedQuery.session(session);
@@ -275,6 +300,16 @@ async function performAutoCheckoutForAttendance(
       assignedTask.timesheetId = undefined;
       await assignedTask.save(session ? { session } : undefined);
     }
+  }
+
+  await claimed.save(session ? { session } : undefined);
+
+  if (defaultBreakDeductionMs > 0) {
+    await applyDailyCappedBreakDeduction(
+      claimed.employeeId,
+      claimed.date,
+      defaultBreakDeductionMs,
+    );
   }
 
   void closeProductiveSessionsForEmployee(

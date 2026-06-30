@@ -210,6 +210,22 @@ export function calculateEarnedLeaveAllocation(
   );
 }
 
+export function getLeaveBalanceAdjustmentStep(_type?: string): number {
+  return EARNED_LEAVE_ACCRUAL_PER_MONTH;
+}
+
+export function assertLeaveBalanceStep(
+  type: string,
+  value: number,
+  label: 'adjustment' | 'total' = 'adjustment',
+): void {
+  const step = getLeaveBalanceAdjustmentStep(type);
+  const ratio = value / step;
+  if (!Number.isFinite(value) || Math.abs(ratio - Math.round(ratio)) > 1e-9) {
+    throw new Error(`${type} ${label} must be in multiples of ${step}`);
+  }
+}
+
 function paidLeaveDays(leave: LeaveRequest): number {
   const lop = Number(leave.lopDays ?? 0) || 0;
   return Math.max(0, leave.days - lop);

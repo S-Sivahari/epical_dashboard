@@ -10,12 +10,17 @@ import {
 
 export { buildAssignmentIdentityTokens } from './assignedTaskSync';
 
-function computeTotalHours(loginTime: Date, logoutTime?: Date, overriddenHours?: number): number {
+function computeTotalHours(
+  loginTime: Date,
+  logoutTime?: Date,
+  overriddenHours?: number,
+  totalPausedMs = 0,
+): number {
   if (overriddenHours !== undefined && overriddenHours !== null) {
     return Number(overriddenHours);
   }
   if (!logoutTime) return 0;
-  const diffMs = logoutTime.getTime() - loginTime.getTime();
+  const diffMs = logoutTime.getTime() - loginTime.getTime() - (totalPausedMs || 0);
   if (diffMs <= 0) return 0;
   return Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10;
 }
@@ -62,6 +67,31 @@ export async function buildEmployeeWorkspaceProjectsFilter(identityTokens: strin
   return { status: 'Active', ...filter };
 }
 
+/** Active projects visible to an employee: all public + privately assigned (team lead, allowedUsers, cell). */
+export async function buildEmployeeVisibleProjectsFilter(identityTokens: string[]) {
+  const eligible = await buildCheckInEligibleProjectsFilter(identityTokens);
+  return { status: 'Active', ...eligible };
+}
+
+/** Active projects explicitly allotted to an employee (team lead, allowedUsers, or cell assignment). */
+export async function buildAssignedProjectsQueryFilter(identityTokens: string[]) {
+  const cellProjectIds = await ProjectCellModel.distinct('projectId', {
+    assignedEmployeeId: { $in: identityTokens },
+  });
+
+  if (cellProjectIds.length > 0) {
+    return {
+      status: 'Active',
+      $or: [
+        ...(buildAssignedProjectsFilter(identityTokens).$or as Record<string, unknown>[]),
+        { _id: { $in: cellProjectIds } },
+      ],
+    };
+  }
+
+  return { status: 'Active', ...buildAssignedProjectsFilter(identityTokens) };
+}
+
 export async function getAssignedProjectsForUser(
   user: AuthUser,
   employeeRecord?: {
@@ -81,20 +111,7 @@ export async function getAssignedProjectsForUser(
 
   const assignmentTokens = buildAssignmentIdentityTokens(user, employeeRecord as any);
 
-  const cellProjectIds = await ProjectCellModel.distinct('projectId', {
-    assignedEmployeeId: { $in: assignmentTokens },
-  });
-
-  const projectFilter =
-    cellProjectIds.length > 0
-      ? {
-          status: 'Active',
-          $or: [
-            ...(buildAssignedProjectsFilter(assignmentTokens).$or as Record<string, unknown>[]),
-            { _id: { $in: cellProjectIds } },
-          ],
-        }
-      : { status: 'Active', ...buildAssignedProjectsFilter(assignmentTokens) };
+  const projectFilter = await buildEmployeeVisibleProjectsFilter(assignmentTokens);
 
   if (options?.syncTasks === true) {
     void ensureAssignedTasksForEmployee({
@@ -115,14 +132,22 @@ export async function getAssignedProjectsForUser(
 
   if (projectNames.length > 0) {
     const timesheets = await TimesheetModel.find({
-      $or: [{ employeeId: user.id }, { employee: employeeName }],
+      $or: [
+        { employeeId: { $in: assignmentTokens } },
+        { employee: employeeName },
+      ],
       project: { $in: projectNames },
     })
-      .select('project loginTime logoutTime overriddenHours')
+      .select('project loginTime logoutTime overriddenHours totalPausedMs')
       .lean();
 
     timesheets.forEach((t) => {
-      const hours = computeTotalHours(t.loginTime, t.logoutTime, t.overriddenHours);
+      const hours = computeTotalHours(
+        t.loginTime,
+        t.logoutTime,
+        t.overriddenHours,
+        t.totalPausedMs,
+      );
       const key = t.project || '';
       if (!key) return;
       hoursByProjectName[key] = (hoursByProjectName[key] || 0) + hours;
@@ -145,7 +170,15 @@ export async function getAssignedProjectsForUser(
 }
 
 export function sumSessionHours(
-  sessions: Array<{ totalHours?: number; hours?: number; loginTime?: Date | string; logoutTime?: Date | string; overriddenHours?: number; date?: string }>,
+  sessions: Array<{
+    totalHours?: number;
+    hours?: number;
+    loginTime?: Date | string;
+    logoutTime?: Date | string;
+    overriddenHours?: number;
+    totalPausedMs?: number;
+    date?: string;
+  }>,
 ): number {
   return sessions.reduce((total, s) => {
     if (s.totalHours != null && Number.isFinite(Number(s.totalHours))) {
@@ -157,7 +190,7 @@ export function sumSessionHours(
     const login = s.loginTime ? new Date(s.loginTime) : null;
     const logout = s.logoutTime ? new Date(s.logoutTime) : null;
     if (login && logout) {
-      return total + computeTotalHours(login, logout, s.overriddenHours);
+      return total + computeTotalHours(login, logout, s.overriddenHours, s.totalPausedMs);
     }
     return total;
   }, 0);
@@ -169,13 +202,14 @@ export function toFrontendTimesheetRow(t: {
   logoutTime?: Date;
   overriddenHours?: number;
   totalHours?: number;
+  totalPausedMs?: number;
   date?: string;
 }) {
   const dateOnly = t.date ?? (t.loginTime ? new Date(t.loginTime).toISOString().split('T')[0] : '');
   const hours =
     t.totalHours ??
     (t.loginTime && t.logoutTime
-      ? computeTotalHours(t.loginTime, t.logoutTime, t.overriddenHours)
+      ? computeTotalHours(t.loginTime, t.logoutTime, t.overriddenHours, t.totalPausedMs)
       : 0);
   return { date: dateOnly, totalHours: hours, hours };
 }

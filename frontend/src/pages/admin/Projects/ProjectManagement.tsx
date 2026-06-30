@@ -179,6 +179,25 @@ function allEmployeeDisplayNames(employees: Employee[]): string[] {
   return employees.map(employeeDisplayName)
 }
 
+/** Stable HR employee id for grouping exports — survives name/profile edits. */
+function resolveTimesheetEmployeeKey(
+  log: Pick<TimesheetLog, 'employeeId' | 'employeeName'>,
+  employees: Employee[],
+): { key: string; name: string; dept: string } {
+  const emp = employees.find(
+    (e) =>
+      e.id === log.employeeId ||
+      e.employeeId === log.employeeId ||
+      employeeDisplayName(e) === log.employeeName,
+  )
+  const key = emp?.employeeId || log.employeeId || log.employeeName
+  return {
+    key,
+    name: emp ? employeeDisplayName(emp) : log.employeeName,
+    dept: emp?.department ?? '—',
+  }
+}
+
 /** Hours-by-project and employee leaderboard from filtered logs (export/PDF). */
 function buildTimesheetExportAnalytics(logs: TimesheetLog[], employees: Employee[]) {
   const byProject: Record<string, number> = {}
@@ -194,16 +213,12 @@ function buildTimesheetExportAnalytics(logs: TimesheetLog[], employees: Employee
     ) || 0
     byProject[t.project] = (byProject[t.project] || 0) + hours
 
-    const emp = employees.find((e) => e.id === t.employeeId || e.employeeId === t.employeeId)
-    const existing = byEmployee[t.employeeId]
+    const { key, name, dept } = resolveTimesheetEmployeeKey(t, employees)
+    const existing = byEmployee[key]
     if (existing) {
       existing.hours += hours
     } else {
-      byEmployee[t.employeeId] = {
-        name: t.employeeName,
-        dept: emp?.department ?? '—',
-        hours,
-      }
+      byEmployee[key] = { name, dept, hours }
     }
   })
 
@@ -2147,14 +2162,17 @@ export function ProjectManagement() {
         t.totalHours,
         t.totalPausedMs
       ) || 0
-      const empInfo = employees.find((e) => e.id === t.employeeId || e.employeeId === t.employeeId)
-      const employeeColorKey = t.employeeId || t.employeeName
-      if (empMap[t.employeeName]) {
-        empMap[t.employeeName].hours += hours
+      const { key, name, dept } = resolveTimesheetEmployeeKey(t, employees)
+      const empInfo = employees.find(
+        (e) => e.employeeId === key || e.id === key || employeeDisplayName(e) === name,
+      )
+      const employeeColorKey = key || name
+      if (empMap[key]) {
+        empMap[key].hours += hours
       } else {
-        empMap[t.employeeName] = {
-          name: t.employeeName,
-          dept: empInfo?.department ?? '—',
+        empMap[key] = {
+          name,
+          dept,
           hours,
           hue: (empInfo as any)?.hue ?? stringToHue(employeeColorKey),
         }
@@ -2439,8 +2457,9 @@ export function ProjectManagement() {
         t.totalHours,
         t.totalPausedMs
       )
-      sheet.getCell(currentRow, 1).value = t.employeeName
-      sheet.getCell(currentRow, 2).value = t.employeeId
+      const { key, name } = resolveTimesheetEmployeeKey(t, employees)
+      sheet.getCell(currentRow, 1).value = name
+      sheet.getCell(currentRow, 2).value = key
       sheet.getCell(currentRow, 3).value = t.project
       sheet.getCell(currentRow, 4).value = formatDateTime(t.loginTime)
       sheet.getCell(currentRow, 5).value = t.logoutTime ? formatDateTime(t.logoutTime) : '—'
@@ -2486,7 +2505,7 @@ export function ProjectManagement() {
 
     const buffer = await workbook.xlsx.writeBuffer()
     downloadExcelBuffer(buffer, timesheetReportFileName(tsStartDate, tsEndDate, 'xlsx'))
-  }, [filteredTimesheets, tsStartDate, tsEndDate])
+  }, [filteredTimesheets, tsStartDate, tsEndDate, employees])
 
   const handleExportPDF = useCallback(async () => {
     if (!filteredTimesheets.length) {
@@ -2688,6 +2707,7 @@ export function ProjectManagement() {
         t.totalHours,
         t.totalPausedMs
       )
+      const { key, name } = resolveTimesheetEmployeeKey(t, employees)
       const durationStr = (() => {
         if (hours === null) return '—'
         const totalMinutes = Math.round(hours * 60)
@@ -2697,7 +2717,7 @@ export function ProjectManagement() {
       })()
       
       return [
-        `${t.employeeName} (${t.employeeId})`,
+        `${name} (${key})`,
         t.project,
         formatDateTime(t.loginTime),
         t.logoutTime ? formatDateTime(t.logoutTime) : '—',
@@ -2734,7 +2754,7 @@ export function ProjectManagement() {
     }
 
     doc.save(timesheetReportFileName(tsStartDate, tsEndDate, 'pdf'))
-  }, [filteredTimesheets, tsStartDate, tsEndDate])
+  }, [filteredTimesheets, tsStartDate, tsEndDate, employees])
 
   const clearTimesheetFilters = useCallback(() => {
     const today = formatLocalDateString()

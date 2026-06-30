@@ -53,20 +53,42 @@ export function formatLiveWorkflowDurationFromMs(ms) {
 
 export function formatSessionDuration(session) {
   if (!session) return '—'
-  const { loginTime, logoutTime, totalHours, totalPausedMs, taskStatus, autoCheckedOut } = session
-  if (totalHours != null && totalHours > 0) {
+  const {
+    loginTime,
+    logoutTime,
+    totalHours,
+    totalPausedMs,
+    taskStatus,
+    autoCheckedOut,
+    pausedAt,
+  } = session
+  if (totalHours != null && totalHours > 0 && (logoutTime || autoCheckedOut)) {
     return formatDurationFromMs(Math.round(totalHours * 3600000))
   }
   const loginMs = loginTime ? new Date(loginTime).getTime() : 0
   if (!loginMs) return '—'
-  
-  const isFinalized = logoutTime || autoCheckedOut === true || ['Completed', 'Pending', 'Session Incomplete', 'Session Finished', 'Rejected'].includes(taskStatus);
-  
-  const logoutMs = isFinalized
-    ? (logoutTime ? new Date(logoutTime).getTime() : loginMs)
-    : taskStatus === 'In Progress'
+
+  const isFinalized =
+    logoutTime ||
+    autoCheckedOut === true ||
+    ['Completed', 'Pending', 'Session Incomplete', 'Session Finished', 'Rejected'].includes(
+      taskStatus,
+    )
+  const isLive = !isFinalized && (taskStatus === 'In Progress' || taskStatus === 'Paused')
+
+  const endMs = isFinalized
+    ? logoutTime
+      ? new Date(logoutTime).getTime()
+      : loginMs
+    : isLive
       ? Date.now()
       : 0
-  if (!logoutMs) return '—'
-  return formatDurationFromMs(computeWorkedMs(loginMs, logoutMs, totalPausedMs || 0))
+  if (!endMs) return '—'
+
+  let paused = totalPausedMs || 0
+  if (isLive && taskStatus === 'Paused' && pausedAt) {
+    paused += Math.max(0, Date.now() - new Date(pausedAt).getTime())
+  }
+
+  return formatDurationFromMs(computeWorkedMs(loginMs, endMs, paused))
 }
