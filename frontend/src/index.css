@@ -8030,6 +8030,8 @@
   will-change: transform;
   border-radius: 18px;
   overflow: hidden;
+  max-height: calc(100vh - 24px);
+  min-height: 0;
 }
 
 .projects-date-calendar * {
@@ -8038,12 +8040,25 @@
 
 .projects-date-calendar > div {
   background: transparent;
+  min-height: 0;
 }
 
 .projects-date-calendar-main {
   background: #ffffff;
-  padding: 1.25rem 1.35rem 1.1rem;
+  padding: 1.25rem 1.35rem 0;
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.projects-date-calendar-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 0.35rem;
+  overscroll-behavior: contain;
 }
 
 .projects-date-fields {
@@ -8216,9 +8231,14 @@
   display: flex;
   justify-content: flex-end;
   gap: 0.625rem;
-  margin-top: 1rem;
-  padding-top: 0.9rem;
+  margin-top: 0;
+  padding: 0.9rem 0 1.1rem;
   border-top: 1px solid rgba(38, 107, 28, 0.08);
+  background: #ffffff;
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
 }
 
 .projects-date-action-btn {
@@ -8269,6 +8289,21 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 767px) {
+  .projects-date-calendar.date-range-popover {
+    width: min(94vw, 28rem);
+    min-width: 0;
+  }
+
+  .projects-date-presets {
+    max-height: 11rem;
+    border-top: 1px solid rgba(38, 107, 28, 0.08);
+  }
 }
 
 .projects-date-presets .type-card-label-caps {

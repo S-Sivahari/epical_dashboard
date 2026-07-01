@@ -329,41 +329,63 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange, size = 'm
   const [calendarPosition, setCalendarPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
 
   const updateCalendarPosition = useCallback(() => {
-    if (containerRef.current && open) {
-      const rect = containerRef.current.getBoundingClientRect()
-      const viewportHeight = window.innerHeight
-      const viewportWidth = window.innerWidth
-      const calendarHeight = 560
-      const calendarWidth = 700
+    if (!containerRef.current || !calendarRef.current || !open) return
 
-      let top = rect.bottom + 8
-      let left = rect.left
+    const rect = containerRef.current.getBoundingClientRect()
+    const viewportHeight = window.innerHeight
+    const viewportWidth = window.innerWidth
+    const padding = 12
+    const gap = 8
+    const maxPopoverHeight = viewportHeight - padding * 2
 
-      if (top + calendarHeight > viewportHeight - 20) {
-        top = rect.top - calendarHeight - 8
-        if (top < 20) {
-          top = rect.bottom + 8
-        }
+    const calendarEl = calendarRef.current
+    calendarEl.style.maxHeight = `${maxPopoverHeight}px`
+
+    const calendarHeight = Math.min(calendarEl.offsetHeight, maxPopoverHeight)
+    const calendarWidth = calendarEl.offsetWidth || Math.min(700, viewportWidth - padding * 2)
+
+    let top = rect.bottom + gap
+    let left = rect.left
+
+    if (top + calendarHeight > viewportHeight - padding) {
+      const aboveTop = rect.top - calendarHeight - gap
+      if (aboveTop >= padding) {
+        top = aboveTop
+      } else {
+        top = Math.max(padding, viewportHeight - calendarHeight - padding)
       }
-
-      if (left < 16) {
-        left = 16
-      }
-
-      if (left + calendarWidth > viewportWidth - 16) {
-        left = viewportWidth - calendarWidth - 16
-      }
-
-      setCalendarPosition({ top, left })
     }
+
+    top = Math.max(padding, Math.min(top, viewportHeight - calendarHeight - padding))
+
+    if (left < padding) {
+      left = padding
+    }
+
+    if (left + calendarWidth > viewportWidth - padding) {
+      left = Math.max(padding, viewportWidth - calendarWidth - padding)
+    }
+
+    setCalendarPosition({ top, left })
   }, [open])
 
   useEffect(() => {
-    if (open) {
+    if (!open || !calendarRef.current) return
+
+    const observer = new ResizeObserver(() => {
       updateCalendarPosition()
+    })
+    observer.observe(calendarRef.current)
+    return () => observer.disconnect()
+  }, [open, updateCalendarPosition])
+
+  useEffect(() => {
+    if (open) {
+      const frame = requestAnimationFrame(() => updateCalendarPosition())
       window.addEventListener('scroll', updateCalendarPosition, true)
       window.addEventListener('resize', updateCalendarPosition)
       return () => {
+        cancelAnimationFrame(frame)
         window.removeEventListener('scroll', updateCalendarPosition, true)
         window.removeEventListener('resize', updateCalendarPosition)
       }
@@ -573,7 +595,8 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange, size = 'm
               pointerEvents: 'auto',
             }}
           >
-            <div className="projects-date-calendar-main flex-1 select-none">
+            <div className="projects-date-calendar-main flex min-h-0 flex-1 select-none flex-col">
+              <div className="projects-date-calendar-body">
               <div className="projects-date-fields">
                 <button
                   type="button"
@@ -653,6 +676,7 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange, size = 'm
                     </button>
                   )
                 })}
+              </div>
               </div>
 
               <div className="projects-date-actions">
