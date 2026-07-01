@@ -50,10 +50,10 @@ export function buildNextSchedulerClockTime(from: Date, hours: number, minutes: 
   return buildClockTimeOnDate(nextKey, hours, minutes);
 }
 
-/** First scheduled auto-checkout instant after check-in (always IST wall clock, never UTC midnight). */
+/** First scheduled auto-checkout instant after check-in (scheduler timezone wall clock). */
 export function resolveSchedulerAutoCheckoutDeadline(
   checkInTime: Date,
-  autoCheckoutTime = '00:00',
+  autoCheckoutTime = '23:59',
 ): Date {
   const { hours, minutes } = parseSchedulerClockTime(autoCheckoutTime);
   return buildNextSchedulerClockTime(checkInTime, hours, minutes);

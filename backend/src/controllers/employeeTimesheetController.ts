@@ -27,6 +27,7 @@ import { buildEmployeeVisibleProjectsFilter } from '../utils/assignedProjectsHel
 import { openAttendanceFilter, timesheetsForCalendarDayFilter } from '../utils/attendanceQueries';
 import { computeTotalHoursDecimal } from '../utils/durationFormat';
 import { getAutoCheckoutSettings, updateAutoCheckoutSettings } from '../services/autoCheckoutService';
+import { env } from '../config/env';
 import { restartScheduler } from '../services/timesheetScheduler';
 import { sendCheckoutReminderEmail } from '../services/emailService';
 import { buildNextSchedulerClockTime, calendarDayBounds, getSchedulerDateKey, getSchedulerHourMinute, resolveSchedulerAutoCheckoutDeadline } from '../utils/istClock';
@@ -786,10 +787,8 @@ export const employeeTimesheetController = {
         return buildNextSchedulerClockTime(now, rh, rm);
       };
       const buildAutoCheckout = () => {
-        if (isLateCheckIn) {
-          return resolveSchedulerAutoCheckoutDeadline(now, '00:00');
-        }
-        return resolveSchedulerAutoCheckoutDeadline(now, settings.autoCheckoutTime);
+        const checkoutClock = settings.autoCheckoutTime || env.DEFAULT_AUTO_CHECKOUT_TIME;
+        return resolveSchedulerAutoCheckoutDeadline(now, checkoutClock);
       };
 
       if (openAttendance) {
@@ -1129,7 +1128,7 @@ export const employeeTimesheetController = {
           await attendance.save();
 
           const settings = await getAutoCheckoutSettings();
-          const autoCheckoutTimeStr = settings.autoCheckoutTime || '00:00';
+          const autoCheckoutTimeStr = settings.autoCheckoutTime || env.DEFAULT_AUTO_CHECKOUT_TIME;
           const [ah, am] = autoCheckoutTimeStr.split(':').map(Number);
           const period = ah >= 12 ? 'PM' : 'AM';
           const displayH = ah % 12 === 0 ? 12 : ah % 12;

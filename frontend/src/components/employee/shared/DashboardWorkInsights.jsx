@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
 import { getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 import { cn } from '@pages/employee/lib/utils'
+import { formatHoursDecimalAsDuration } from '@utils/durationFormat'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
 const TimesheetWeeklyChart = lazy(() =>
@@ -91,7 +92,7 @@ export function DashboardWorkInsights({ className, compact = false, fill = false
               Weekly hours
             </h3>
             <p className="emp-dash-work-insights__subtitle mt-0.5 text-muted">
-              {chartLoading ? 'Loading…' : `${totalWeekly.toFixed(1)}h this week`}
+              {chartLoading ? 'Loading…' : `${formatHoursDecimalAsDuration(totalWeekly)} this week`}
             </p>
           </div>
         </div>

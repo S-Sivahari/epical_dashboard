@@ -9,7 +9,7 @@ import { Textarea } from '@components/employee/ui/textarea'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { DateRangePicker } from '@components/employee/shared/DateRangePicker'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
-import { formatSessionDuration, formatDurationFromMs } from '@utils/durationFormat'
+import { formatSessionDuration, formatDurationFromMs, formatHoursDecimalAsDuration } from '@utils/durationFormat'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 import { TimesheetCheckInDialog } from '@pages/employee/TimesheetCheckInDialog'
@@ -720,7 +720,7 @@ export default function Timesheet() {
               </div>
               <div className="emp-timesheet-chart-stat">
                 <span className="emp-timesheet-chart-stat-label">Week</span>
-                <span className="emp-timesheet-chart-stat-value">{totalWeekly.toFixed(1)}h</span>
+                <span className="emp-timesheet-chart-stat-value">{formatHoursDecimalAsDuration(totalWeekly)}</span>
               </div>
             </div>
           </div>

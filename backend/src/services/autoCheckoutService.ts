@@ -107,6 +107,9 @@ export async function getAutoCheckoutSettings() {
       autoCheckoutTime: env.DEFAULT_AUTO_CHECKOUT_TIME,
       enabled: true,
     });
+  } else if (settings.autoCheckoutTime === '00:00') {
+    settings.autoCheckoutTime = env.DEFAULT_AUTO_CHECKOUT_TIME;
+    await settings.save();
   }
   return settings;
 }

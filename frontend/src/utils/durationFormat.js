@@ -21,6 +21,12 @@ export function formatDurationFromMs(ms) {
   return `${hours}h ${minPart}m`
 }
 
+/** Decimal hours (e.g. 9.2) → "9h 12m". */
+export function formatHoursDecimalAsDuration(hours) {
+  const safeHours = Math.max(0, Number(hours) || 0)
+  return formatDurationFromMs(Math.round(safeHours * 3600000))
+}
+
 /** Workflow duration with optional days: "45m", "3h", "8h 25m", "1d 4h", "2d 6h 30m". */
 export function formatWorkflowDurationFromMs(ms) {
   const totalMinutes = Math.floor(Math.max(0, ms) / 60000)
