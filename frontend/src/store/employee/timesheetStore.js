@@ -119,6 +119,8 @@ function mapSessionFromApi(entry) {
     loginTime: entry.loginTime,
     logoutTime: entry.logoutTime,
     totalHours: entry.totalHours,
+    workedMs: entry.workedMs,
+    breakMs: entry.breakMs,
     totalPausedMs: entry.totalPausedMs || 0,
     pausedAt: entry.pausedAt,
     autoCheckedOut: entry.autoCheckedOut ?? false,
@@ -141,6 +143,8 @@ export const useTimesheetStore = create((set, get) => ({
   sessions: [],
   loading: false,
   initialized: false,
+  timesheetEligible: true,
+  employeeView: 'Public',
   attendance: null,
   sessionStatus: null,
   autoCheckoutInfo: null,
@@ -326,6 +330,8 @@ export const useTimesheetStore = create((set, get) => ({
 
       set({
         serverTimeSkew,
+        timesheetEligible: data.timesheetEligible !== false,
+        employeeView: data.employeeView || 'Public',
         ...attendanceState,
         attendance: data.attendance ?? null,
         assignedTasks: data.assignedTasks ?? [],
@@ -368,6 +374,8 @@ export const useTimesheetStore = create((set, get) => ({
 
       set({
         serverTimeSkew,
+        timesheetEligible: data.timesheetEligible !== false,
+        employeeView: data.employeeView || 'Public',
         ...attendanceState,
         attendance: data.attendance ?? null,
         assignedTasks: data.assignedTasks ?? [],
@@ -459,8 +467,8 @@ export const useTimesheetStore = create((set, get) => ({
     return data
   },
 
-  checkOut: async () => {
-    const data = await apiCheckOut()
+  checkOut: async (workDayType = 'full_day') => {
+    const data = await apiCheckOut(workDayType)
     const serverTimeSkew = data?.serverTime ? new Date(data.serverTime).getTime() - Date.now() : 0
     set({
       serverTimeSkew,

@@ -19,6 +19,8 @@ import { useAuthStore } from '@store/authStore'
 import { fetchEmployeeDashboard } from '@services/employeeDashboardService'
 import * as leaveService from '@services/leaveService'
 import { formatLeaveBalances } from '@/utils/leaveBalances'
+import { formatHoursDecimalAsDuration } from '@utils/durationFormat'
+import { useAttendanceWeeklyHours } from '@hooks/useAttendanceWeeklyHours'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
@@ -96,9 +98,9 @@ export default function Dashboard() {
   const [enrollments, setEnrollments] = useState([])
   const [attendance, setAttendance] = useState(null)
   const [monthlyHours, setMonthlyHours] = useState(0)
-  const [weeklyHours, setWeeklyHours] = useState(0)
   const [projectCount, setProjectCount] = useState(0)
   const [profile, setProfile] = useState(null)
+  const { totalWeekly, todayHours, chartLoading: weeklyHoursLoading } = useAttendanceWeeklyHours()
 
   useEffect(() => {
     if (!employee?.id) return
@@ -122,7 +124,6 @@ export default function Dashboard() {
         setEnrollments(Array.isArray(data.enrollments) ? data.enrollments : [])
         setAttendance(data.attendance ?? null)
         setMonthlyHours(Number(data.monthlyHours) || 0)
-        setWeeklyHours(Number(data.weeklyHours) || 0)
         setProjectCount(projects.length)
       } catch (error) {
         console.error('[Dashboard] load failed:', error)
@@ -162,7 +163,9 @@ export default function Dashboard() {
         title: 'Hours This Month',
         value: `${monthlyHours}h`,
         icon: Clock,
-        trend: `${weeklyHours}h this week`,
+        trend: weeklyHoursLoading
+          ? 'Loading hours…'
+          : `${formatHoursDecimalAsDuration(todayHours)} today · ${formatHoursDecimalAsDuration(totalWeekly)} this week`,
         accent: 'sage',
         to: '/employee/timesheet',
       },
@@ -200,7 +203,9 @@ export default function Dashboard() {
     ],
     [
       monthlyHours,
-      weeklyHours,
+      weeklyHoursLoading,
+      todayHours,
+      totalWeekly,
       pendingLeaves.length,
       projectCount,
       completedCourses,

@@ -24,7 +24,7 @@ export function formatDurationFromMs(ms) {
 /** Decimal hours (e.g. 9.2) → "9h 12m". */
 export function formatHoursDecimalAsDuration(hours) {
   const safeHours = Math.max(0, Number(hours) || 0)
-  return formatDurationFromMs(Math.round(safeHours * 3600000))
+  return formatDurationFromMs(Math.floor(safeHours * 3600000))
 }
 
 /** Workflow duration with optional days: "45m", "3h", "8h 25m", "1d 4h", "2d 6h 30m". */
@@ -59,42 +59,28 @@ export function formatLiveWorkflowDurationFromMs(ms) {
 
 export function formatSessionDuration(session) {
   if (!session) return '—'
-  const {
-    loginTime,
-    logoutTime,
-    totalHours,
-    totalPausedMs,
-    taskStatus,
-    autoCheckedOut,
-    pausedAt,
-  } = session
-  if (totalHours != null && totalHours > 0 && (logoutTime || autoCheckedOut)) {
-    return formatDurationFromMs(Math.round(totalHours * 3600000))
+  const { loginTime, logoutTime, workedMs, totalPausedMs, taskStatus, autoCheckedOut, pausedAt } =
+    session
+
+  if ((logoutTime || autoCheckedOut) && typeof workedMs === 'number' && workedMs >= 0) {
+    return formatDurationFromMs(workedMs)
   }
+
   const loginMs = loginTime ? new Date(loginTime).getTime() : 0
   if (!loginMs) return '—'
 
-  const isFinalized =
-    logoutTime ||
-    autoCheckedOut === true ||
-    ['Completed', 'Pending', 'Session Incomplete', 'Session Finished', 'Rejected'].includes(
-      taskStatus,
-    )
-  const isLive = !isFinalized && (taskStatus === 'In Progress' || taskStatus === 'Paused')
-
-  const endMs = isFinalized
-    ? logoutTime
-      ? new Date(logoutTime).getTime()
-      : loginMs
-    : isLive
-      ? Date.now()
-      : 0
-  if (!endMs) return '—'
-
-  let paused = totalPausedMs || 0
-  if (isLive && taskStatus === 'Paused' && pausedAt) {
-    paused += Math.max(0, Date.now() - new Date(pausedAt).getTime())
+  const isLive = !logoutTime && (taskStatus === 'In Progress' || taskStatus === 'Paused')
+  if (isLive) {
+    let paused = totalPausedMs || 0
+    if (taskStatus === 'Paused' && pausedAt) {
+      paused += Math.max(0, Date.now() - new Date(pausedAt).getTime())
+    }
+    return formatDurationFromMs(computeWorkedMs(loginMs, Date.now(), paused))
   }
 
-  return formatDurationFromMs(computeWorkedMs(loginMs, endMs, paused))
+  if (logoutTime || autoCheckedOut) {
+    return '—'
+  }
+
+  return '—'
 }

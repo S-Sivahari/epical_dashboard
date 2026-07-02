@@ -282,8 +282,15 @@ async function performAutoCheckoutForAttendance(
 
   const updatedLogs = finalizeOpenTimesheetsForCheckout(claimed, openLogs, checkoutTimestamp, {
     incompleteTaskStatus: true,
+    workDayType: 'full_day',
     defaultBreakDeductionMs,
   });
+
+  claimed.workDayType = 'full_day';
+  claimed.sessionWorkedMs =
+    typeof updatedLogs[0]?.workedMs === 'number' && updatedLogs[0].workedMs >= 0
+      ? updatedLogs[0].workedMs
+      : undefined;
 
   const openLogIds = new Set(openLogs.map((log) => log._id.toString()));
   for (const log of updatedLogs) {

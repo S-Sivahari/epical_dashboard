@@ -40,8 +40,8 @@ export async function checkIn() {
   return res.data
 }
 
-export async function checkOut() {
-  const res = await api.post('/timesheets/mine/check-out')
+export async function checkOut(workDayType = 'full_day') {
+  const res = await api.post('/timesheets/mine/check-out', { workDayType })
   return res.data
 }
 

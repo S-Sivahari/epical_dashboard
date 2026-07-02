@@ -92,6 +92,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const useAdminLayout = variant === 'admin' || isEmployeeCal
   const canManage = isAdminCal
   const showLeaveEmployeeNames = isEmployeeCal
+  const showLeaveEmployeeNamesOnHover = isEmployeeCal || isAdminCal
   const { holidays, leaves, loading, companyCalendarEvents } = useLeaves()
   const [teamLeaves, setTeamLeaves] = useState<TeamLeaveEntry[]>([])
   const [ownApprovedLeaves, setOwnApprovedLeaves] = useState<LeaveRequest[]>([])
@@ -804,17 +805,19 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                                 {dayLeaves.length > 0 && (
                                   <div>
                                     <p className="text-[11px] uppercase tracking-wider text-muted font-bold mb-1.5">
-                                      {showLeaveEmployeeNames ? 'Employees on Leave' : 'Approved Leaves'}
+                                      {showLeaveEmployeeNamesOnHover ? 'Employees on Leave' : 'Approved Leaves'}
                                     </p>
                                     <div className="space-y-1">
                                       {dayLeaves.map((l) => (
                                         <div key={l.id} className="flex items-center gap-2">
                                           <div className="h-1.5 w-1.5 rounded-full bg-lime-500" />
                                           <span className="text-ink text-xs font-medium">
-                                            {formatLeavePrimaryLabel(l, showLeaveEmployeeNames)}
+                                            {formatLeavePrimaryLabel(l, showLeaveEmployeeNamesOnHover)}
                                           </span>
-                                          {showLeaveEmployeeNames ? (
-                                            <span className="text-muted text-[10px]">({l.type})</span>
+                                          {showLeaveEmployeeNamesOnHover ? (
+                                            <span className="text-muted text-[10px]">
+                                              ({l.type}{isAdminCal ? ` • ${l.days}d` : ''})
+                                            </span>
                                           ) : (
                                             <span className="text-muted text-[10px]">• {l.days}d</span>
                                           )}

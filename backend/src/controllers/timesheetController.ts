@@ -61,6 +61,8 @@ function toFrontendTimesheet(t: any) {
     adminNotes: t.adminNotes,
     overriddenHours: t.overriddenHours,
     totalHours,
+    workedMs: typeof t.workedMs === 'number' && t.workedMs >= 0 ? t.workedMs : undefined,
+    breakMs: typeof t.breakMs === 'number' && t.breakMs >= 0 ? t.breakMs : undefined,
     totalPausedMs: t.totalPausedMs || 0,
     autoCheckedOut: t.autoCheckedOut ?? false,
     taskStatus: t.taskStatus || (t.logoutTime ? 'Pending' : 'Session Incomplete'),
@@ -190,7 +192,35 @@ export const timesheetController = {
   getAll: async (req: Request, res: Response): Promise<void> => {
     try {
       const match = await buildMatchStage(req);
-      const entries = await TimesheetModel.find(match).sort({ loginTime: -1 });
+      const entries = await TimesheetModel.find(match)
+        .select({
+          employee: 1,
+          employeeId: 1,
+          projectId: 1,
+          project: 1,
+          client: 1,
+          technologyNode: 1,
+          loginTime: 1,
+          logoutTime: 1,
+          correctionRequest: 1,
+          requestStatus: 1,
+          status: 1,
+          approvalStatus: 1,
+          billable: 1,
+          task: 1,
+          adminNotes: 1,
+          overriddenHours: 1,
+          totalHours: 1,
+          workedMs: 1,
+          breakMs: 1,
+          totalPausedMs: 1,
+          autoCheckedOut: 1,
+          taskStatus: 1,
+          pausedAt: 1,
+        })
+        .sort({ loginTime: -1 })
+        .limit(5000)
+        .lean();
       res.json(entries.map(toFrontendTimesheet));
     } catch (error) {
       console.error('Error fetching timesheets:', error);

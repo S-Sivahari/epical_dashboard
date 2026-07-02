@@ -4,6 +4,7 @@ import { LogIn, LogOut, Loader2, Timer } from 'lucide-react'
 import { Button } from '@components/employee/ui/button'
 import { Textarea } from '@components/employee/ui/textarea'
 import { LiveSessionTimer } from '@pages/employee/TimesheetLiveSessionPanel'
+import { CheckoutWorkDaySelector } from '@components/employee/shared/CheckoutWorkDaySelector'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { cn } from '@pages/employee/lib/utils'
@@ -38,6 +39,7 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
   const { toast } = useToast()
   const [submitting, setSubmitting] = useState(false)
   const [checkoutReview, setCheckoutReview] = useState(false)
+  const [checkoutWorkDayType, setCheckoutWorkDayType] = useState('full_day')
   const [checkoutError, setCheckoutError] = useState('')
   const [workSummary, setWorkSummary] = useState('')
   const initialized = useTimesheetStore((s) => s.initialized)
@@ -48,9 +50,11 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
   const serverTimeSkew = useTimesheetStore((s) => s.serverTimeSkew)
   const backendElapsedMs = useTimesheetStore((s) => s.backendElapsedMs)
   const backendElapsedLastFetch = useTimesheetStore((s) => s.backendElapsedLastFetch)
-  const hydrate = useTimesheetStore((s) => s.hydrate)
+  const attendance = useTimesheetStore((s) => s.attendance)
+  const timesheetEligible = useTimesheetStore((s) => s.timesheetEligible)
   const checkOut = useTimesheetStore((s) => s.checkOut)
   const completeTask = useTimesheetStore((s) => s.completeTask)
+  const hydrate = useTimesheetStore((s) => s.hydrate)
 
   const resolvedCheckIn = useMemo(() => resolveCheckInTime(checkInTime), [checkInTime])
   const currentWorkTask = activeTask || pausedTasks?.[0] || null
@@ -90,8 +94,9 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
       if (currentWorkTask?.timesheetId) {
         await completeTask(currentWorkTask.timesheetId, summary)
       }
-      await checkOut()
+      await checkOut(checkoutWorkDayType)
       setCheckoutReview(false)
+      setCheckoutWorkDayType('full_day')
       setWorkSummary('')
       toast({
         title: 'Checked out',
@@ -121,6 +126,20 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
     return (
       <div className={cn(panelClass, 'emp-dash-session-panel--loading')}>
         <div className={cn('animate-pulse rounded-xl bg-slate-100', compact ? 'h-24' : 'h-28')} />
+      </div>
+    )
+  }
+
+  if (!timesheetEligible) {
+    return (
+      <div className={panelClass}>
+        <div className="emp-dash-session-panel__head">
+          <Timer className="h-4 w-4 shrink-0" aria-hidden />
+          <p className="emp-dash-session-panel__title">Timesheet unavailable</p>
+        </div>
+        <p className="emp-dash-session-panel__hint">
+          Private employee records are not included in project timesheets or check-in.
+        </p>
       </div>
     )
   }
@@ -164,6 +183,12 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
           <p className="emp-timesheet-session-note emp-timesheet-session-note--checkout text-amber-800">
             Update summary before checking out.
           </p>
+          <CheckoutWorkDaySelector
+            value={checkoutWorkDayType}
+            onChange={setCheckoutWorkDayType}
+            disabled={submitting}
+            className="mb-3"
+          />
           <Textarea
             className="emp-dash-session-panel__summary emp-timesheet-session-desc emp-timesheet-session-desc--checkout"
             value={workSummary}
@@ -215,6 +240,7 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
               serverTimeSkew={serverTimeSkew}
               backendElapsedMs={backendElapsedMs}
               backendElapsedLastFetch={backendElapsedLastFetch}
+              breaks={attendance?.breaks}
               inline
             />
           </p>

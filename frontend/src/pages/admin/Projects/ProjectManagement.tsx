@@ -1,6 +1,7 @@
 import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { createPortal } from 'react-dom'
+import { useDebounce } from '@/hooks/useDebounce'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Avatar } from '@components/ui/Avatar'
 import { Badge } from '@components/ui/Badge'
@@ -127,6 +128,8 @@ interface TimesheetLog {
   overriddenHours?: number
   taskStatus?: 'Pending' | 'In Progress' | 'Completed' | 'Session Incomplete'
   totalHours?: number
+  workedMs?: number
+  breakMs?: number
   totalPausedMs?: number
   autoCheckedOut?: boolean
 }
@@ -141,32 +144,32 @@ const calculateHours = (
   logout?: string,
   overriddenHours?: number,
   totalHours?: number,
-  totalPausedMs?: number
+  totalPausedMs?: number,
+  workedMs?: number
 ): number | null => {
   if (overriddenHours !== undefined && overriddenHours !== null) return overriddenHours
-  if (totalHours !== undefined && totalHours !== null && totalHours > 0) return totalHours
+  if (logout && typeof workedMs === 'number' && workedMs >= 0) {
+    return workedMs / (1000 * 60 * 60)
+  }
+  if (logout && totalHours !== undefined && totalHours !== null) {
+    return totalHours
+  }
   if (!logout) return null
   const loginDate = new Date(login)
   const logoutDate = new Date(logout)
   if (isNaN(loginDate.getTime()) || isNaN(logoutDate.getTime())) return 0
   const diffMs = logoutDate.getTime() - loginDate.getTime() - (totalPausedMs || 0)
   if (diffMs <= 0) return 0
-  return Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10
+  return diffMs / (1000 * 60 * 60)
 }
 
 function formatAdminDuration(hours: number | null): string {
   if (hours === null) return '—'
-  const totalMinutes = Math.round(hours * 60)
-  const hrs = Math.floor(totalMinutes / 60)
-  const mins = totalMinutes % 60
-  if (hrs === 0 && mins === 0) return '0m'
-  if (hrs === 0) return `${mins}m`
-  if (mins === 0) return `${hrs}h`
-  return `${hrs}h ${String(mins).padStart(2, '0')}m`
+  return formatDurationFromMs(Math.max(0, Math.floor(hours * 3600000)))
 }
 
-function formatBreakTime(totalPausedMs?: number): string {
-  const ms = totalPausedMs ?? 0
+function formatBreakTime(breakMs?: number): string {
+  const ms = breakMs ?? 0
   if (ms <= 0) return '—'
   return formatDurationFromMs(ms)
 }
@@ -209,7 +212,8 @@ function buildTimesheetExportAnalytics(logs: TimesheetLog[], employees: Employee
       t.logoutTime,
       t.overriddenHours,
       t.totalHours,
-      t.totalPausedMs
+      t.totalPausedMs,
+      t.workedMs
     ) || 0
     byProject[t.project] = (byProject[t.project] || 0) + hours
 
@@ -1664,6 +1668,7 @@ export function ProjectManagement() {
   const [allProjects, setAllProjects] = useState<Project[]>([])
   const [timesheets, setTimesheets] = useState<TimesheetLog[]>([])
   const [loading, setLoading] = useState(false)
+  const [timesheetsLoading, setTimesheetsLoading] = useState(false)
 
   const projects = allProjects
 
@@ -1744,6 +1749,7 @@ export function ProjectManagement() {
 
   // ── Timesheets Filters States ───────────────────────────────
   const [tsSearch, setTsSearch] = useState('')
+  const debouncedTsSearch = useDebounce(tsSearch, 350)
   const [tsEmployeeFilters, setTsEmployeeFilters] = useState<string[]>([])
   const [tsProjectFilters, setTsProjectFilters] = useState<string[]>([])
   const [tsStatusFilters, setTsStatusFilters] = useState<string[]>([])
@@ -1787,16 +1793,19 @@ export function ProjectManagement() {
       from: tsStartDate,
       to: tsEndDate,
     }
-    if (tsSearch.trim()) params.search = tsSearch.trim()
+    if (debouncedTsSearch.trim()) params.search = debouncedTsSearch.trim()
 
+    setTimesheetsLoading(true)
     try {
       const logsRes = await api.get('/timesheets', { params })
       setTimesheets(logsRes.data)
     } catch (err) {
       console.error(err)
       toast.error('Failed to load timesheet data.')
+    } finally {
+      setTimesheetsLoading(false)
     }
-  }, [tsStartDate, tsEndDate, tsSearch])
+  }, [tsStartDate, tsEndDate, debouncedTsSearch])
 
   const refreshAllData = useCallback(async () => {
     await Promise.all([fetchProjects(), fetchTimesheetsData(), fetchArchivedProjects()])
@@ -1843,8 +1852,20 @@ export function ProjectManagement() {
   }, [activeTab, fetchArchivedProjects])
 
   useEffect(() => {
-    fetchTimesheetsData()
-  }, [fetchTimesheetsData])
+    if (activeTab !== 'timesheets' && activeTab !== 'analytics') return
+    void fetchTimesheetsData()
+  }, [activeTab, fetchTimesheetsData])
+
+  useEffect(() => {
+    if (activeTab !== 'timesheets' && activeTab !== 'analytics') return undefined
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchTimesheetsData()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [activeTab, fetchTimesheetsData])
 
   // ── Derived Client / Project Lists for Filter Options ──────────
   const uniqueClients = useMemo(() => {
@@ -2158,7 +2179,8 @@ export function ProjectManagement() {
         t.logoutTime,
         t.overriddenHours,
         t.totalHours,
-        t.totalPausedMs
+        t.totalPausedMs,
+      t.workedMs
       ) || 0
       if (projectMap[t.project]) {
         projectMap[t.project].hours += hours
@@ -2184,7 +2206,8 @@ export function ProjectManagement() {
         t.logoutTime,
         t.overriddenHours,
         t.totalHours,
-        t.totalPausedMs
+        t.totalPausedMs,
+      t.workedMs
       ) || 0
       const { key, name, dept } = resolveTimesheetEmployeeKey(t, employees)
       const empInfo = employees.find(
@@ -2345,7 +2368,7 @@ export function ProjectManagement() {
     // Calculate total hours across filtered timesheets
     let totalSecHours = 0
     filteredTimesheets.forEach((t) => {
-      const h = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours, t.totalHours, t.totalPausedMs) || 0
+      const h = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours, t.totalHours, t.totalPausedMs, t.workedMs) || 0
       totalSecHours += h
     })
     const totalHoursFormatted = formatExcelDuration(totalSecHours)
@@ -2479,7 +2502,8 @@ export function ProjectManagement() {
         t.logoutTime,
         t.overriddenHours,
         t.totalHours,
-        t.totalPausedMs
+        t.totalPausedMs,
+      t.workedMs
       )
       const { key, name } = resolveTimesheetEmployeeKey(t, employees)
       sheet.getCell(currentRow, 1).value = name
@@ -2729,7 +2753,8 @@ export function ProjectManagement() {
         t.logoutTime,
         t.overriddenHours,
         t.totalHours,
-        t.totalPausedMs
+        t.totalPausedMs,
+      t.workedMs
       )
       const { key, name } = resolveTimesheetEmployeeKey(t, employees)
       const durationStr = (() => {
@@ -3408,6 +3433,14 @@ export function ProjectManagement() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70 text-base">
+                  {timesheetsLoading && currentTimesheets.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-12 text-center text-slate-600">
+                        <Spinner className="mx-auto text-[var(--emerald-dark)]" />
+                        <p className="mt-3 text-sm font-medium">Loading timesheet logs…</p>
+                      </td>
+                    </tr>
+                  ) : null}
                   {currentTimesheets.map((t) => {
                     const empInfo = employees.find((e) => e.id === t.employeeId || e.employeeId === t.employeeId)
                     const employeeColorKey =
@@ -3417,7 +3450,8 @@ export function ProjectManagement() {
                       t.logoutTime,
                       t.overriddenHours,
                       t.totalHours,
-                      t.totalPausedMs
+                      t.totalPausedMs,
+      t.workedMs
                     )
 
                     return (
@@ -3479,7 +3513,7 @@ export function ProjectManagement() {
 
                         <td className="whitespace-nowrap px-5 py-4">
                           <span className="inline-flex rounded-lg border border-border bg-[var(--bg-input)] px-3 py-1.5 font-mono text-sm font-bold text-slate-800">
-                            {formatBreakTime(t.totalPausedMs)}
+                            {formatBreakTime(t.breakMs)}
                           </span>
                         </td>
 

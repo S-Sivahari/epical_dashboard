@@ -171,6 +171,7 @@ export async function getAssignedProjectsForUser(
 
 export function sumSessionHours(
   sessions: Array<{
+    workedMs?: number;
     totalHours?: number;
     hours?: number;
     loginTime?: Date | string;
@@ -181,6 +182,9 @@ export function sumSessionHours(
   }>,
 ): number {
   return sessions.reduce((total, s) => {
+    if (typeof s.workedMs === 'number' && s.workedMs >= 0) {
+      return total + s.workedMs / 3600000;
+    }
     if (s.totalHours != null && Number.isFinite(Number(s.totalHours))) {
       return total + Number(s.totalHours);
     }
@@ -202,14 +206,17 @@ export function toFrontendTimesheetRow(t: {
   logoutTime?: Date;
   overriddenHours?: number;
   totalHours?: number;
+  workedMs?: number;
   totalPausedMs?: number;
   date?: string;
 }) {
   const dateOnly = t.date ?? (t.loginTime ? new Date(t.loginTime).toISOString().split('T')[0] : '');
   const hours =
-    t.totalHours ??
-    (t.loginTime && t.logoutTime
-      ? computeTotalHours(t.loginTime, t.logoutTime, t.overriddenHours, t.totalPausedMs)
-      : 0);
-  return { date: dateOnly, totalHours: hours, hours };
+    typeof t.workedMs === 'number' && t.workedMs >= 0
+      ? Math.round((t.workedMs / 3600000) * 100) / 100
+      : t.totalHours ??
+        (t.loginTime && t.logoutTime
+          ? computeTotalHours(t.loginTime, t.logoutTime, t.overriddenHours, t.totalPausedMs)
+          : 0);
+  return { date: dateOnly, totalHours: hours, hours, workedMs: t.workedMs };
 }

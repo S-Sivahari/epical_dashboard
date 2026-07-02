@@ -20,6 +20,19 @@ export function computeGrossAttendanceMs(checkInTime, checkOutTime, now = Date.n
   return Math.max(0, end - start)
 }
 
+export function computeLiveWorkingMs(checkInTime, breaks, taskPausedMs = 0, taskCurrentlyPaused = false, now = Date.now()) {
+  const start = new Date(checkInTime).getTime()
+  const grossMs = Math.max(0, now - start)
+  let breakPauseMs = 0
+  const activeBreak = breaks?.activeBreak
+  if (!taskCurrentlyPaused && activeBreak?.startedAt) {
+    const elapsed = now - new Date(activeBreak.startedAt).getTime()
+    const maxMs = (activeBreak.type === 'lunch' ? 30 : 10) * 60 * 1000
+    breakPauseMs = Math.min(Math.max(0, elapsed), maxMs)
+  }
+  return Math.max(0, grossMs - (taskPausedMs || 0) - breakPauseMs)
+}
+
 /** @deprecated Use computeGrossAttendanceMs — breaks no longer reduce attendance display time. */
 export function computeNetAttendanceMs(checkInTime, checkOutTime, nowOrOptions) {
   let now

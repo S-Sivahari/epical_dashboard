@@ -932,28 +932,42 @@
   color: #1a4329 !important;
 }
 
-[data-employee-timesheet] .emp-timesheet-hero-stat--launch.project-analysis-launch-btn {
-  border: 1px solid rgba(255, 255, 255, 0.4) !important;
-  background: linear-gradient(165deg, #143522 0%, #1a4329 42%, #2f6b4f 100%) !important;
+[data-employee-timesheet] .project-analysis-launch-btn.projects-hero-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.375rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  box-shadow: none;
+  transform: none;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+[data-employee-timesheet] .project-analysis-launch-btn.projects-hero-tab-btn--secondary {
+  color: rgba(255, 255, 255, 0.82) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-employee-timesheet] .project-analysis-launch-btn.projects-hero-tab-btn--secondary:hover {
   color: #ffffff !important;
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  transform: none;
+  box-shadow: none;
 }
 
-[data-employee-timesheet] .emp-timesheet-hero-stat--launch.project-analysis-launch-btn svg {
-  color: #ffffff !important;
+[data-employee-timesheet] .project-analysis-launch-btn.projects-hero-tab-btn svg {
+  color: inherit !important;
 }
 
-[data-employee-timesheet] .emp-timesheet-hero-stat--launch.project-analysis-launch-btn:hover {
-  background: linear-gradient(165deg, #1a4329 0%, #245c40 48%, #357a5c 100%) !important;
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
-  transform: translateY(-1px);
-}
-
-[data-employee-timesheet] .emp-timesheet-hero-stat:not(.emp-timesheet-hero-stat--launch):hover {
+[data-employee-timesheet] .emp-timesheet-hero-stat:hover {
   background: var(--dash-mint-soft, #bbf7d0) !important;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14) !important;
 }

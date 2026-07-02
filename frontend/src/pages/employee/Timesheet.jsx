@@ -9,9 +9,13 @@ import { Textarea } from '@components/employee/ui/textarea'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { DateRangePicker } from '@components/employee/shared/DateRangePicker'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
-import { formatSessionDuration, formatDurationFromMs, formatHoursDecimalAsDuration } from '@utils/durationFormat'
+import { formatSessionDuration, formatHoursDecimalAsDuration } from '@utils/durationFormat'
 import { useToast } from '@components/employee/shared/ToastProvider'
-import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
+import { getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
+import {
+  buildWeeklyHoursChartData,
+  todayHoursFromChart,
+} from '@utils/attendanceWeeklyHours'
 import { TimesheetCheckInDialog } from '@pages/employee/TimesheetCheckInDialog'
 import {
   Dialog,
@@ -22,10 +26,10 @@ import {
 } from '@components/employee/ui/dialog'
 import {
   WORK_BREAK_OPTIONS,
-  computeGrossAttendanceMs,
   formatBreakCountdown,
 } from '@utils/workBreaks'
 import { EmployeePageLoading } from '@components/employee/layout/EmployeePageLoading'
+import { CheckoutWorkDaySelector } from '@components/employee/shared/CheckoutWorkDaySelector'
 
 const TimesheetWeeklyChart = lazy(() =>
   import('@pages/employee/TimesheetWeeklyChart').then((m) => ({ default: m.TimesheetWeeklyChart })),
@@ -69,27 +73,9 @@ const historyColumns = [
 const CHART_HEIGHT = 260
 const HISTORY_VISIBLE_ROW_LIMIT = 10
 
-function hoursFromMs(ms) {
-  return Math.round((ms / 3600000) * 10) / 10
-}
-
-function getDayKey(date) {
-  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]
-}
-
 function formatTimeLabel(iso) {
   if (!iso) return '—'
   return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
-}
-
-function segmentHours(seg, checkedIn, liveNow) {
-  if (typeof seg.hours === 'number' && seg.checkOutTime) {
-    return seg.hours
-  }
-  const isOpen = checkedIn && !seg.checkOutTime
-  return hoursFromMs(
-    computeGrossAttendanceMs(seg.checkInTime, seg.checkOutTime, isOpen ? liveNow : undefined),
-  )
 }
 
 function isSessionApprovedByAdmin(session) {
@@ -118,6 +104,7 @@ export default function Timesheet() {
     serverTimeSkew,
     sessionsLoading,
     projectWiseHours,
+    timesheetEligible,
   } = useTimesheetStore()
   const { toast } = useToast()
   const defaultHistoryRange = getPresetDateRange('This Month')
@@ -127,6 +114,7 @@ export default function Timesheet() {
   const [submitting, setSubmitting] = useState(false)
   const [liveNow, setLiveNow] = useState(() => Date.now() + (serverTimeSkew || 0))
   const [checkoutReview, setCheckoutReview] = useState(false)
+  const [checkoutWorkDayType, setCheckoutWorkDayType] = useState('full_day')
   const [checkoutError, setCheckoutError] = useState('')
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false)
   const [breakWaitDialogOpen, setBreakWaitDialogOpen] = useState(false)
@@ -371,8 +359,9 @@ export default function Timesheet() {
       if (currentWorkTask?.timesheetId) {
         await completeTask(currentWorkTask.timesheetId, summary)
       }
-      await checkOut()
+      await checkOut(checkoutWorkDayType)
       setCheckoutReview(false)
+      setCheckoutWorkDayType('full_day')
       reset({ assignedTaskId: '', description: '' })
       toast({
         title: 'Checked out',
@@ -442,40 +431,12 @@ export default function Timesheet() {
 
   const weekRange = useMemo(() => getWeekRange(), [liveNow])
 
-  const weeklyHours = useMemo(() => {
-    const byDay = {}
-    const chartDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const weeklyHours = useMemo(
+    () => buildWeeklyHoursChartData(sessions, { weekRange }),
+    [sessions, weekRange],
+  )
 
-    attendanceHistory.forEach((seg) => {
-      if (!isDateInRange(seg.date, weekRange.start, weekRange.end)) return
-      const key = getDayKey(new Date(`${seg.date}T12:00:00`))
-      byDay[key] = (byDay[key] || 0) + segmentHours(seg, checkedIn, liveNow)
-    })
-
-    return chartDays.map((day) => ({
-      day,
-      hours: Math.round((byDay[day] || 0) * 10) / 10,
-      target: 8,
-    }))
-  }, [attendanceHistory, checkedIn, liveNow, weekRange])
-
-  const totalWeekly = weeklyHours.reduce((a, b) => a + b.hours, 0)
-  const todayKey = formatDateKey(new Date())
-
-  const todayHoursMs = useMemo(() => {
-    let totalMs = 0
-    attendanceHistory.forEach((seg) => {
-      if (seg.date === todayKey) {
-        const isOpen = checkedIn && !seg.checkOutTime
-        totalMs += computeGrossAttendanceMs(
-          seg.checkInTime,
-          seg.checkOutTime,
-          isOpen ? liveNow : undefined,
-        )
-      }
-    })
-    return totalMs
-  }, [attendanceHistory, checkedIn, liveNow, todayKey])
+  const todayHours = todayHoursFromChart(weeklyHours)
 
   const unifiedHistory = useMemo(() => {
     const deduped = new Map()
@@ -496,7 +457,7 @@ export default function Timesheet() {
             duration: formatSessionDuration({
               loginTime: s.loginTime,
               logoutTime: s.logoutTime,
-              totalHours: s.totalHours,
+              workedMs: s.workedMs,
               totalPausedMs: s.totalPausedMs,
               taskStatus: s.taskStatus,
               autoCheckedOut: s.autoCheckedOut,
@@ -528,7 +489,7 @@ export default function Timesheet() {
         <div className="emp-timesheet-hero-stats">
           <ProjectAnalysisLaunchButton
             audience="employee"
-            className="project-analysis-launch-btn--hero emp-timesheet-hero-stat emp-timesheet-hero-stat--launch"
+            className="projects-hero-tab-btn projects-hero-tab-btn--secondary"
           />
           <div className="emp-timesheet-hero-metrics" aria-label="Assigned project counts">
           <div className="emp-timesheet-hero-stat">
@@ -565,7 +526,16 @@ export default function Timesheet() {
             </div>
           </div>
           <div className="emp-timesheet-card-body emp-timesheet-session-compact-body">
-            {!checkedIn && attendance?.autoCheckedOut ? (
+            {!timesheetEligible ? (
+              <div className="emp-timesheet-session-main emp-timesheet-session-stack px-2 py-4 text-center">
+                <p className="text-sm font-semibold text-slate-800">Timesheet unavailable</p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Private employee records are not included in project check-in or timesheets.
+                </p>
+              </div>
+            ) : null}
+
+            {timesheetEligible && !checkedIn && attendance?.autoCheckedOut ? (
               <div className="mx-2.5 mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1">
                 <div className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-800">
                   <AlertTriangle className="h-3 w-3 shrink-0" />
@@ -574,11 +544,17 @@ export default function Timesheet() {
               </div>
             ) : null}
 
-            {checkoutReview ? (
+            {timesheetEligible && checkoutReview ? (
               <div className="emp-timesheet-session-main emp-timesheet-checkout-panel">
                 <p className="emp-timesheet-session-note emp-timesheet-session-note--checkout text-amber-800">
                   Update summary before checking out.
                 </p>
+                <CheckoutWorkDaySelector
+                  value={checkoutWorkDayType}
+                  onChange={setCheckoutWorkDayType}
+                  disabled={submitting}
+                  className="mb-3"
+                />
                 <Textarea
                   className="emp-timesheet-session-desc emp-timesheet-session-desc--checkout"
                   {...register('description')}
@@ -590,7 +566,7 @@ export default function Timesheet() {
                   </p>
                 ) : null}
               </div>
-            ) : checkedIn ? (
+            ) : timesheetEligible && checkedIn ? (
               <div className="emp-timesheet-session-main emp-timesheet-session-stack emp-timesheet-session-stack--checked-in">
                 <div className="emp-timesheet-session-desc-panel">
                   <p className="emp-timesheet-session-desc-label">Work description</p>
@@ -601,7 +577,7 @@ export default function Timesheet() {
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : timesheetEligible ? (
               <div className="emp-timesheet-session-main emp-timesheet-session-stack">
                 <button
                   type="button"
@@ -623,9 +599,9 @@ export default function Timesheet() {
                   Check In
                 </Button>
               </div>
-            )}
+            ) : null}
 
-            {checkedIn && !checkoutReview ? (
+            {timesheetEligible && checkedIn && !checkoutReview ? (
               <div className="emp-timesheet-breaks">
                 <div className="emp-timesheet-breaks-header">
                   <div className="flex items-center gap-1.5">
@@ -677,7 +653,7 @@ export default function Timesheet() {
               </div>
             ) : null}
 
-            {checkoutReview ? (
+            {timesheetEligible && checkoutReview ? (
               <div className="emp-timesheet-session-footer">
                 <Button
                   type="button"
@@ -689,7 +665,7 @@ export default function Timesheet() {
                   Check Out
                 </Button>
               </div>
-            ) : checkedIn ? (
+            ) : timesheetEligible && checkedIn ? (
               <div className="emp-timesheet-session-footer">
                 <Button
                   type="button"
@@ -711,16 +687,14 @@ export default function Timesheet() {
               <span className="emp-timesheet-section-icon" aria-hidden>
                 <BarChart3 className="h-4 w-4" />
               </span>
-              <h3 className="emp-timesheet-card-title">Weekly Hours</h3>
+              <h3 className="emp-timesheet-card-title">Hours this week</h3>
             </div>
             <div className="emp-timesheet-chart-header-stats">
               <div className="emp-timesheet-chart-stat">
                 <span className="emp-timesheet-chart-stat-label">Today</span>
-                <span className="emp-timesheet-chart-stat-value">{formatDurationFromMs(todayHoursMs)}</span>
-              </div>
-              <div className="emp-timesheet-chart-stat">
-                <span className="emp-timesheet-chart-stat-label">Week</span>
-                <span className="emp-timesheet-chart-stat-value">{formatHoursDecimalAsDuration(totalWeekly)}</span>
+                <span className="emp-timesheet-chart-stat-value">
+                  {formatHoursDecimalAsDuration(todayHours)}
+                </span>
               </div>
             </div>
           </div>

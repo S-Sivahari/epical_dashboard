@@ -10,6 +10,10 @@ export interface Timesheet extends Document {
   loginTime: Date;
   logoutTime?: Date;
   totalHours?: number;
+  /** Exact worked duration from attendance checkout (ms) — single source of truth for display. */
+  workedMs?: number;
+  /** Actual scheduled breaks taken this session (ms) — admin Break column only. */
+  breakMs?: number;
   correctionRequest?: {
     requestedLogin: Date;
     requestedLogout: Date;
@@ -41,6 +45,8 @@ const TimesheetSchema = new Schema<Timesheet>(
     loginTime: { type: Date, required: true },
     logoutTime: { type: Date },
     totalHours: { type: Number },
+    workedMs: { type: Number },
+    breakMs: { type: Number },
     correctionRequest: {
       requestedLogin: { type: Date },
       requestedLogout: { type: Date },

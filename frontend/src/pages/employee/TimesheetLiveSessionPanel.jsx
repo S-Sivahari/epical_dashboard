@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Play, Pause, Timer } from 'lucide-react'
 import { Button } from '@components/employee/ui/button'
+import { computeLiveWorkingMs } from '@utils/workBreaks'
 function stripPreview(description, { taskTitle, projectName } = {}) {
   let s = String(description || '').trim()
   if (!s) return ''
@@ -28,7 +29,8 @@ export function LiveSessionTimer({
   serverTimeSkew,
   backendElapsedMs,
   backendElapsedLastFetch,
-  useTaskTime = true,
+  breaks,
+  useTaskTime = false,
   compact = false,
   inline = false,
 }) {
@@ -38,12 +40,12 @@ export function LiveSessionTimer({
     const tick = () => {
       const now = Date.now() + (serverTimeSkew || 0)
       const currentTask = activeTask || pausedTasks?.[0] || null
+      const taskCurrentlyPaused = !activeTask && Boolean(currentTask?.pausedAt)
 
       if (
         useTaskTime &&
         backendElapsedMs != null &&
-        backendElapsedLastFetch &&
-        currentTask
+        backendElapsedLastFetch
       ) {
         const anchor = backendElapsedLastFetch.getTime()
         const liveMs = Math.max(0, backendElapsedMs + (now - anchor))
@@ -57,20 +59,21 @@ export function LiveSessionTimer({
         return
       }
 
-      const anchorTime =
-        useTaskTime && currentTask?.startedAt
-          ? currentTask.startedAt
-          : checkInTime
-
       let pausedMs = 0
       if (currentTask) {
         pausedMs += currentTask.totalPausedMs || 0
-        if (!activeTask && currentTask.pausedAt) {
+        if (taskCurrentlyPaused) {
           pausedMs += Math.max(0, now - new Date(currentTask.pausedAt).getTime())
         }
       }
 
-      const elapsedMs = Math.max(0, now - anchorTime.getTime() - pausedMs)
+      const elapsedMs = computeLiveWorkingMs(
+        checkInTime,
+        breaks,
+        pausedMs,
+        taskCurrentlyPaused,
+        now,
+      )
       const totalSeconds = Math.floor(elapsedMs / 1000)
       const h = Math.floor(totalSeconds / 3600)
       const m = Math.floor((totalSeconds % 3600) / 60)
@@ -90,6 +93,7 @@ export function LiveSessionTimer({
     serverTimeSkew,
     backendElapsedMs,
     backendElapsedLastFetch,
+    breaks,
     useTaskTime,
   ])
 

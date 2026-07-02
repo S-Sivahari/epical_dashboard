@@ -1,5 +1,5 @@
 import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
-import { computeNetAttendanceHours } from '../utils/workBreaks';
+import { computeWorkingHours } from '../services/workingTimeService';
 
 export type DashboardChartPeriod = 'This Week' | 'This Month' | 'Last Month' | 'Last 2 Months' | 'Custom';
 
@@ -56,15 +56,33 @@ export function effectiveAttendanceHours(
     morningBreakAt?: Date | null;
     lunchBreakAt?: Date | null;
     eveningBreakAt?: Date | null;
+    morningBreakMs?: number | null;
+    lunchBreakMs?: number | null;
+    eveningBreakMs?: number | null;
+    activeBreakType?: 'morning' | 'lunch' | 'evening' | null;
+    activeBreakStartedAt?: Date | null;
+    activeBreakEndsAt?: Date | null;
+    workDayType?: 'half_day' | 'full_day' | null;
   },
   now = new Date(),
 ): number {
   if (!attendance.checkInTime) return 0;
-  return computeNetAttendanceHours(
-    new Date(attendance.checkInTime),
-    attendance.checkOutTime ? new Date(attendance.checkOutTime) : null,
-    attendance,
-    now,
+  return computeWorkingHours(
+    {
+      checkInTime: new Date(attendance.checkInTime),
+      checkOutTime: attendance.checkOutTime ? new Date(attendance.checkOutTime) : null,
+      morningBreakAt: attendance.morningBreakAt,
+      lunchBreakAt: attendance.lunchBreakAt,
+      eveningBreakAt: attendance.eveningBreakAt,
+      morningBreakMs: attendance.morningBreakMs,
+      lunchBreakMs: attendance.lunchBreakMs,
+      eveningBreakMs: attendance.eveningBreakMs,
+      activeBreakType: attendance.activeBreakType,
+      activeBreakStartedAt: attendance.activeBreakStartedAt,
+      activeBreakEndsAt: attendance.activeBreakEndsAt,
+      workDayType: attendance.workDayType,
+    },
+    { now },
   );
 }
 
@@ -265,7 +283,9 @@ export async function buildDashboardProjectHoursChart(
   const attendances = await EmployeeAttendanceModel.find({
     checkInTime: { $gte: loginFrom, $lte: loginTo },
   })
-    .select('checkInTime checkOutTime morningBreakAt lunchBreakAt eveningBreakAt')
+    .select(
+      'checkInTime checkOutTime morningBreakAt lunchBreakAt eveningBreakAt morningBreakMs lunchBreakMs eveningBreakMs activeBreakType activeBreakStartedAt activeBreakEndsAt workDayType',
+    )
     .lean();
 
   const chartData =

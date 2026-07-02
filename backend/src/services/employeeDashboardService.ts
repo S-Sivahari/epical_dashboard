@@ -15,6 +15,7 @@ import {
   toFrontendTimesheetRow,
 } from '../utils/assignedProjectsHelper';
 import { sanitizeEmployeeForDetail } from '../utils/sanitizeEmployee';
+import { isPublicEmployeeView } from '../utils/employeeView';
 
 function startOfMonthISO(): string {
   const d = new Date();
@@ -124,7 +125,7 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
       .sort({ checkInTime: -1 })
       .lean(),
     TimesheetModel.find(sessionMatch)
-      .select('date loginTime logoutTime overriddenHours totalHours totalPausedMs')
+      .select('date loginTime logoutTime overriddenHours totalHours workedMs totalPausedMs')
       .sort({ loginTime: -1 })
       .lean(),
     getAssignedProjectsForUser(
@@ -206,7 +207,7 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
     attendance: buildAttendancePayload(openAttendance, latestAttendance),
     monthlyHours: sumSessionHours(sessionRows),
     weeklyHours: sumSessionHours(weekSessions),
-    projects,
+    projects: isPublicEmployeeView((employeeRecord as { view?: string }).view) ? projects : [],
     employeeName,
   };
 }

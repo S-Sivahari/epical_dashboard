@@ -31,6 +31,7 @@ const EmployeeDailyBreakSchema = new Schema<EmployeeDailyBreak>(
 );
 
 EmployeeDailyBreakSchema.index({ employeeId: 1, date: 1 }, { unique: true });
+EmployeeDailyBreakSchema.index({ date: 1 });
 
 export const EmployeeDailyBreakModel = model<EmployeeDailyBreak>(
   'EmployeeDailyBreak',

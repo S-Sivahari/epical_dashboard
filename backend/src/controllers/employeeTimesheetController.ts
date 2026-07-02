@@ -4,6 +4,7 @@ import { TimesheetModel } from '../models/Timesheet';
 import { AssignedTaskModel } from '../models/AssignedTask';
 import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
 import { ProjectModel } from '../models/Project';
+import { ProjectCellModel } from '../models/ProjectCell';
 import { getDB } from '../config/db';
 import { getUserById } from '../services/authService';
 import { resolveEmployeeForAuthUser, getEmployeeOfficialEmail } from '../utils/employeeAuth';
@@ -46,11 +47,20 @@ import {
   activeBreakExpired,
   breakMinTimeReached,
   buildBreaksPayload,
-  computeNetAttendanceHours,
   isWorkBreakType,
   WORK_BREAKS,
   type WorkBreakType,
 } from '../utils/workBreaks';
+import { normalizeEmployeeView } from '../utils/employeeView';
+import { normalizeCellWorkflow } from '../utils/cellWorkflow';
+import { getActiveWorkStage } from '../services/productiveTimeService';
+import {
+  computeLiveWorkingMs,
+  computeWorkingHours,
+  resolveSessionWorkedMs,
+  workingMsToDecimalHours,
+  type WorkDayType,
+} from '../services/workingTimeService';
 
 type ResolvedEmployee = {
   id: string;
@@ -60,7 +70,21 @@ type ResolvedEmployee = {
   employeeName: string;
   employeeId: string;
   identityTokens: string[];
+  view: 'Public' | 'Private';
+  isTimesheetEligible: boolean;
 };
+
+function isWorkDayType(value: unknown): value is WorkDayType {
+  return value === 'half_day' || value === 'full_day';
+}
+
+function rejectPrivateEmployee(employee: ResolvedEmployee, res: Response): boolean {
+  if (employee.isTimesheetEligible) return false;
+  res.status(403).json({
+    error: 'Timesheet check-in and project tracking are not available for private employee records.',
+  });
+  return true;
+}
 
 function todayDateKey(): string {
   return getSchedulerDateKey(new Date());
@@ -73,10 +97,38 @@ function computeAttendanceHours(
     morningBreakAt?: Date | null;
     lunchBreakAt?: Date | null;
     eveningBreakAt?: Date | null;
+    morningBreakMs?: number | null;
+    lunchBreakMs?: number | null;
+    eveningBreakMs?: number | null;
+    activeBreakType?: WorkBreakType | null;
+    activeBreakStartedAt?: Date | null;
+    activeBreakEndsAt?: Date | null;
+    workDayType?: WorkDayType | null;
   } | null,
   now = new Date(),
+  options?: { taskPausedMs?: number; taskCurrentlyPaused?: boolean },
 ): number {
-  return computeNetAttendanceHours(checkInTime, checkOutTime, attendance ?? undefined, now);
+  return computeWorkingHours(
+    {
+      checkInTime,
+      checkOutTime: checkOutTime ?? null,
+      morningBreakAt: attendance?.morningBreakAt,
+      lunchBreakAt: attendance?.lunchBreakAt,
+      eveningBreakAt: attendance?.eveningBreakAt,
+      morningBreakMs: attendance?.morningBreakMs,
+      lunchBreakMs: attendance?.lunchBreakMs,
+      eveningBreakMs: attendance?.eveningBreakMs,
+      activeBreakType: attendance?.activeBreakType,
+      activeBreakStartedAt: attendance?.activeBreakStartedAt,
+      activeBreakEndsAt: attendance?.activeBreakEndsAt,
+      workDayType: attendance?.workDayType,
+    },
+    {
+      now,
+      taskPausedMs: options?.taskPausedMs,
+      taskCurrentlyPaused: options?.taskCurrentlyPaused,
+    },
+  );
 }
 
 function toFrontendAttendance(a: {
@@ -89,16 +141,24 @@ function toFrontendAttendance(a: {
   morningBreakAt?: Date | null;
   lunchBreakAt?: Date | null;
   eveningBreakAt?: Date | null;
+  morningBreakMs?: number | null;
+  lunchBreakMs?: number | null;
+  eveningBreakMs?: number | null;
   activeBreakType?: WorkBreakType | null;
   activeBreakStartedAt?: Date | null;
   activeBreakEndsAt?: Date | null;
+  workDayType?: WorkDayType | null;
+  sessionWorkedMs?: number | null;
 }) {
+  const workedMs = resolveSessionWorkedMs(a);
   return {
     id: a._id.toString(),
     date: a.date,
     checkInTime: a.checkInTime.toISOString(),
     checkOutTime: a.checkOutTime ? a.checkOutTime.toISOString() : null,
-    hours: computeAttendanceHours(a.checkInTime, a.checkOutTime ?? null, a),
+    sessionWorkedMs: a.checkOutTime ? workedMs : undefined,
+    hours: workingMsToDecimalHours(workedMs),
+    workDayType: a.workDayType ?? null,
     sessionStatus: a.sessionStatus ?? 'Active',
     autoCheckedOut: a.autoCheckedOut ?? false,
     breaks: buildBreaksPayload(a),
@@ -178,6 +238,8 @@ function toFrontendTimesheet(t: any) {
     totalHours:
       t.totalHours ??
       computeTotalHoursDecimal(t.loginTime, t.logoutTime || new Date(), t.totalPausedMs, t.overriddenHours),
+    workedMs: typeof t.workedMs === 'number' && t.workedMs >= 0 ? t.workedMs : undefined,
+    breakMs: typeof t.breakMs === 'number' && t.breakMs >= 0 ? t.breakMs : undefined,
     autoCheckedOut: t.autoCheckedOut ?? false,
     taskStatus: t.taskStatus || (t.logoutTime ? 'Pending' : 'Session Incomplete'),
     workflowStatus: getTimesheetWorkflowStatus(t),
@@ -230,6 +292,8 @@ async function resolveEmployee(req: Request): Promise<ResolvedEmployee | null> {
     employeeRecord as any
   );
 
+  const view = normalizeEmployeeView(employeeRecord?.view as string | undefined);
+
   return {
     id: user.id,
     name: user.name,
@@ -240,6 +304,8 @@ async function resolveEmployee(req: Request): Promise<ResolvedEmployee | null> {
     employeeName,
     employeeId,
     identityTokens,
+    view,
+    isTimesheetEligible: view === 'Public',
   };
 }
 
@@ -441,6 +507,8 @@ async function fetchActiveTaskPayload(employee: ResolvedEmployee) {
 }
 
 async function fetchAssignedTasksForEmployee(employee: ResolvedEmployee) {
+  if (!employee.isTimesheetEligible) return [];
+
   const recentApprovedCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const visibleProjectFilter = await buildEmployeeVisibleProjectsFilter(employee.identityTokens);
   const eligibleProjects = await ProjectModel.find(visibleProjectFilter, { _id: 1 }).lean();
@@ -539,6 +607,34 @@ async function releaseAssignedTask(timesheetId: string, session?: mongoose.Clien
   await assignedTask.save(session ? { session } : undefined);
 }
 
+async function captureResumeCellForCheckout(
+  employee: ResolvedEmployee,
+  openLog: { projectId: Types.ObjectId } | null,
+): Promise<{ resumeProjectId?: string; resumeCellId?: string }> {
+  if (!openLog) return {};
+
+  const cells = await ProjectCellModel.find({
+    projectId: openLog.projectId,
+    assignedEmployeeId: { $in: employee.identityTokens },
+    status: 'in_progress',
+    onHold: { $ne: true },
+  })
+    .select({ workflow: 1 })
+    .lean();
+
+  for (const cell of cells) {
+    const workflow = normalizeCellWorkflow(cell.workflow ?? []);
+    if (getActiveWorkStage(workflow)) {
+      return {
+        resumeProjectId: openLog.projectId.toString(),
+        resumeCellId: String(cell._id),
+      };
+    }
+  }
+
+  return {};
+}
+
 export const employeeTimesheetController = {
   /** One round-trip for timesheet page initial load (this month + this week only). */
   getBootstrap: async (req: Request, res: Response): Promise<void> => {
@@ -598,6 +694,8 @@ export const employeeTimesheetController = {
 
       res.json({
         serverTime: new Date().toISOString(),
+        timesheetEligible: employee.isTimesheetEligible,
+        employeeView: employee.view,
         attendance: await buildAttendanceResponseForEmployee(employee.id, openAttendance, latestAttendance),
         active: activePayload.active,
         pausedTasks: activePayload.pausedTasks,
@@ -770,6 +868,7 @@ export const employeeTimesheetController = {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
+      if (rejectPrivateEmployee(employee, res)) return;
 
       const date = todayDateKey();
       const openAttendance = await requireOpenAttendance(employee.id);
@@ -850,12 +949,16 @@ export const employeeTimesheetController = {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
+      if (rejectPrivateEmployee(employee, res)) return;
 
       const attendance = await requireOpenAttendance(employee.id);
       if (!attendance) {
         res.status(400).json({ error: 'You are not checked in' });
         return;
       }
+
+      const workDayTypeRaw = req.body?.workDayType;
+      const workDayType: WorkDayType = isWorkDayType(workDayTypeRaw) ? workDayTypeRaw : 'full_day';
 
       const now = new Date();
       if (attendance.activeBreakType) {
@@ -868,14 +971,15 @@ export const employeeTimesheetController = {
         attendance.breakPausedTimesheetId = undefined;
       }
 
-      const defaultBreakDeductionMs = await resolveDefaultCheckoutBreakDeduction(
-        employee.id,
-        attendance.date,
-      );
+      const defaultBreakDeductionMs =
+        workDayType === 'half_day'
+          ? 0
+          : await resolveDefaultCheckoutBreakDeduction(employee.id, attendance.date);
       const session = await mongoose.startSession();
 
       try {
         let stoppedTasks = 0;
+        let resumeCell: { resumeProjectId?: string; resumeCellId?: string } = {};
         await session.withTransaction(async () => {
           const openLogs = await TimesheetModel.find({
             $and: [
@@ -890,8 +994,13 @@ export const employeeTimesheetController = {
           }).session(session);
 
           stoppedTasks = openLogs.length;
+          resumeCell = await captureResumeCellForCheckout(
+            employee,
+            openLogs[0] ?? null,
+          );
 
           const updatedLogs = finalizeOpenTimesheetsForCheckout(attendance, openLogs, now, {
+            workDayType,
             defaultBreakDeductionMs,
           });
 
@@ -906,6 +1015,13 @@ export const employeeTimesheetController = {
 
           attendance.checkOutTime = now;
           attendance.sessionStatus = 'Completed';
+          attendance.workDayType = workDayType;
+          attendance.sessionWorkedMs =
+            typeof updatedLogs[0]?.workedMs === 'number' && updatedLogs[0].workedMs >= 0
+              ? updatedLogs[0].workedMs
+              : undefined;
+          attendance.resumeProjectId = resumeCell.resumeProjectId;
+          attendance.resumeCellId = resumeCell.resumeCellId;
           await attendance.save({ session });
         });
 
@@ -929,6 +1045,7 @@ export const employeeTimesheetController = {
           checkOutTime: now.toISOString(),
           stoppedTasks,
           sessionStatus: 'Completed',
+          workDayType,
         });
       } finally {
         session.endSession();
@@ -946,6 +1063,7 @@ export const employeeTimesheetController = {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
+      if (rejectPrivateEmployee(employee, res)) return;
 
       const attendance = await requireOpenAttendance(employee.id);
       if (!attendance) {
@@ -1097,7 +1215,26 @@ export const employeeTimesheetController = {
 
         let cellWorkStarted: { cellId: string; cellName: string } | null = null;
         let cellWorkError: string | null = null;
-        const optionalCellId = typeof cellId === 'string' ? cellId.trim() : '';
+        let optionalCellId = typeof cellId === 'string' ? cellId.trim() : '';
+
+        if (!optionalCellId) {
+          const lastCompleted = await EmployeeAttendanceModel.findOne({
+            employeeId: employee.id,
+            date: attendance.date,
+            checkOutTime: { $exists: true, $ne: null },
+            resumeCellId: { $exists: true, $ne: null },
+          })
+            .sort({ checkOutTime: -1 })
+            .lean();
+
+          if (
+            lastCompleted?.resumeCellId &&
+            lastCompleted.resumeProjectId === resolvedProject._id.toString()
+          ) {
+            optionalCellId = lastCompleted.resumeCellId;
+          }
+        }
+
         if (optionalCellId) {
           try {
             const { cell } = await beginCellWorkForEmployee(
@@ -1552,7 +1689,6 @@ export const employeeTimesheetController = {
       }
 
       const checkInTime = new Date(openAttendance.checkInTime);
-      const sessionElapsedMs = now.getTime() - checkInTime.getTime();
 
       const sessionTasks = await TimesheetModel.find({
         $and: [
@@ -1569,10 +1705,17 @@ export const employeeTimesheetController = {
 
       let totalPausedMs = sessionTasks.reduce((sum, task) => sum + (task.totalPausedMs || 0), 0);
 
-      const pausedTask = sessionTasks.find(t => t.taskStatus === 'Paused' && t.pausedAt);
-      if (pausedTask && pausedTask.pausedAt) {
+      const pausedTask = sessionTasks.find((t) => t.taskStatus === 'Paused' && t.pausedAt);
+      const taskCurrentlyPaused = Boolean(pausedTask?.pausedAt);
+      if (pausedTask?.pausedAt) {
         totalPausedMs += now.getTime() - new Date(pausedTask.pausedAt).getTime();
       }
+
+      const workingElapsedMs = computeLiveWorkingMs(openAttendance, {
+        taskPausedMs: totalPausedMs,
+        taskCurrentlyPaused,
+        now,
+      });
 
       const runningTask = sessionTasks.find(
         (t) => t.taskStatus === 'In Progress' || t.taskStatus === 'Session Incomplete',
@@ -1595,10 +1738,11 @@ export const employeeTimesheetController = {
       res.json({
         hasActiveSession: true,
         checkInTime: openAttendance.checkInTime.toISOString(),
-        elapsedMs: Math.max(0, sessionElapsedMs - totalPausedMs),
-        taskElapsedMs,
+        elapsedMs: workingElapsedMs,
+        taskElapsedMs: taskElapsedMs ?? workingElapsedMs,
         taskLoginTime: taskAnchor?.toISOString() ?? null,
         totalPausedMs,
+        onBreak: Boolean(openAttendance.activeBreakType),
         sessionStatus: openAttendance.sessionStatus,
         serverTime: now.toISOString(),
       });
@@ -1615,6 +1759,7 @@ export const employeeTimesheetController = {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
+      if (rejectPrivateEmployee(employee, res)) return;
 
       const breakType = req.body?.breakType;
       if (!isWorkBreakType(breakType)) {
