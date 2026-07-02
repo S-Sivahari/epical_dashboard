@@ -11,6 +11,10 @@ import {
   YAxis,
 } from 'recharts'
 import { cn } from '@/utils/cn'
+import {
+  formatChartAxisMinutesFromHours,
+  formatHoursAsDuration,
+} from '@/utils/durationFormat'
 
 const GREEN = {
   primary: '#06C033',
@@ -36,7 +40,7 @@ function AnalyticsTooltip({
   return (
     <div className="analytics-floating-tooltip">
       <span className="analytics-floating-tooltip-label">{label}</span>
-      <span className="analytics-floating-tooltip-value">{payload[0].value} hrs logged</span>
+      <span className="analytics-floating-tooltip-value">{formatHoursAsDuration(payload[0].value)} logged</span>
     </div>
   )
 }
@@ -107,7 +111,7 @@ export function WeeklyPerformanceChart({
             domain={[0, yMax]}
             allowDecimals={false}
             tickCount={5}
-            tickFormatter={(v) => `${v}h`}
+            tickFormatter={formatChartAxisMinutesFromHours}
           />
           <Tooltip
             content={<AnalyticsTooltip />}
@@ -154,7 +158,7 @@ export function WeeklyPerformanceChart({
               dataKey="hours"
               position="top"
               offset={10}
-              formatter={(v: number) => `${v}h`}
+              formatter={(v: number) => formatChartAxisMinutesFromHours(v)}
               fill="#0f172a"
               fontSize={12}
               fontWeight={700}

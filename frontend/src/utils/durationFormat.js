@@ -21,6 +21,23 @@ export function formatDurationFromMs(ms) {
   return `${hours}h ${minPart}m`
 }
 
+/** Whole minutes from decimal hours (for charts and summaries). */
+export function hoursToMinutes(hours) {
+  const n = Number(hours)
+  if (!Number.isFinite(n) || n <= 0) return 0
+  return Math.round(n * 60)
+}
+
+/** Format decimal hours like live session stats: "6m", "1h 30m". */
+export function formatHoursAsDuration(hours) {
+  return formatDurationFromMs(hoursToMinutes(hours) * 60000)
+}
+
+/** Chart axis tick from hour-scale values. */
+export function formatChartAxisMinutesFromHours(hours) {
+  return `${hoursToMinutes(hours)}m`
+}
+
 /** Workflow duration with optional days: "45m", "3h", "8h 25m", "1d 4h", "2d 6h 30m". */
 export function formatWorkflowDurationFromMs(ms) {
   const totalMinutes = Math.floor(Math.max(0, ms) / 60000)

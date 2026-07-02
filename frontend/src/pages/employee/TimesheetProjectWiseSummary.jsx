@@ -1,4 +1,5 @@
 import { FolderKanban } from 'lucide-react'
+import { formatHoursAsDuration } from '@/utils/durationFormat'
 
 export function TimesheetProjectWiseSummary({ totalHours = 0, projectCount = 0 }) {
   return (
@@ -6,7 +7,7 @@ export function TimesheetProjectWiseSummary({ totalHours = 0, projectCount = 0 }
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="type-card-label text-teal-900/70">Project Wise Hours</p>
-          <p className="type-metric-lg mt-1 text-teal-900">{totalHours.toFixed(1)}h</p>
+          <p className="type-metric-lg mt-1 text-teal-900">{formatHoursAsDuration(totalHours)}</p>
         </div>
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
           <FolderKanban className="h-5 w-5" />

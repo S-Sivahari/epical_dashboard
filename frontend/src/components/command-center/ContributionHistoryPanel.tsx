@@ -3,6 +3,7 @@ import {
   type ProjectContributionStatus,
   type ProjectTableRow,
 } from '@/pages/admin/Dashboard/dashboardChartUtils'
+import { formatHoursAsDuration } from '@/utils/durationFormat'
 import { cn } from '@/utils/cn'
 
 function statusDotClass(status: ProjectContributionStatus): string {
@@ -131,7 +132,7 @@ export function ContributionHistoryPanel({
                   <td className="dashboard-contribution-status-col">
                     <ContributionStatusCell status={row.status} />
                   </td>
-                  <td className="dashboard-contribution-hours">{row.totalHours}h</td>
+                  <td className="dashboard-contribution-hours">{formatHoursAsDuration(row.totalHours)}</td>
                 </tr>
               ))
             )}

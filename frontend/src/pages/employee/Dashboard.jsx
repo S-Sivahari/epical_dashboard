@@ -19,6 +19,7 @@ import { useAuthStore } from '@store/authStore'
 import { fetchEmployeeDashboard } from '@services/employeeDashboardService'
 import * as leaveService from '@services/leaveService'
 import { formatLeaveBalances } from '@/utils/leaveBalances'
+import { formatHoursAsDuration } from '@/utils/durationFormat'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
@@ -160,9 +161,9 @@ export default function Dashboard() {
     () => [
       {
         title: 'Hours This Month',
-        value: `${monthlyHours}h`,
+        value: formatHoursAsDuration(monthlyHours),
         icon: Clock,
-        trend: `${weeklyHours}h this week`,
+        trend: `${formatHoursAsDuration(weeklyHours)} this week`,
         accent: 'sage',
         to: '/employee/timesheet',
       },

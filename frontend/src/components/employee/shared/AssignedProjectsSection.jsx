@@ -5,6 +5,7 @@ import { ROUTES } from '@constants/routes'
 import { Badge } from '@components/employee/ui/badge'
 import api from '@services/api'
 import { cn } from '@pages/employee/lib/utils'
+import { formatHoursAsDuration } from '@/utils/durationFormat'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
 function projectStatusLabel(status) {
@@ -37,7 +38,7 @@ function ProjectRow({ project, compact = false }) {
         <p className="truncate text-[11px] text-muted">
           {project.client}
           {project.myHours > 0 ? (
-            <span className="sm:hidden"> · {project.myHours}h</span>
+            <span className="sm:hidden"> · {formatHoursAsDuration(project.myHours)}</span>
           ) : null}
         </p>
       </div>
@@ -47,7 +48,7 @@ function ProjectRow({ project, compact = false }) {
       </Badge>
 
       <span className="hidden text-right font-semibold text-foreground sm:block">
-        {project.myHours > 0 ? `${project.myHours}h` : '—'}
+        {project.myHours > 0 ? formatHoursAsDuration(project.myHours) : '—'}
       </span>
 
       <span className="truncate text-right text-[10px] font-medium text-muted">

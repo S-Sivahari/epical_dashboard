@@ -14,6 +14,10 @@ import {
 import type { TooltipProps } from 'recharts'
 import { easeOut } from '@/utils/motionPresets'
 import { cn } from '@/utils/cn'
+import {
+  formatChartAxisMinutesFromHours,
+  formatHoursAsDuration,
+} from '@/utils/durationFormat'
 
 type ChartPoint = { name: string; hours: number }
 
@@ -43,7 +47,7 @@ function computeNiceYAxis(maxValue: number): { yMax: number; ticks: number[] } {
 
 function formatBarLabel(v: unknown) {
   if (typeof v !== 'number' || Number.isNaN(v) || v === 0) return ''
-  return v.toFixed(1)
+  return formatChartAxisMinutesFromHours(v)
 }
 
 function DynamicBarTooltip({
@@ -63,8 +67,7 @@ function DynamicBarTooltip({
     >
       <p className="project-hours-bar-tooltip__label">{label}</p>
       <p className="project-hours-bar-tooltip__value">
-        {hours.toFixed(1)}
-        <span className="project-hours-bar-tooltip__unit"> hrs</span>
+        {formatHoursAsDuration(hours)}
       </p>
     </motion.div>
   )
@@ -169,7 +172,7 @@ export function ProjectHoursDynamicBarChart({
                 domain={[0, yMax]}
                 allowDecimals={false}
                 ticks={yTicks}
-                tickFormatter={(v) => `${v}h`}
+                tickFormatter={formatChartAxisMinutesFromHours}
               />
               <Tooltip
                 content={<DynamicBarTooltip />}

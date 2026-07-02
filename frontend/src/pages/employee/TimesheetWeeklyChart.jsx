@@ -7,6 +7,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { formatChartAxisMinutesFromHours, formatHoursAsDuration } from '@/utils/durationFormat'
 
 function WeeklyHoursTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
@@ -19,8 +20,8 @@ function WeeklyHoursTooltip({ active, payload, label }) {
       <span className="emp-weekly-hours-tooltip__sheen" aria-hidden />
       <div className="emp-weekly-hours-tooltip__content">
         <p className="emp-weekly-hours-tooltip__label">{label}</p>
-        <p className="emp-weekly-hours-tooltip__value">{hours.toFixed(1)}h</p>
-        <p className="emp-weekly-hours-tooltip__meta">hours logged</p>
+        <p className="emp-weekly-hours-tooltip__value">{formatHoursAsDuration(hours)}</p>
+        <p className="emp-weekly-hours-tooltip__meta">minutes logged</p>
       </div>
     </div>
   )
@@ -50,6 +51,7 @@ export function TimesheetWeeklyChart({ data, height = 280 }) {
           axisLine={false}
           tickLine={false}
           allowDecimals={false}
+          tickFormatter={formatChartAxisMinutesFromHours}
         />
         <Tooltip
           content={<WeeklyHoursTooltip />}

@@ -10,6 +10,10 @@ import {
   YAxis,
 } from 'recharts'
 import { cn } from '@/utils/cn'
+import {
+  formatChartAxisMinutesFromHours,
+  formatHoursAsDuration,
+} from '@/utils/durationFormat'
 
 const CHART_GREEN = {
   line: '#266b1c',
@@ -136,7 +140,7 @@ export function ProjectHoursAreaChart({
               width={44}
               domain={[0, yMax]}
               ticks={yTicks}
-              tickFormatter={(v) => `${v}h`}
+              tickFormatter={formatChartAxisMinutesFromHours}
             />
           )}
           <Tooltip
@@ -149,7 +153,7 @@ export function ProjectHoursAreaChart({
               boxShadow: '0 8px 24px rgba(38, 107, 28, 0.12)',
             }}
             labelStyle={{ color: '#266b1c', fontWeight: 600, marginBottom: 4 }}
-            formatter={(value: number) => [`${value} h`, 'Hours logged']}
+            formatter={(value: number) => [formatHoursAsDuration(value), 'Time logged']}
           />
           <Area
             type="monotone"
