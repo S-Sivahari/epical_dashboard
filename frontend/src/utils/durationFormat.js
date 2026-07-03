@@ -6,6 +6,7 @@ export function computeWorkedMs(loginTime, logoutTime, totalPausedMs = 0) {
   const start = loginTime instanceof Date ? loginTime.getTime() : new Date(loginTime).getTime()
   const end = logoutTime instanceof Date ? logoutTime.getTime() : new Date(logoutTime).getTime()
   const paused = totalPausedMs || 0
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return 0
   return Math.max(0, end - start - paused)
 }
 
@@ -79,7 +80,10 @@ export function formatSessionDuration(session) {
   }
 
   if (logoutTime || autoCheckedOut) {
-    return '—'
+    const endTime = logoutTime || session.autoCheckoutTime || session.updatedAt
+    const endMs = endTime ? new Date(endTime).getTime() : 0
+    if (!endMs) return '—'
+    return formatDurationFromMs(computeWorkedMs(loginMs, endMs, totalPausedMs || 0))
   }
 
   return '—'
