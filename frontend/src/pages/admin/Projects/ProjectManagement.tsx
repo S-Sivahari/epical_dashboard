@@ -204,17 +204,19 @@ function formatBreakTime(breakMs?: number): string {
 }
 
 function formatWorkSessionDuration(session: Pick<WorkSessionLog, 'displayWorkedMs' | 'logoutTime'>): string {
-  if (!session.logoutTime) return '—'
   if (typeof session.displayWorkedMs === 'number' && session.displayWorkedMs >= 0) {
     return formatDurationFromMs(session.displayWorkedMs)
   }
+  if (!session.logoutTime) return 'In progress'
   return '—'
 }
 
 function formatWorkDayType(
   workDayType?: WorkSessionLog['workDayType'],
   autoCheckedOut?: boolean,
+  inProgress?: boolean,
 ): string {
+  if (inProgress) return '—'
   if (workDayType === 'half_day') return 'Half day'
   if (workDayType === 'full_day') return autoCheckedOut ? 'Full day (auto)' : 'Full day'
   if (autoCheckedOut) return 'Full day (auto)'
@@ -3583,8 +3585,13 @@ export function ProjectManagement() {
                         </td>
 
                         <td className="whitespace-nowrap px-5 py-4">
-                          <p className="text-base font-semibold text-slate-800">
-                            {t.logoutTime ? formatDateTime(t.logoutTime) : '—'}
+                          <p
+                            className={cn(
+                              'text-base font-semibold',
+                              t.logoutTime ? 'text-slate-800' : 'text-emerald-700',
+                            )}
+                          >
+                            {t.logoutTime ? formatDateTime(t.logoutTime) : 'In progress'}
                           </p>
                         </td>
 
@@ -3606,7 +3613,7 @@ export function ProjectManagement() {
                         </td>
                         <td className="whitespace-nowrap px-5 py-4">
                           <span className="inline-flex rounded-lg border border-border bg-[var(--bg-input)] px-3 py-1.5 text-sm font-semibold text-slate-800">
-                            {formatWorkDayType(t.workDayType, t.autoCheckedOut)}
+                            {formatWorkDayType(t.workDayType, t.autoCheckedOut, !t.logoutTime)}
                           </span>
                         </td>
                       </tr>

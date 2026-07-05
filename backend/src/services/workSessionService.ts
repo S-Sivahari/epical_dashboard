@@ -127,7 +127,6 @@ async function projectsForAttendanceWindow(
   },
   identityTokens: string[],
 ): Promise<string[]> {
-  if (!attendance.checkOutTime) return [];
   const tokens = Array.from(
     new Set(
       [...identityTokens, attendance.employeeId, attendance.employeeName]
@@ -137,15 +136,15 @@ async function projectsForAttendanceWindow(
   );
   if (tokens.length === 0) return [];
 
-  const checkOutTime = new Date(attendance.checkOutTime);
   const checkInTime = new Date(attendance.checkInTime);
+  const windowEnd = attendance.checkOutTime ? new Date(attendance.checkOutTime) : new Date();
 
   const tasks = await TimesheetModel.find({
     $and: [
       {
         $or: [{ employeeId: { $in: tokens } }, { employee: { $in: tokens } }],
       },
-      { loginTime: { $lte: checkOutTime } },
+      { loginTime: { $gte: checkInTime, $lte: windowEnd } },
       {
         $or: [
           { logoutTime: { $gte: checkInTime } },
@@ -293,15 +292,15 @@ export async function enrichAttendanceSessionRow(
     breakMs,
     displayWorkedMs,
     workDayType: attendance.workDayType ?? (attendance.autoCheckedOut ? 'full_day' : null),
-    sessionStatus: attendance.sessionStatus ?? 'Completed',
+    sessionStatus: attendance.checkOutTime
+      ? (attendance.sessionStatus ?? 'Completed')
+      : (attendance.sessionStatus ?? 'Active'),
     autoCheckedOut: attendance.autoCheckedOut ?? false,
   };
 }
 
 export async function listWorkSessionsForAdmin(query: SessionQuery): Promise<WorkSessionRow[]> {
-  const match: Record<string, unknown> = {
-    checkOutTime: { $exists: true, $ne: null },
-  };
+  const match: Record<string, unknown> = {};
 
   if (query.from || query.to) {
     const checkInTime: Record<string, Date> = {};
@@ -349,7 +348,6 @@ export async function listWorkSessionsForAdmin(query: SessionQuery): Promise<Wor
   const employeeContextMap = await buildEmployeeContextMap(attendances);
 
   for (const attendance of attendances) {
-    if (!attendance.checkOutTime) continue;
     const context = employeeContextMap.get(attendance.employeeId);
     const identityTokens = context?.identityTokens ?? [
       attendance.employeeId,
@@ -358,8 +356,12 @@ export async function listWorkSessionsForAdmin(query: SessionQuery): Promise<Wor
     const row = await enrichAttendanceSessionRow(attendance, identityTokens);
     row.employeeId = context?.officialEmployeeId ?? attendance.employeeId;
     row.employeeName = context?.displayName ?? attendance.employeeName;
+    const loginWindow: Record<string, Date> = { $gte: attendance.checkInTime };
+    if (attendance.checkOutTime) {
+      loginWindow.$lte = attendance.checkOutTime;
+    }
     const tasks = await TimesheetModel.find({
-      loginTime: { $gte: attendance.checkInTime, $lte: attendance.checkOutTime },
+      loginTime: loginWindow,
       $or: [{ employeeId: { $in: identityTokens } }, { employee: { $in: identityTokens } }],
     })
       .select({ projectId: 1 })
