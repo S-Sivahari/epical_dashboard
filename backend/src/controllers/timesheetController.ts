@@ -13,6 +13,7 @@ import {
   buildDashboardProjectHoursChart,
   type DashboardChartPeriod,
 } from '../services/dashboardProjectHoursService';
+import { listWorkSessionsForAdmin } from '../services/workSessionService';
 
 const MOCK_EMPLOYEES = [
   { id: 'E-1001', name: 'Asha Menon', team: 'Design', hue: 155 },
@@ -194,6 +195,23 @@ async function buildMatchStage(req: Request) {
 }
 
 export const timesheetController = {
+  // GET /api/timesheets/work-sessions — one row per check-in/check-out session
+  getWorkSessions: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { from, to, employee, search } = req.query;
+      const rows = await listWorkSessionsForAdmin({
+        from: typeof from === 'string' ? from : undefined,
+        to: typeof to === 'string' ? to : undefined,
+        employee: typeof employee === 'string' ? employee : undefined,
+        search: typeof search === 'string' ? search : undefined,
+      });
+      res.json(rows);
+    } catch (error) {
+      console.error('Error fetching work sessions:', error);
+      res.status(500).json({ error: 'Failed to fetch work sessions' });
+    }
+  },
+
   // GET /api/timesheets
   getAll: async (req: Request, res: Response): Promise<void> => {
     try {
@@ -277,33 +295,43 @@ export const timesheetController = {
                 then: "$overriddenHours",
                 else: {
                   $cond: {
-                    // If there's a logout time, calculate completed session hours
-                    if: { $and: ["$logoutTime", { $gt: ["$logoutTime", "$loginTime"] }] },
-                    then: {
-                      $divide: [
-                        {
-                          $subtract: [
-                            { $subtract: ["$logoutTime", "$loginTime"] },
-                            { $ifNull: ["$totalPausedMs", 0] }
-                          ]
-                        },
-                        3600000
-                      ]
+                    if: {
+                      $and: [
+                        { $ne: [{ $ifNull: ['$workedMs', null] }, null] },
+                        { $gte: ['$workedMs', 0] },
+                        { $ne: [{ $ifNull: ['$logoutTime', null] }, null] },
+                      ],
                     },
-                    // For active sessions (no logout), calculate current duration
+                    then: { $divide: ['$workedMs', 3600000] },
                     else: {
-                      $divide: [
-                        {
-                          $subtract: [
-                            { $subtract: [new Date(), "$loginTime"] },
-                            { $ifNull: ["$totalPausedMs", 0] }
-                          ]
+                      $cond: {
+                        if: { $and: ['$logoutTime', { $gt: ['$logoutTime', '$loginTime'] }] },
+                        then: {
+                          $divide: [
+                            {
+                              $subtract: [
+                                { $subtract: ['$logoutTime', '$loginTime'] },
+                                { $ifNull: ['$totalPausedMs', 0] },
+                              ],
+                            },
+                            3600000,
+                          ],
                         },
-                        3600000
-                      ]
-                    }
-                  }
-                }
+                        else: {
+                          $divide: [
+                            {
+                              $subtract: [
+                                { $subtract: [new Date(), '$loginTime'] },
+                                { $ifNull: ['$totalPausedMs', 0] },
+                              ],
+                            },
+                            3600000,
+                          ],
+                        },
+                      },
+                    },
+                  },
+                },
               }
             }
           }
@@ -358,33 +386,43 @@ export const timesheetController = {
                 then: "$overriddenHours",
                 else: {
                   $cond: {
-                    // If there's a logout time, calculate completed session hours
-                    if: { $and: ["$logoutTime", { $gt: ["$logoutTime", "$loginTime"] }] },
-                    then: {
-                      $divide: [
-                        {
-                          $subtract: [
-                            { $subtract: ["$logoutTime", "$loginTime"] },
-                            { $ifNull: ["$totalPausedMs", 0] }
-                          ]
-                        },
-                        3600000
-                      ]
+                    if: {
+                      $and: [
+                        { $ne: [{ $ifNull: ['$workedMs', null] }, null] },
+                        { $gte: ['$workedMs', 0] },
+                        { $ne: [{ $ifNull: ['$logoutTime', null] }, null] },
+                      ],
                     },
-                    // For active sessions (no logout), calculate current duration
+                    then: { $divide: ['$workedMs', 3600000] },
                     else: {
-                      $divide: [
-                        {
-                          $subtract: [
-                            { $subtract: [new Date(), "$loginTime"] },
-                            { $ifNull: ["$totalPausedMs", 0] }
-                          ]
+                      $cond: {
+                        if: { $and: ['$logoutTime', { $gt: ['$logoutTime', '$loginTime'] }] },
+                        then: {
+                          $divide: [
+                            {
+                              $subtract: [
+                                { $subtract: ['$logoutTime', '$loginTime'] },
+                                { $ifNull: ['$totalPausedMs', 0] },
+                              ],
+                            },
+                            3600000,
+                          ],
                         },
-                        3600000
-                      ]
-                    }
-                  }
-                }
+                        else: {
+                          $divide: [
+                            {
+                              $subtract: [
+                                { $subtract: [new Date(), '$loginTime'] },
+                                { $ifNull: ['$totalPausedMs', 0] },
+                              ],
+                            },
+                            3600000,
+                          ],
+                        },
+                      },
+                    },
+                  },
+                },
               }
             }
           }

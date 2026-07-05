@@ -166,6 +166,7 @@ export async function fetchAttendanceSessionsForTimesheets(
       activeBreakStartedAt: 1,
       activeBreakEndsAt: 1,
       sessionWorkedMs: 1,
+      defaultBreakDeductedMs: 1,
       workDayType: 1,
       autoCheckedOut: 1,
     })

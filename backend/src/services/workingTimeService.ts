@@ -60,16 +60,19 @@ export function computeSessionWorkedMs(
   attendance: AttendanceBreakFields | null | undefined,
   workDayType: WorkDayType,
   defaultBreakDeductionMs = 0,
-): { workedMs: number; breakMs: number } {
+): { workedMs: number; breakMs: number; defaultDeductedMs: number } {
   const grossMs = computeGrossAttendanceMs(checkInTime, checkOutTime);
   const breakMs = computeUsedBreakMs(attendance ?? undefined, checkOutTime);
   let deductMs = breakMs;
+  let defaultDeductedMs = 0;
   if (workDayType === 'full_day' && breakMs === 0) {
-    deductMs += Math.max(0, defaultBreakDeductionMs);
+    defaultDeductedMs = Math.max(0, defaultBreakDeductionMs);
+    deductMs += defaultDeductedMs;
   }
   return {
     workedMs: Math.max(0, grossMs - deductMs),
     breakMs,
+    defaultDeductedMs: Math.min(defaultDeductedMs, Math.max(0, grossMs - breakMs)),
   };
 }
 
@@ -128,10 +131,13 @@ export function formatWorkedMsLabel(ms: number): string {
 
 /**
  * Read worked ms for display. Checked-out sessions use the value saved at checkout.
+ * New break/default logic is applied only at checkout — this function never writes to the DB
+ * and never re-applies the daily 50m policy on read (uses stored defaultBreakDeductedMs only).
  */
 export function resolveSessionWorkedMs(
   attendance: AttendanceBreakFields & {
     sessionWorkedMs?: number | null;
+    defaultBreakDeductedMs?: number | null;
     autoCheckedOut?: boolean;
   },
   now = new Date(),
@@ -151,9 +157,11 @@ export function resolveSessionWorkedMs(
           ? 'full_day'
           : 'full_day';
   const defaultMs =
-    workDayType === 'full_day' && !anyScheduledBreakUsed(attendance)
-      ? DAILY_STANDARD_BREAK_MS
-      : 0;
+    workDayType === 'half_day'
+      ? 0
+      : typeof attendance.defaultBreakDeductedMs === 'number'
+        ? attendance.defaultBreakDeductedMs
+        : 0;
   return computeSessionWorkedMs(
     attendance.checkInTime,
     new Date(attendance.checkOutTime),

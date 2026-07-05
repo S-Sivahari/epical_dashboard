@@ -53,7 +53,7 @@ export function finalizeOpenTimesheetsForCheckout<T extends CheckoutTimesheet>(
   }
 
   const workDayType = options?.workDayType ?? 'full_day';
-  const { workedMs, breakMs } = computeSessionWorkedMs(
+  const { workedMs, breakMs, defaultDeductedMs } = computeSessionWorkedMs(
     attendance.checkInTime,
     checkoutTime,
     attendance,
@@ -77,4 +77,4 @@ export function finalizeOpenTimesheetsForCheckout<T extends CheckoutTimesheet>(
 
   return openLogs;
 }
-
+

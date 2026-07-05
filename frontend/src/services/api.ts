@@ -59,6 +59,11 @@ api.interceptors.response.use(
       if (!isRedirecting && isProtectedAppRoute(pathname)) {
         isRedirecting = true
         import('@store/authStore').then(({ useAuthStore }) => {
+          const { isHydrated } = useAuthStore.getState()
+          if (!isHydrated) {
+            isRedirecting = false
+            return
+          }
           useAuthStore.setState({
             user: null,
             role: null,

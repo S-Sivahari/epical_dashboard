@@ -225,7 +225,11 @@ function AuthLoginRoute() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const role = useAuthStore((s) => s.role)
 
-  if (isHydrated && isAuthenticated) {
+  if (!isHydrated) {
+    return <PageLoading />
+  }
+
+  if (isAuthenticated) {
     return <Navigate to={role === 'admin' ? '/admin' : '/employee'} replace />
   }
 

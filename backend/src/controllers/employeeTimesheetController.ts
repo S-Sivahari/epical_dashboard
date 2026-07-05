@@ -22,8 +22,12 @@ import {
   isDailyBreakSlotUsed,
   markDailyBreakSlotStarted,
   mergeDailyBreakWithOpenSession,
-  resolveDefaultCheckoutBreakDeduction,
 } from '../services/dailyBreakStateService';
+import {
+  FULL_DAY_TOO_SHORT_MESSAGE,
+  isFullDayCheckoutTooShort,
+  resolveDefaultCheckoutBreakDeduction,
+} from '../services/checkoutBreakPolicy';
 import { buildEmployeeVisibleProjectsFilter } from '../utils/assignedProjectsHelper';
 import { openAttendanceFilter, timesheetsForCalendarDayFilter } from '../utils/attendanceQueries';
 import { computeTotalHoursDecimal } from '../utils/durationFormat';
@@ -47,6 +51,8 @@ import {
   activeBreakExpired,
   breakMinTimeReached,
   buildBreaksPayload,
+  computeGrossAttendanceMs,
+  computeUsedBreakMs,
   isWorkBreakType,
   WORK_BREAKS,
   type WorkBreakType,
@@ -56,11 +62,13 @@ import { normalizeCellWorkflow } from '../utils/cellWorkflow';
 import { getActiveWorkStage } from '../services/productiveTimeService';
 import {
   computeLiveWorkingMs,
+  computeSessionWorkedMs,
   computeWorkingHours,
   resolveSessionWorkedMs,
   workingMsToDecimalHours,
   type WorkDayType,
 } from '../services/workingTimeService';
+import { enrichAttendanceSessionRow } from '../services/workSessionService';
 
 type ResolvedEmployee = {
   id: string;
@@ -128,6 +136,25 @@ function computeAttendanceHours(
       taskPausedMs: options?.taskPausedMs,
       taskCurrentlyPaused: options?.taskCurrentlyPaused,
     },
+  );
+}
+
+async function enrichAttendanceHistoryForEmployee(
+  records: Array<InstanceType<typeof EmployeeAttendanceModel>>,
+  identityTokens: string[],
+) {
+  return Promise.all(
+    records.map(async (record) => {
+      const base = toFrontendAttendance(record);
+      const session = await enrichAttendanceSessionRow(record, identityTokens);
+      return {
+        ...base,
+        breakMs: session.breakMs,
+        project: session.project,
+        projects: session.projects,
+        displayWorkedMs: session.displayWorkedMs,
+      };
+    }),
   );
 }
 
@@ -386,41 +413,52 @@ async function aggregateProjectWiseHoursForEmployee(
             },
             { $toDouble: '$overriddenHours' },
             {
-              $let: {
-                vars: {
-                  endMs: { $toLong: { $ifNull: ['$logoutTime', now] } },
-                  startMs: { $toLong: '$loginTime' },
-                  pausedMs: {
-                    $add: [
-                      { $ifNull: ['$totalPausedMs', 0] },
-                      {
-                        $cond: [
-                          {
-                            $and: [
-                              { $eq: ['$taskStatus', 'Paused'] },
-                              { $ne: [{ $ifNull: ['$pausedAt', null] }, null] },
-                              { $eq: [{ $ifNull: ['$logoutTime', null] }, null] },
-                            ],
-                          },
-                          { $subtract: [{ $toLong: now }, { $toLong: '$pausedAt' }] },
-                          0,
-                        ],
-                      },
-                    ],
-                  },
-                },
-                in: {
-                  $max: [
-                    0,
-                    {
-                      $divide: [
-                        { $subtract: ['$$endMs', { $add: ['$$startMs', '$$pausedMs'] }] },
-                        3600000,
-                      ],
-                    },
+              $cond: [
+                {
+                  $and: [
+                    { $ne: [{ $ifNull: ['$workedMs', null] }, null] },
+                    { $gte: ['$workedMs', 0] },
                   ],
                 },
-              },
+                { $divide: ['$workedMs', 3600000] },
+                {
+                  $let: {
+                    vars: {
+                      endMs: { $toLong: { $ifNull: ['$logoutTime', now] } },
+                      startMs: { $toLong: '$loginTime' },
+                      pausedMs: {
+                        $add: [
+                          { $ifNull: ['$totalPausedMs', 0] },
+                          {
+                            $cond: [
+                              {
+                                $and: [
+                                  { $eq: ['$taskStatus', 'Paused'] },
+                                  { $ne: [{ $ifNull: ['$pausedAt', null] }, null] },
+                                  { $eq: [{ $ifNull: ['$logoutTime', null] }, null] },
+                                ],
+                              },
+                              { $subtract: [{ $toLong: now }, { $toLong: '$pausedAt' }] },
+                              0,
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                    in: {
+                      $max: [
+                        0,
+                        {
+                          $divide: [
+                            { $subtract: ['$$endMs', { $add: ['$$startMs', '$$pausedMs'] }] },
+                            3600000,
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                },
+              ],
             },
           ],
         },
@@ -701,7 +739,10 @@ export const employeeTimesheetController = {
         pausedTasks: activePayload.pausedTasks,
         assignedTasks,
         sessions: sessions.map(toFrontendTimesheet),
-        attendanceHistory: attendanceHistory.map((r) => toFrontendAttendance(r as any)),
+        attendanceHistory: await enrichAttendanceHistoryForEmployee(
+          attendanceHistory as Array<InstanceType<typeof EmployeeAttendanceModel>>,
+          employee.identityTokens,
+        ),
         projectWiseHours,
       });
     } catch (error) {
@@ -794,7 +835,9 @@ export const employeeTimesheetController = {
 
       const records = await EmployeeAttendanceModel.find(match).sort({ checkInTime: -1 });
 
-      res.json(records.map((r) => toFrontendAttendance(r)));
+      const enriched = await enrichAttendanceHistoryForEmployee(records, employee.identityTokens);
+
+      res.json(enriched);
     } catch (error) {
       console.error('Error fetching attendance history:', error);
       res.status(500).json({ error: 'Failed to fetch attendance history' });
@@ -962,19 +1005,40 @@ export const employeeTimesheetController = {
 
       const now = new Date();
       if (attendance.activeBreakType) {
-        const breakType = attendance.activeBreakType;
-        const timesheetId = attendance.breakPausedTimesheetId;
-        await finalizeBreakEnd(attendance, breakType, now, timesheetId ?? undefined);
-        attendance.activeBreakType = undefined;
-        attendance.activeBreakStartedAt = undefined;
-        attendance.activeBreakEndsAt = undefined;
-        attendance.breakPausedTimesheetId = undefined;
+        res.status(400).json({ error: 'End your break before checking out.' });
+        return;
       }
+
+      const sessionBreakMs = computeUsedBreakMs(attendance, now);
+      const grossMs = computeGrossAttendanceMs(attendance.checkInTime, now);
 
       const defaultBreakDeductionMs =
         workDayType === 'half_day'
           ? 0
-          : await resolveDefaultCheckoutBreakDeduction(employee.id, attendance.date);
+          : await resolveDefaultCheckoutBreakDeduction(
+              employee.id,
+              attendance.date,
+              sessionBreakMs,
+            );
+
+      if (
+        workDayType === 'full_day' &&
+        isFullDayCheckoutTooShort(grossMs, sessionBreakMs, defaultBreakDeductionMs)
+      ) {
+        res.status(400).json({
+          error: FULL_DAY_TOO_SHORT_MESSAGE,
+          code: 'USE_HALF_DAY_CHECKOUT',
+        });
+        return;
+      }
+
+      const sessionPreview = computeSessionWorkedMs(
+        attendance.checkInTime,
+        now,
+        attendance,
+        workDayType,
+        defaultBreakDeductionMs,
+      );
       const session = await mongoose.startSession();
 
       try {
@@ -1020,6 +1084,7 @@ export const employeeTimesheetController = {
             typeof updatedLogs[0]?.workedMs === 'number' && updatedLogs[0].workedMs >= 0
               ? updatedLogs[0].workedMs
               : undefined;
+          attendance.defaultBreakDeductedMs = sessionPreview.defaultDeductedMs;
           attendance.resumeProjectId = resumeCell.resumeProjectId;
           attendance.resumeCellId = resumeCell.resumeCellId;
           await attendance.save({ session });

@@ -53,6 +53,8 @@ export function effectiveAttendanceHours(
   attendance: {
     checkInTime: Date;
     checkOutTime?: Date | null;
+    sessionWorkedMs?: number | null;
+    defaultBreakDeductedMs?: number | null;
     morningBreakAt?: Date | null;
     lunchBreakAt?: Date | null;
     eveningBreakAt?: Date | null;
@@ -63,10 +65,18 @@ export function effectiveAttendanceHours(
     activeBreakStartedAt?: Date | null;
     activeBreakEndsAt?: Date | null;
     workDayType?: 'half_day' | 'full_day' | null;
+    autoCheckedOut?: boolean;
   },
   now = new Date(),
 ): number {
   if (!attendance.checkInTime) return 0;
+  if (
+    attendance.checkOutTime &&
+    typeof attendance.sessionWorkedMs === 'number' &&
+    attendance.sessionWorkedMs >= 0
+  ) {
+    return roundHours(attendance.sessionWorkedMs / 3600000);
+  }
   return computeWorkingHours(
     {
       checkInTime: new Date(attendance.checkInTime),
@@ -81,6 +91,9 @@ export function effectiveAttendanceHours(
       activeBreakStartedAt: attendance.activeBreakStartedAt,
       activeBreakEndsAt: attendance.activeBreakEndsAt,
       workDayType: attendance.workDayType,
+      sessionWorkedMs: attendance.sessionWorkedMs,
+      defaultBreakDeductedMs: attendance.defaultBreakDeductedMs,
+      autoCheckedOut: attendance.autoCheckedOut,
     },
     { now },
   );
@@ -92,6 +105,7 @@ export function effectiveTimesheetHours(
     logoutTime?: Date | null;
     overriddenHours?: number | null;
     totalHours?: number | null;
+    workedMs?: number | null;
     totalPausedMs?: number;
     taskStatus?: string;
   },
@@ -99,6 +113,10 @@ export function effectiveTimesheetHours(
 ): number {
   if (t.overriddenHours != null && t.overriddenHours !== undefined) {
     return Math.max(0, Number(t.overriddenHours));
+  }
+
+  if (typeof t.workedMs === 'number' && t.workedMs >= 0 && t.logoutTime) {
+    return roundHours(t.workedMs / 3600000);
   }
 
   if (!t.loginTime) return 0;
@@ -284,7 +302,7 @@ export async function buildDashboardProjectHoursChart(
     checkInTime: { $gte: loginFrom, $lte: loginTo },
   })
     .select(
-      'checkInTime checkOutTime morningBreakAt lunchBreakAt eveningBreakAt morningBreakMs lunchBreakMs eveningBreakMs activeBreakType activeBreakStartedAt activeBreakEndsAt workDayType',
+      'checkInTime checkOutTime sessionWorkedMs defaultBreakDeductedMs morningBreakAt lunchBreakAt eveningBreakAt morningBreakMs lunchBreakMs eveningBreakMs activeBreakType activeBreakStartedAt activeBreakEndsAt workDayType autoCheckedOut',
     )
     .lean();
 

@@ -73,7 +73,7 @@ async function syncDailyBreakFromAttendances(employeeId: string, date: string) {
     }
   }
 
-  merged.projectBreakDeductedMs = Math.min(DAILY_STANDARD_BREAK_MS, deductedEstimate);
+  merged.projectBreakDeductedMs = 0;
   return merged;
 }
 
@@ -165,13 +165,4 @@ export async function applyDailyCappedBreakDeduction(
   );
   await daily.save();
   return applied;
-}
-
-export async function resolveDefaultCheckoutBreakDeduction(
-  employeeId: string,
-  date: string,
-): Promise<number> {
-  const daily = await getOrCreateDailyBreakState(employeeId, date);
-  if (anyScheduledBreakUsed(daily)) return 0;
-  return remainingDailyBreakBudgetMs(daily);
 }

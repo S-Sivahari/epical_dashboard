@@ -88,6 +88,18 @@ export function formatHoursDecimalAsDuration(hours) {
   return formatDurationFromMs(Math.round(safeHours * 3600000))
 }
 
+/** Decimal hours → "6hrs, 48 minutes" (admin dashboard chart labels). */
+export function formatHoursDecimalAsLongDuration(hours) {
+  const totalMinutes = Math.round(Math.max(0, Number(hours) || 0) * 60)
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+
+  if (h === 0 && m === 0) return '0 minutes'
+  if (h === 0) return `${m} minute${m === 1 ? '' : 's'}`
+  if (m === 0) return `${h}hr${h === 1 ? '' : 's'}`
+  return `${h}hr${h === 1 ? '' : 's'}, ${m} minute${m === 1 ? '' : 's'}`
+}
+
 /** Workflow duration with optional days: "45m", "3h", "8h 25m", "1d 4h", "2d 6h 30m". */
 export function formatWorkflowDurationFromMs(ms) {
   const totalMinutes = Math.floor(Math.max(0, ms) / 60000)

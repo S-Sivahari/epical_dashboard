@@ -104,7 +104,11 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
         description: 'Your work was submitted for admin approval.',
       })
     } catch (err) {
+      const code = err.response?.data?.code
       const message = err.response?.data?.error || 'Please try again.'
+      if (code === 'USE_HALF_DAY_CHECKOUT') {
+        setCheckoutWorkDayType('half_day')
+      }
       setCheckoutError(message)
       toast({
         title: 'Check out failed',

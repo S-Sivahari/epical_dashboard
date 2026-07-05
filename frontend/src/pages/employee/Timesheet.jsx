@@ -9,7 +9,7 @@ import { Textarea } from '@components/employee/ui/textarea'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { DateRangePicker } from '@components/employee/shared/DateRangePicker'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
-import { formatSessionDuration, formatWorkedDuration } from '@utils/durationFormat'
+import { formatSessionDuration, formatWorkedDuration, formatDurationFromMs } from '@utils/durationFormat'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 import {
@@ -71,10 +71,11 @@ const taskSchema = z.object({
 const historyColumns = [
   { key: 'date', label: 'Date' },
   { key: 'project', label: 'Project' },
-  { key: 'description', label: 'Description' },
-  { key: 'start', label: 'Start' },
-  { key: 'end', label: 'End' },
-  { key: 'duration', label: 'Duration' },
+  { key: 'checkIn', label: 'Check in' },
+  { key: 'checkOut', label: 'Check out' },
+  { key: 'break', label: 'Break' },
+  { key: 'duration', label: 'Worked' },
+  { key: 'dayType', label: 'Day' },
 ]
 
 const CHART_HEIGHT = 260
@@ -83,6 +84,18 @@ const HISTORY_VISIBLE_ROW_LIMIT = 10
 function formatTimeLabel(iso) {
   if (!iso) return '—'
   return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+function formatWorkDayTypeLabel(workDayType, autoCheckedOut) {
+  if (workDayType === 'half_day') return 'Half day'
+  if (workDayType === 'full_day') return autoCheckedOut ? 'Full day (auto)' : 'Full day'
+  if (autoCheckedOut) return 'Full day (auto)'
+  return '—'
+}
+
+function formatBreakMsLabel(breakMs) {
+  if (!breakMs || breakMs <= 0) return '—'
+  return formatDurationFromMs(breakMs)
 }
 
 function isSessionApprovedByAdmin(session) {
@@ -144,7 +157,7 @@ export default function Timesheet() {
     if (initialized) {
       setIsInitialLoading(true)
       void Promise.all([
-        useTimesheetStore.getState().refreshSessionsForRange({ from: historyStart, to: historyEnd }),
+        useTimesheetStore.getState().refreshAttendanceHistory({ from: historyStart, to: historyEnd }),
         useTimesheetStore.getState().refreshProjectWiseHours({ from: historyStart, to: historyEnd }),
       ]).finally(() => {
         if (active) setIsInitialLoading(false)
@@ -382,7 +395,11 @@ export default function Timesheet() {
         description: 'Your work was submitted for admin approval.',
       })
     } catch (err) {
+      const code = err.response?.data?.code
       const message = err.response?.data?.error || 'Please try again.'
+      if (code === 'USE_HALF_DAY_CHECKOUT') {
+        setCheckoutWorkDayType('half_day')
+      }
       setCheckoutError(message)
       toast({
         title: 'Check out failed',
@@ -499,37 +516,39 @@ export default function Timesheet() {
   )
 
   const unifiedHistory = useMemo(() => {
-    const deduped = new Map()
-
-    sessions
-      .filter((s) => isDateInRange(s.date, historyRange.start, historyRange.end))
-      .forEach((s) => {
-        if (!deduped.has(s.id)) {
-          const loginMs = s.loginTime ? new Date(s.loginTime).getTime() : 0
-          deduped.set(s.id, {
-            id: `task-${s.id}`,
-            sortAt: loginMs,
-            date: s.date,
-            project: s.project || '—',
-            description: stripTaskLabelPrefix(s.task, { projectName: s.project }) || '—',
-            start: s.start,
-            end: s.logoutTime ? formatTimeLabel(s.logoutTime) : s.end && s.end !== '—' ? s.end : '—',
-            duration: formatSessionDuration({
-              loginTime: s.loginTime,
-              logoutTime: s.logoutTime,
-              workedMs: s.workedMs,
-              totalPausedMs: s.totalPausedMs,
-              taskStatus: s.taskStatus,
-              autoCheckedOut: s.autoCheckedOut,
-            }),
-            statusNote: s.autoCheckedOut ? 'Auto Checked-Out' : null,
-            hours: s.totalHours ?? 0,
-          })
+    return (attendanceHistory ?? [])
+      .filter((seg) => isDateInRange(seg.date, historyRange.start, historyRange.end))
+      .filter((seg) => seg.checkOutTime)
+      .map((seg) => {
+        const loginMs = seg.checkInTime ? new Date(seg.checkInTime).getTime() : 0
+        const workedMs =
+          typeof seg.displayWorkedMs === 'number'
+            ? seg.displayWorkedMs
+            : typeof seg.sessionWorkedMs === 'number'
+              ? seg.sessionWorkedMs
+              : 0
+        return {
+          id: seg.id,
+          sortAt: loginMs,
+          date: seg.date,
+          project:
+            seg.project && seg.project !== '—'
+              ? seg.project
+              : Array.isArray(seg.projects) && seg.projects.length === 1
+                ? seg.projects[0]
+                : Array.isArray(seg.projects) && seg.projects.length > 1
+                  ? 'Multiple'
+                  : '—',
+          checkIn: formatTimeLabel(seg.checkInTime),
+          checkOut: formatTimeLabel(seg.checkOutTime),
+          break: formatBreakMsLabel(seg.breakMs),
+          duration: workedMs > 0 || seg.checkOutTime ? formatDurationFromMs(workedMs) : '—',
+          dayType: formatWorkDayTypeLabel(seg.workDayType, seg.autoCheckedOut),
+          statusNote: seg.autoCheckedOut ? 'Auto Checked-Out' : null,
         }
       })
-
-    return Array.from(deduped.values()).sort((a, b) => b.sortAt - a.sortAt)
-  }, [sessions, historyRange])
+      .sort((a, b) => b.sortAt - a.sortAt)
+  }, [attendanceHistory, historyRange])
 
   if (!initialized) {
     return (
@@ -830,7 +849,7 @@ export default function Timesheet() {
                 setHistoryEnd(end)
                 setHistoryPreset(preset)
                 void Promise.all([
-                  useTimesheetStore.getState().refreshSessionsForRange({ from: start, to: end }),
+                  useTimesheetStore.getState().refreshAttendanceHistory({ from: start, to: end }),
                   useTimesheetStore.getState().refreshProjectWiseHours({ from: start, to: end }),
                 ])
               }}

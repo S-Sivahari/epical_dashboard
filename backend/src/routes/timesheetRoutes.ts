@@ -33,6 +33,7 @@ router.get('/auto-checkout-settings', adminOnly, employeeTimesheetController.get
 router.put('/auto-checkout-settings', adminOnly, employeeTimesheetController.updateAutoCheckoutSettings);
 
 router.get('/', adminOnly, timesheetController.getAll);
+router.get('/work-sessions', adminOnly, timesheetController.getWorkSessions);
 router.get('/project-hours-chart', adminOnly, timesheetController.getProjectHoursChart);
 router.get('/hours-by-project', adminOnly, timesheetController.getHoursByProject);
 router.get('/employee-hours', adminOnly, timesheetController.getEmployeeHours);

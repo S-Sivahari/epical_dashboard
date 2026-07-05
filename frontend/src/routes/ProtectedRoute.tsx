@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuthStore, type UserRole } from '@store/authStore'
+import { PageLoading } from '@components/layout/PageLoading'
 
 interface ProtectedRouteProps {
   roles?: UserRole[]
@@ -12,7 +13,7 @@ export function ProtectedRoute({ roles }: ProtectedRouteProps) {
   const location = useLocation()
 
   if (!isHydrated) {
-    return null
+    return <PageLoading />
   }
 
   if (!isAuthenticated) {
