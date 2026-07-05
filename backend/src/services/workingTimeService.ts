@@ -150,12 +150,16 @@ export function resolveSessionWorkedMs(
         : attendance.workDayType === 'full_day'
           ? 'full_day'
           : 'full_day';
+  const defaultMs =
+    workDayType === 'full_day' && !anyScheduledBreakUsed(attendance)
+      ? DAILY_STANDARD_BREAK_MS
+      : 0;
   return computeSessionWorkedMs(
     attendance.checkInTime,
     new Date(attendance.checkOutTime),
     attendance,
     workDayType,
-    0,
+    defaultMs,
   ).workedMs;
 }
 

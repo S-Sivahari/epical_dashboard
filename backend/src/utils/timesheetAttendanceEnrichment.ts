@@ -242,7 +242,7 @@ export function resolveAdminTimesheetWorkedMs(
   attendances: AttendanceSessionRow[],
   employeeTokenMap: Map<string, string[]>,
 ): number {
-  if (typeof entry.workedMs === 'number' && entry.workedMs > 0) {
+  if (entry.logoutTime && typeof entry.workedMs === 'number' && entry.workedMs >= 0) {
     return entry.workedMs;
   }
 

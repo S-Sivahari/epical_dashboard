@@ -41,6 +41,7 @@ function resolveAttendanceSegmentMs(seg, options) {
     hours: seg.hours,
     loginTime: seg.checkInTime,
     logoutTime: seg.checkOutTime,
+    checkOutTime: seg.checkOutTime,
   })
 }
 

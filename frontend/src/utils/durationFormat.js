@@ -18,14 +18,34 @@ export function resolveDisplayWorkedMs(entry = {}) {
     totalHours,
     loginTime,
     logoutTime,
+    checkOutTime,
     totalPausedMs,
     sessionWorkedMs,
     hours,
   } = entry
 
+  const completed = Boolean(logoutTime || checkOutTime)
+
   if (overriddenHours != null && Number.isFinite(Number(overriddenHours))) {
     return Math.max(0, Math.round(Number(overriddenHours) * 3600000))
   }
+
+  if (completed) {
+    if (typeof sessionWorkedMs === 'number' && sessionWorkedMs >= 0) {
+      return sessionWorkedMs
+    }
+    if (typeof workedMs === 'number' && workedMs >= 0) {
+      return workedMs
+    }
+    if (totalHours != null && Number.isFinite(Number(totalHours))) {
+      return Math.max(0, Math.round(Number(totalHours) * 3600000))
+    }
+    if (hours != null && Number.isFinite(Number(hours))) {
+      return Math.max(0, Math.round(Number(hours) * 3600000))
+    }
+    return 0
+  }
+
   if (typeof sessionWorkedMs === 'number' && sessionWorkedMs > 0) {
     return sessionWorkedMs
   }

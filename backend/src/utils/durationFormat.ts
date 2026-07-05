@@ -14,15 +14,37 @@ export function computeWorkedMs(
 /** Canonical worked ms for UI (prefer persisted checkout values). */
 export function resolveDisplayWorkedMs(entry: {
   workedMs?: number | null;
+  sessionWorkedMs?: number | null;
   overriddenHours?: number | null;
   totalHours?: number | null;
+  hours?: number | null;
   loginTime?: Date | string;
   logoutTime?: Date | string | null;
+  checkOutTime?: Date | string | null;
   totalPausedMs?: number | null;
 }): number {
+  const completed = Boolean(entry.logoutTime || entry.checkOutTime);
+
   if (entry.overriddenHours !== undefined && entry.overriddenHours !== null) {
     return Math.max(0, Math.round(Number(entry.overriddenHours) * 3600000));
   }
+
+  if (completed) {
+    if (typeof entry.sessionWorkedMs === 'number' && entry.sessionWorkedMs >= 0) {
+      return entry.sessionWorkedMs;
+    }
+    if (typeof entry.workedMs === 'number' && entry.workedMs >= 0) {
+      return entry.workedMs;
+    }
+    if (entry.totalHours !== undefined && entry.totalHours !== null && Number.isFinite(Number(entry.totalHours))) {
+      return Math.max(0, Math.round(Number(entry.totalHours) * 3600000));
+    }
+    if (entry.hours !== undefined && entry.hours !== null && Number.isFinite(Number(entry.hours))) {
+      return Math.max(0, Math.round(Number(entry.hours) * 3600000));
+    }
+    return 0;
+  }
+
   if (typeof entry.workedMs === 'number' && entry.workedMs > 0) {
     return entry.workedMs;
   }
