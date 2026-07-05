@@ -11,6 +11,46 @@ export function computeWorkedMs(
   return Math.max(0, diffMs);
 }
 
+/** Canonical worked ms for UI (prefer persisted checkout values). */
+export function resolveDisplayWorkedMs(entry: {
+  workedMs?: number | null;
+  overriddenHours?: number | null;
+  totalHours?: number | null;
+  loginTime?: Date | string;
+  logoutTime?: Date | string | null;
+  totalPausedMs?: number | null;
+}): number {
+  if (entry.overriddenHours !== undefined && entry.overriddenHours !== null) {
+    return Math.max(0, Math.round(Number(entry.overriddenHours) * 3600000));
+  }
+  if (typeof entry.workedMs === 'number' && entry.workedMs > 0) {
+    return entry.workedMs;
+  }
+  if (entry.loginTime && entry.logoutTime) {
+    return computeWorkedMs(
+      new Date(entry.loginTime),
+      new Date(entry.logoutTime),
+      entry.totalPausedMs || 0,
+    );
+  }
+  if (
+    entry.totalHours !== undefined &&
+    entry.totalHours !== null &&
+    Number.isFinite(Number(entry.totalHours)) &&
+    entry.logoutTime
+  ) {
+    return Math.max(0, Math.round(Number(entry.totalHours) * 3600000));
+  }
+  return 0;
+}
+
+export function formatWorkedDuration(
+  entry: Parameters<typeof resolveDisplayWorkedMs>[0] | number,
+): string {
+  const ms = typeof entry === 'number' ? entry : resolveDisplayWorkedMs(entry);
+  return formatDurationFromMs(ms);
+}
+
 export function computeTotalHoursDecimal(
   loginTime: Date,
   logoutTime?: Date | null,

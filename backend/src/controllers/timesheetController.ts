@@ -4,6 +4,12 @@ import { TimesheetModel } from '../models/Timesheet';
 import { ProjectModel } from '../models/Project';
 import { syncProjectForTimesheet, getTimesheetWorkflowStatus } from '../utils/syncProject';
 import {
+  buildEmployeeTokenMap,
+  fetchAttendanceSessionsForTimesheets,
+  resolveAdminTimesheetWorkedMs,
+  resolveTimesheetBreakMs,
+} from '../utils/timesheetAttendanceEnrichment';
+import {
   buildDashboardProjectHoursChart,
   type DashboardChartPeriod,
 } from '../services/dashboardProjectHoursService';
@@ -221,7 +227,26 @@ export const timesheetController = {
         .sort({ loginTime: -1 })
         .limit(5000)
         .lean();
-      res.json(entries.map(toFrontendTimesheet));
+      const employeeTokenMap = await buildEmployeeTokenMap(entries);
+      const attendanceSessions = await fetchAttendanceSessionsForTimesheets(
+        entries,
+        employeeTokenMap,
+      );
+      res.json(
+        entries.map((t) => {
+          const row = toFrontendTimesheet(t);
+          const displayWorkedMs = resolveAdminTimesheetWorkedMs(
+            t,
+            attendanceSessions,
+            employeeTokenMap,
+          );
+          return {
+            ...row,
+            breakMs: resolveTimesheetBreakMs(t, attendanceSessions, employeeTokenMap),
+            displayWorkedMs,
+          };
+        }),
+      );
     } catch (error) {
       console.error('Error fetching timesheets:', error);
       res.status(500).json({ error: 'Failed to fetch timesheets' });

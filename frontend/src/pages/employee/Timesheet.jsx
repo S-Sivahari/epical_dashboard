@@ -9,12 +9,12 @@ import { Textarea } from '@components/employee/ui/textarea'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { DateRangePicker } from '@components/employee/shared/DateRangePicker'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
-import { formatSessionDuration, formatHoursDecimalAsDuration } from '@utils/durationFormat'
+import { formatSessionDuration, formatWorkedDuration } from '@utils/durationFormat'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 import {
   buildWeeklyHoursChartData,
-  todayHoursFromChart,
+  todayMsFromChart,
 } from '@utils/attendanceWeeklyHours'
 import { TimesheetCheckInDialog } from '@pages/employee/TimesheetCheckInDialog'
 import {
@@ -30,9 +30,16 @@ import {
 } from '@utils/workBreaks'
 import { EmployeePageLoading } from '@components/employee/layout/EmployeePageLoading'
 import { CheckoutWorkDaySelector } from '@components/employee/shared/CheckoutWorkDaySelector'
+import { EmployeeBreakTimeToday } from '@components/employee/shared/EmployeeBreakTimeToday'
 
 const TimesheetWeeklyChart = lazy(() =>
   import('@pages/employee/TimesheetWeeklyChart').then((m) => ({ default: m.TimesheetWeeklyChart })),
+)
+
+const TimesheetProjectWiseChart = lazy(() =>
+  import('@pages/employee/TimesheetProjectWiseChart').then((m) => ({
+    default: m.TimesheetProjectWiseChart,
+  })),
 )
 
 function stripTaskLabelPrefix(taskText, { taskTitle, projectName } = {}) {
@@ -104,6 +111,7 @@ export default function Timesheet() {
     serverTimeSkew,
     sessionsLoading,
     projectWiseHours,
+    allTimeProjectWiseHours,
     timesheetEligible,
   } = useTimesheetStore()
   const { toast } = useToast()
@@ -124,6 +132,12 @@ export default function Timesheet() {
   useEffect(() => {
     hydrate()
   }, [hydrate])
+
+  useEffect(() => {
+    if (initialized) {
+      void useTimesheetStore.getState().refreshAllTimeProjectWiseHours()
+    }
+  }, [initialized])
 
   useEffect(() => {
     let active = true
@@ -432,11 +446,57 @@ export default function Timesheet() {
   const weekRange = useMemo(() => getWeekRange(), [liveNow])
 
   const weeklyHours = useMemo(
-    () => buildWeeklyHoursChartData(sessions, { weekRange }),
-    [sessions, weekRange],
+    () =>
+      buildWeeklyHoursChartData(sessions, {
+        weekRange,
+        attendanceHistory,
+        checkedIn,
+        liveNow,
+        activeTask,
+        pausedTasks,
+      }),
+    [sessions, weekRange, attendanceHistory, checkedIn, liveNow, activeTask, pausedTasks],
   )
 
-  const todayHours = todayHoursFromChart(weeklyHours)
+  const todayMs = todayMsFromChart(weeklyHours)
+
+  const projectBreakdown = useMemo(() => {
+    const hoursByProjectId = new Map()
+    const hoursByProjectName = new Map()
+    ;(allTimeProjectWiseHours ?? []).forEach((row) => {
+      if (row.projectId) hoursByProjectId.set(String(row.projectId), row)
+      if (row.project) hoursByProjectName.set(String(row.project).trim(), row)
+    })
+
+    const seen = new Set()
+    const rows = []
+    for (const task of startableTasks) {
+      const projectId = task.projectId ? String(task.projectId) : ''
+      const projectName = String(task.projectName || '').trim()
+      const key = projectId || projectName
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+
+      const hoursRow =
+        (projectId && hoursByProjectId.get(projectId)) ||
+        (projectName && hoursByProjectName.get(projectName)) ||
+        null
+
+      rows.push({
+        projectId: projectId || hoursRow?.projectId || '',
+        project: projectName || hoursRow?.project || 'Unknown',
+        hours: hoursRow?.hours ?? 0,
+        sessions: hoursRow?.sessions ?? 0,
+      })
+    }
+
+    return rows.sort((a, b) => b.hours - a.hours || a.project.localeCompare(b.project))
+  }, [startableTasks, allTimeProjectWiseHours])
+
+  const projectWiseTotal = useMemo(
+    () => projectBreakdown.reduce((sum, project) => sum + (project.hours || 0), 0),
+    [projectBreakdown],
+  )
 
   const unifiedHistory = useMemo(() => {
     const deduped = new Map()
@@ -517,13 +577,21 @@ export default function Timesheet() {
 
       <div className="emp-timesheet-top-grid">
         <section className="emp-timesheet-card emp-timesheet-session-compact emp-timesheet-top-panel" id="work-session">
-          <div className="emp-timesheet-section-head">
+          <div className="emp-timesheet-section-head emp-timesheet-section-head--split">
             <div className="emp-timesheet-section-head__title">
               <span className="emp-timesheet-section-icon" aria-hidden>
                 <LogIn className="h-4 w-4" />
               </span>
               <h3 className="emp-timesheet-card-title">Work Session</h3>
             </div>
+            {timesheetEligible && checkedIn && !checkoutReview ? (
+              <EmployeeBreakTimeToday
+                breaks={attendance?.breaks}
+                serverTimeSkew={serverTimeSkew}
+                compact
+                className="emp-timesheet-session-break-today"
+              />
+            ) : null}
           </div>
           <div className="emp-timesheet-card-body emp-timesheet-session-compact-body">
             {!timesheetEligible ? (
@@ -693,7 +761,7 @@ export default function Timesheet() {
               <div className="emp-timesheet-chart-stat">
                 <span className="emp-timesheet-chart-stat-label">Today</span>
                 <span className="emp-timesheet-chart-stat-value">
-                  {formatHoursDecimalAsDuration(todayHours)}
+                  {formatWorkedDuration(todayMs)}
                 </span>
               </div>
             </div>
@@ -711,6 +779,38 @@ export default function Timesheet() {
           </div>
         </section>
       </div>
+
+      <section className="emp-timesheet-card emp-timesheet-chart-panel emp-timesheet-chart-panel--breakdown">
+        <div className="emp-timesheet-section-head emp-timesheet-section-head--split">
+          <div className="emp-timesheet-section-head__title">
+            <span className="emp-timesheet-section-icon" aria-hidden>
+              <BarChart3 className="h-4 w-4" />
+            </span>
+            <h3 className="emp-timesheet-card-title">Project breakdown</h3>
+          </div>
+          <span className="emp-timesheet-chart-meta">
+            {formatWorkedDuration(projectWiseTotal * 3600000)} total
+          </span>
+        </div>
+        <div className="emp-timesheet-card-body emp-timesheet-breakdown-body">
+          <Suspense
+            fallback={
+              <div className="flex min-h-[12rem] items-center justify-center text-xs text-muted">
+                Loading chart…
+              </div>
+            }
+          >
+            <TimesheetProjectWiseChart
+              data={projectBreakdown}
+              emptyHint={
+                startableTasks.length === 0
+                  ? 'No projects assigned yet — contact your admin.'
+                  : 'Hours appear after you log time on assigned projects.'
+              }
+            />
+          </Suspense>
+        </div>
+      </section>
 
       <section className="emp-timesheet-card emp-timesheet-history-panel">
         <div className="emp-timesheet-section-head emp-timesheet-section-head--split emp-timesheet-history-header">

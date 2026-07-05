@@ -58,7 +58,7 @@ import { filterAllocatableEmployees } from '@/utils/employeeView'
 import { useEmployeeStore } from '@store/employeeStore'
 import type { Employee } from '@/types'
 import { cn } from '@/utils/cn'
-import { formatDurationFromMs } from '@/utils/durationFormat'
+import { formatDurationFromMs, formatWorkedDuration, resolveDisplayWorkedMs } from '@/utils/durationFormat'
 import { getVisiblePageNumbers } from '@hooks/usePagination'
 import {
   ProjectHoursHoverCard,
@@ -129,6 +129,7 @@ interface TimesheetLog {
   taskStatus?: 'Pending' | 'In Progress' | 'Completed' | 'Session Incomplete'
   totalHours?: number
   workedMs?: number
+  displayWorkedMs?: number
   breakMs?: number
   totalPausedMs?: number
   autoCheckedOut?: boolean
@@ -145,27 +146,38 @@ const calculateHours = (
   overriddenHours?: number,
   totalHours?: number,
   totalPausedMs?: number,
-  workedMs?: number
+  workedMs?: number,
+  displayWorkedMs?: number,
 ): number | null => {
-  if (overriddenHours !== undefined && overriddenHours !== null) return overriddenHours
-  if (logout && typeof workedMs === 'number' && workedMs >= 0) {
-    return workedMs / (1000 * 60 * 60)
-  }
-  if (logout && totalHours !== undefined && totalHours !== null) {
-    return totalHours
-  }
   if (!logout) return null
-  const loginDate = new Date(login)
-  const logoutDate = new Date(logout)
-  if (isNaN(loginDate.getTime()) || isNaN(logoutDate.getTime())) return 0
-  const diffMs = logoutDate.getTime() - loginDate.getTime() - (totalPausedMs || 0)
-  if (diffMs <= 0) return 0
-  return diffMs / (1000 * 60 * 60)
+  const ms =
+    typeof displayWorkedMs === 'number' && displayWorkedMs >= 0
+      ? displayWorkedMs
+      : resolveDisplayWorkedMs({
+          workedMs,
+          overriddenHours,
+          totalHours,
+          loginTime: login,
+          logoutTime: logout,
+          totalPausedMs,
+        })
+  return ms / (1000 * 60 * 60)
 }
 
-function formatAdminDuration(hours: number | null): string {
-  if (hours === null) return '—'
-  return formatDurationFromMs(Math.max(0, Math.floor(hours * 3600000)))
+function formatAdminWorkedDuration(t: TimesheetLog): string {
+  if (!t.logoutTime) return '—'
+  if (typeof t.displayWorkedMs === 'number' && t.displayWorkedMs >= 0) {
+    return formatDurationFromMs(t.displayWorkedMs)
+  }
+  return formatWorkedDuration({
+    workedMs: t.workedMs,
+    overriddenHours: t.overriddenHours,
+    totalHours: t.totalHours,
+    loginTime: t.loginTime,
+    logoutTime: t.logoutTime,
+    totalPausedMs: t.totalPausedMs,
+    autoCheckedOut: t.autoCheckedOut,
+  })
 }
 
 function formatBreakTime(breakMs?: number): string {
@@ -213,7 +225,8 @@ function buildTimesheetExportAnalytics(logs: TimesheetLog[], employees: Employee
       t.overriddenHours,
       t.totalHours,
       t.totalPausedMs,
-      t.workedMs
+      t.workedMs,
+      t.displayWorkedMs
     ) || 0
     byProject[t.project] = (byProject[t.project] || 0) + hours
 
@@ -2180,7 +2193,8 @@ export function ProjectManagement() {
         t.overriddenHours,
         t.totalHours,
         t.totalPausedMs,
-      t.workedMs
+      t.workedMs,
+      t.displayWorkedMs
       ) || 0
       if (projectMap[t.project]) {
         projectMap[t.project].hours += hours
@@ -2207,7 +2221,8 @@ export function ProjectManagement() {
         t.overriddenHours,
         t.totalHours,
         t.totalPausedMs,
-      t.workedMs
+      t.workedMs,
+      t.displayWorkedMs
       ) || 0
       const { key, name, dept } = resolveTimesheetEmployeeKey(t, employees)
       const empInfo = employees.find(
@@ -2368,7 +2383,7 @@ export function ProjectManagement() {
     // Calculate total hours across filtered timesheets
     let totalSecHours = 0
     filteredTimesheets.forEach((t) => {
-      const h = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours, t.totalHours, t.totalPausedMs, t.workedMs) || 0
+      const h = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours, t.totalHours, t.totalPausedMs, t.workedMs, t.displayWorkedMs) || 0
       totalSecHours += h
     })
     const totalHoursFormatted = formatExcelDuration(totalSecHours)
@@ -2503,7 +2518,8 @@ export function ProjectManagement() {
         t.overriddenHours,
         t.totalHours,
         t.totalPausedMs,
-      t.workedMs
+      t.workedMs,
+      t.displayWorkedMs
       )
       const { key, name } = resolveTimesheetEmployeeKey(t, employees)
       sheet.getCell(currentRow, 1).value = name
@@ -2754,7 +2770,8 @@ export function ProjectManagement() {
         t.overriddenHours,
         t.totalHours,
         t.totalPausedMs,
-      t.workedMs
+      t.workedMs,
+      t.displayWorkedMs
       )
       const { key, name } = resolveTimesheetEmployeeKey(t, employees)
       const durationStr = (() => {
@@ -3445,14 +3462,6 @@ export function ProjectManagement() {
                     const empInfo = employees.find((e) => e.id === t.employeeId || e.employeeId === t.employeeId)
                     const employeeColorKey =
                       empInfo?.id || empInfo?.employeeId || t.employeeId || t.employeeName
-                    const hours = calculateHours(
-                      t.loginTime,
-                      t.logoutTime,
-                      t.overriddenHours,
-                      t.totalHours,
-                      t.totalPausedMs,
-      t.workedMs
-                    )
 
                     return (
                       <tr
@@ -3519,7 +3528,7 @@ export function ProjectManagement() {
 
                         <td className="px-5 py-4">
                           <span className="inline-flex rounded-lg border border-border bg-[var(--bg-input)] px-3 py-1.5 text-ink font-mono text-sm font-bold">
-                            {formatAdminDuration(hours)}
+                            {formatAdminWorkedDuration(t)}
                           </span>
                           {t.autoCheckedOut && (
                             <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-amber-500">

@@ -632,6 +632,44 @@
   background: linear-gradient(180deg, rgba(47, 107, 79, 0.06) 0%, rgba(255, 255, 255, 0.98) 100%);
 }
 
+.emp-timesheet-session-break-today {
+  flex-shrink: 0;
+}
+
+[data-employee-timesheet] .emp-break-time-today {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(217, 119, 6, 0.22);
+  background: rgba(255, 251, 235, 0.95);
+  padding: 0.25rem 0.625rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #92400e;
+}
+
+[data-employee-timesheet] .emp-break-time-today__icon {
+  height: 0.75rem;
+  width: 0.75rem;
+  flex-shrink: 0;
+  color: #d97706;
+}
+
+[data-employee-timesheet] .emp-break-time-today__label {
+  color: #92400e;
+}
+
+[data-employee-timesheet] .emp-break-time-today__value {
+  font-weight: 800;
+  color: #b45309;
+}
+
+[data-employee-timesheet] .emp-break-time-today--compact {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.625rem;
+}
+
 .emp-timesheet-breaks-header {
   display: flex;
   flex-direction: column;
@@ -1350,6 +1388,24 @@
   flex: 1;
   min-height: 0;
   width: 100%;
+}
+
+.emp-timesheet-chart-panel--breakdown .emp-timesheet-section-head {
+  margin: 0;
+  padding: 0.875rem 1rem;
+  border-radius: 0.875rem 0.875rem 0 0;
+  background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%);
+}
+
+.emp-timesheet-chart-panel--breakdown .emp-timesheet-section-head .emp-timesheet-card-title,
+.emp-timesheet-chart-panel--breakdown .emp-timesheet-chart-meta {
+  color: #ffffff !important;
+}
+
+.emp-timesheet-chart-panel--breakdown .emp-timesheet-section-icon {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
 }
 
 .emp-timesheet-chart-panel--breakdown .emp-timesheet-card-header {

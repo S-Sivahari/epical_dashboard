@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { Loader2, BarChart3, ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@pages/employee/lib/utils'
-import { formatHoursDecimalAsDuration } from '@utils/durationFormat'
+import { formatWorkedDuration } from '@utils/durationFormat'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 import { useAttendanceWeeklyHours } from '@hooks/useAttendanceWeeklyHours'
 
@@ -13,7 +13,7 @@ const TimesheetWeeklyChart = lazy(() =>
 const CARD_CLASS = portalCardClass({ className: 'overflow-hidden p-4 sm:p-5' })
 
 export function DashboardWorkInsights({ className, compact = false, fill = false }) {
-  const { weeklyHours, totalWeekly, todayHours, chartLoading } = useAttendanceWeeklyHours()
+  const { weeklyHours, totalWeeklyMs, todayMs, chartLoading } = useAttendanceWeeklyHours()
   const cardClass = compact
     ? portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-3' })
     : CARD_CLASS
@@ -43,7 +43,7 @@ export function DashboardWorkInsights({ className, compact = false, fill = false
             <p className="emp-dash-work-insights__subtitle mt-0.5 text-muted">
               {chartLoading
                 ? 'Loading…'
-                : `Today ${formatHoursDecimalAsDuration(todayHours)} · ${formatHoursDecimalAsDuration(totalWeekly)} total`}
+                : `Today ${formatWorkedDuration(todayMs)} · ${formatWorkedDuration(totalWeeklyMs)} total`}
             </p>
           </div>
         </div>

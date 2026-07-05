@@ -13,7 +13,6 @@ export function DashboardLiveTimer({ className }) {
   const serverTimeSkew = useTimesheetStore((s) => s.serverTimeSkew)
   const backendElapsedMs = useTimesheetStore((s) => s.backendElapsedMs)
   const backendElapsedLastFetch = useTimesheetStore((s) => s.backendElapsedLastFetch)
-  const attendance = useTimesheetStore((s) => s.attendance)
   const hydrate = useTimesheetStore((s) => s.hydrate)
 
   useEffect(() => {
@@ -40,7 +39,6 @@ export function DashboardLiveTimer({ className }) {
         serverTimeSkew={serverTimeSkew}
         backendElapsedMs={backendElapsedMs}
         backendElapsedLastFetch={backendElapsedLastFetch}
-        breaks={attendance?.breaks}
         inline
       />
     </div>

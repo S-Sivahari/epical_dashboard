@@ -5,6 +5,7 @@ import { Button } from '@components/employee/ui/button'
 import { Textarea } from '@components/employee/ui/textarea'
 import { LiveSessionTimer } from '@pages/employee/TimesheetLiveSessionPanel'
 import { CheckoutWorkDaySelector } from '@components/employee/shared/CheckoutWorkDaySelector'
+import { EmployeeBreakTimeToday } from '@components/employee/shared/EmployeeBreakTimeToday'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { cn } from '@pages/employee/lib/utils'
@@ -240,10 +241,16 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
               serverTimeSkew={serverTimeSkew}
               backendElapsedMs={backendElapsedMs}
               backendElapsedLastFetch={backendElapsedLastFetch}
-              breaks={attendance?.breaks}
               inline
             />
           </p>
+
+          <EmployeeBreakTimeToday
+            breaks={attendance?.breaks}
+            serverTimeSkew={serverTimeSkew}
+            compact
+            className="emp-dash-session-panel__break-today"
+          />
 
           <p className="emp-dash-session-panel__since">
             Since{' '}

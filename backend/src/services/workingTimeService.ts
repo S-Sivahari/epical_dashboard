@@ -95,7 +95,7 @@ export function computeCompletedWorkingMs(
   ).workedMs;
 }
 
-/** Live working ms for an open attendance session (subtracts task pauses + active break). */
+/** Live working ms for an open attendance session (subtracts task pauses + active break only). */
 export function computeLiveWorkingMs(
   attendance: AttendanceBreakFields,
   options?: {

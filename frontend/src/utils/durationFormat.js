@@ -10,6 +10,40 @@ export function computeWorkedMs(loginTime, logoutTime, totalPausedMs = 0) {
   return Math.max(0, end - start - paused)
 }
 
+/** Canonical worked ms for display (prefer persisted checkout values). */
+export function resolveDisplayWorkedMs(entry = {}) {
+  const {
+    workedMs,
+    overriddenHours,
+    totalHours,
+    loginTime,
+    logoutTime,
+    totalPausedMs,
+    sessionWorkedMs,
+    hours,
+  } = entry
+
+  if (overriddenHours != null && Number.isFinite(Number(overriddenHours))) {
+    return Math.max(0, Math.round(Number(overriddenHours) * 3600000))
+  }
+  if (typeof sessionWorkedMs === 'number' && sessionWorkedMs > 0) {
+    return sessionWorkedMs
+  }
+  if (typeof workedMs === 'number' && workedMs > 0) {
+    return workedMs
+  }
+  if (loginTime && logoutTime) {
+    return computeWorkedMs(loginTime, logoutTime, totalPausedMs || 0)
+  }
+  if (totalHours != null && Number.isFinite(Number(totalHours)) && logoutTime) {
+    return Math.max(0, Math.round(Number(totalHours) * 3600000))
+  }
+  if (hours != null && Number.isFinite(Number(hours)) && logoutTime) {
+    return Math.max(0, Math.round(Number(hours) * 3600000))
+  }
+  return 0
+}
+
 export function formatDurationFromMs(ms) {
   const safeMs = Math.max(0, Math.floor(ms))
   const totalMinutes = Math.floor(safeMs / 60000)
@@ -22,10 +56,16 @@ export function formatDurationFromMs(ms) {
   return `${hours}h ${minPart}m`
 }
 
-/** Decimal hours (e.g. 9.2) → "9h 12m". */
+/** Format any worked-ms value as a duration label. */
+export function formatWorkedDuration(input) {
+  const ms = typeof input === 'number' ? input : resolveDisplayWorkedMs(input)
+  return formatDurationFromMs(ms)
+}
+
+/** Decimal hours → duration label (rounds to nearest minute). */
 export function formatHoursDecimalAsDuration(hours) {
   const safeHours = Math.max(0, Number(hours) || 0)
-  return formatDurationFromMs(Math.floor(safeHours * 3600000))
+  return formatDurationFromMs(Math.round(safeHours * 3600000))
 }
 
 /** Workflow duration with optional days: "45m", "3h", "8h 25m", "1d 4h", "2d 6h 30m". */
@@ -60,14 +100,15 @@ export function formatLiveWorkflowDurationFromMs(ms) {
 
 export function formatSessionDuration(session) {
   if (!session) return '—'
-  const { loginTime, logoutTime, workedMs, totalPausedMs, taskStatus, autoCheckedOut, pausedAt } =
-    session
 
-  if ((logoutTime || autoCheckedOut) && typeof workedMs === 'number' && workedMs >= 0) {
-    return formatDurationFromMs(workedMs)
+  const { logoutTime, taskStatus, autoCheckedOut, pausedAt, totalPausedMs } = session
+  const completed = Boolean(logoutTime || autoCheckedOut)
+
+  if (completed) {
+    return formatWorkedDuration(session)
   }
 
-  const loginMs = loginTime ? new Date(loginTime).getTime() : 0
+  const loginMs = session.loginTime ? new Date(session.loginTime).getTime() : 0
   if (!loginMs) return '—'
 
   const isLive = !logoutTime && (taskStatus === 'In Progress' || taskStatus === 'Paused')
@@ -77,13 +118,6 @@ export function formatSessionDuration(session) {
       paused += Math.max(0, Date.now() - new Date(pausedAt).getTime())
     }
     return formatDurationFromMs(computeWorkedMs(loginMs, Date.now(), paused))
-  }
-
-  if (logoutTime || autoCheckedOut) {
-    const endTime = logoutTime || session.autoCheckoutTime || session.updatedAt
-    const endMs = endTime ? new Date(endTime).getTime() : 0
-    if (!endMs) return '—'
-    return formatDurationFromMs(computeWorkedMs(loginMs, endMs, totalPausedMs || 0))
   }
 
   return '—'

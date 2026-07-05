@@ -7,12 +7,13 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { formatHoursDecimalAsDuration } from '@utils/durationFormat'
+import { formatHoursDecimalAsDuration, formatWorkedDuration } from '@utils/durationFormat'
 
 function WeeklyHoursTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
 
-  const hours = Number(payload[0]?.value ?? 0)
+  const row = payload[0]?.payload ?? {}
+  const workedMs = typeof row.workedMs === 'number' ? row.workedMs : 0
 
   return (
     <div className="emp-weekly-hours-tooltip">
@@ -20,7 +21,7 @@ function WeeklyHoursTooltip({ active, payload, label }) {
       <span className="emp-weekly-hours-tooltip__sheen" aria-hidden />
       <div className="emp-weekly-hours-tooltip__content">
         <p className="emp-weekly-hours-tooltip__label">{label}</p>
-        <p className="emp-weekly-hours-tooltip__value">{formatHoursDecimalAsDuration(hours)}</p>
+        <p className="emp-weekly-hours-tooltip__value">{formatWorkedDuration(workedMs)}</p>
         <p className="emp-weekly-hours-tooltip__meta">hours logged</p>
       </div>
     </div>
@@ -46,11 +47,12 @@ export function TimesheetWeeklyChart({ data, height = 280 }) {
           tickLine={false}
         />
         <YAxis
-          width={44}
-          tick={{ fontSize: 12, fontFamily: 'JetBrains Mono, ui-monospace, monospace', fill: '#64748b' }}
+          width={52}
+          tick={{ fontSize: 11, fontFamily: 'JetBrains Mono, ui-monospace, monospace', fill: '#64748b' }}
           axisLine={false}
           tickLine={false}
           allowDecimals={false}
+          tickFormatter={(value) => formatHoursDecimalAsDuration(value)}
         />
         <Tooltip
           content={<WeeklyHoursTooltip />}

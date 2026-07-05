@@ -4,12 +4,12 @@ const OPTIONS = [
   {
     value: 'full_day',
     label: 'Full day',
-    description: 'Deduct breaks you took, or 50 min if you took none.',
+    description: 'A standard full working day.',
   },
   {
     value: 'half_day',
     label: 'Half day',
-    description: 'Deduct only the breaks you actually took.',
+    description: 'You worked a partial day.',
   },
 ]
 

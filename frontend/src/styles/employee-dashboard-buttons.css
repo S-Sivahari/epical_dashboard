@@ -1405,6 +1405,44 @@
   color: #64748b;
 }
 
+[data-employee-dashboard] .emp-dash-session-panel__break-today {
+  margin-top: -0.125rem;
+}
+
+[data-employee-dashboard] .emp-break-time-today {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(217, 119, 6, 0.22);
+  background: rgba(255, 251, 235, 0.92);
+  padding: 0.25rem 0.625rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #92400e;
+}
+
+[data-employee-dashboard] .emp-break-time-today__icon {
+  height: 0.75rem;
+  width: 0.75rem;
+  flex-shrink: 0;
+  color: #d97706;
+}
+
+[data-employee-dashboard] .emp-break-time-today__label {
+  color: #92400e;
+}
+
+[data-employee-dashboard] .emp-break-time-today__value {
+  font-weight: 800;
+  color: #b45309;
+}
+
+[data-employee-dashboard] .emp-break-time-today--compact {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.625rem;
+}
+
 [data-employee-dashboard] .emp-dash-session-panel__hint {
   margin: 0;
   font-size: 0.8125rem;

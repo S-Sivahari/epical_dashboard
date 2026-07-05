@@ -19,7 +19,7 @@ import { useAuthStore } from '@store/authStore'
 import { fetchEmployeeDashboard } from '@services/employeeDashboardService'
 import * as leaveService from '@services/leaveService'
 import { formatLeaveBalances } from '@/utils/leaveBalances'
-import { formatHoursDecimalAsDuration } from '@utils/durationFormat'
+import { formatWorkedDuration } from '@utils/durationFormat'
 import { useAttendanceWeeklyHours } from '@hooks/useAttendanceWeeklyHours'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
@@ -100,7 +100,7 @@ export default function Dashboard() {
   const [monthlyHours, setMonthlyHours] = useState(0)
   const [projectCount, setProjectCount] = useState(0)
   const [profile, setProfile] = useState(null)
-  const { totalWeekly, todayHours, chartLoading: weeklyHoursLoading } = useAttendanceWeeklyHours()
+  const { totalWeeklyMs, todayMs, chartLoading: weeklyHoursLoading } = useAttendanceWeeklyHours()
 
   useEffect(() => {
     if (!employee?.id) return
@@ -161,11 +161,11 @@ export default function Dashboard() {
     () => [
       {
         title: 'Hours This Month',
-        value: `${monthlyHours}h`,
+        value: formatWorkedDuration(monthlyHours * 3600000),
         icon: Clock,
         trend: weeklyHoursLoading
           ? 'Loading hours…'
-          : `${formatHoursDecimalAsDuration(todayHours)} today · ${formatHoursDecimalAsDuration(totalWeekly)} this week`,
+          : `${formatWorkedDuration(todayMs)} today · ${formatWorkedDuration(totalWeeklyMs)} this week`,
         accent: 'sage',
         to: '/employee/timesheet',
       },
@@ -204,8 +204,8 @@ export default function Dashboard() {
     [
       monthlyHours,
       weeklyHoursLoading,
-      todayHours,
-      totalWeekly,
+      todayMs,
+      totalWeeklyMs,
       pendingLeaves.length,
       projectCount,
       completedCourses,

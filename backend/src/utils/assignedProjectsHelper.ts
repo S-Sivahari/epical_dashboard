@@ -134,20 +134,24 @@ export async function getAssignedProjectsForUser(
     const timesheets = await TimesheetModel.find({
       $or: [
         { employeeId: { $in: assignmentTokens } },
-        { employee: employeeName },
+        { employee: { $in: assignmentTokens } },
       ],
       project: { $in: projectNames },
     })
-      .select('project loginTime logoutTime overriddenHours totalPausedMs')
+      .select('project loginTime logoutTime overriddenHours totalPausedMs totalHours workedMs')
       .lean();
 
     timesheets.forEach((t) => {
-      const hours = computeTotalHours(
-        t.loginTime,
-        t.logoutTime,
-        t.overriddenHours,
-        t.totalPausedMs,
-      );
+      const hours =
+        typeof t.workedMs === 'number' && t.workedMs > 0
+          ? Math.round((t.workedMs / 3600000) * 10) / 10
+          : t.totalHours ??
+            computeTotalHours(
+              t.loginTime,
+              t.logoutTime,
+              t.overriddenHours,
+              t.totalPausedMs,
+            );
       const key = t.project || '';
       if (!key) return;
       hoursByProjectName[key] = (hoursByProjectName[key] || 0) + hours;
