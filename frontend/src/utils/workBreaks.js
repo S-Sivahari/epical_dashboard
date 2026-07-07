@@ -1,16 +1,16 @@
 import { formatDurationFromMs } from './durationFormat'
 
-export const DAILY_STANDARD_BREAK_MINUTES = 50
+export const DAILY_STANDARD_BREAK_MINUTES = 60
 
 export const WORK_BREAK_OPTIONS = [
   { type: 'morning', label: 'Morning', durationMinutes: 10, minDurationMinutes: 5 },
-  { type: 'lunch', label: 'Lunch', durationMinutes: 30, minDurationMinutes: 15 },
+  { type: 'lunch', label: 'Lunch', durationMinutes: 40, minDurationMinutes: 20 },
   { type: 'evening', label: 'Evening', durationMinutes: 10, minDurationMinutes: 5 },
 ]
 
 const BREAK_DURATION_MS = {
   morning: 10 * 60 * 1000,
-  lunch: 30 * 60 * 1000,
+  lunch: 40 * 60 * 1000,
   evening: 10 * 60 * 1000,
 }
 

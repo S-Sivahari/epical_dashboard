@@ -47,7 +47,7 @@ type Props = {
   onDelete?: () => void
   autoOpenAddNote?: boolean
   onAutoOpenAddNoteHandled?: () => void
-  onCopyLatest?: () => void
+  onCopyFromDay?: () => void
   onError: (message: string) => void
 }
 
@@ -67,7 +67,7 @@ export function DailyNotesNotepad({
   onDelete,
   autoOpenAddNote = false,
   onAutoOpenAddNoteHandled,
-  onCopyLatest,
+  onCopyFromDay,
   onError,
 }: Props) {
   const title = useMemo(() => formatDailyBlockTitle(date), [date])
@@ -200,16 +200,16 @@ export function DailyNotesNotepad({
                   >
                     Add note
                   </Button>
-                  {onCopyLatest ? (
+                  {onCopyFromDay ? (
                     <Button
                       type="button"
                       size="sm"
                       variant="secondary"
                       icon={<Copy className="h-3.5 w-3.5" />}
                       disabled={busy}
-                      onClick={onCopyLatest}
+                      onClick={onCopyFromDay}
                     >
-                      Copy latest
+                      Copy from day
                     </Button>
                   ) : null}
                   <Button

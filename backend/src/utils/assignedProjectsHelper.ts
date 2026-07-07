@@ -143,15 +143,18 @@ export async function getAssignedProjectsForUser(
 
     timesheets.forEach((t) => {
       const hours =
-        typeof t.workedMs === 'number' && t.workedMs > 0
+        t.logoutTime && typeof t.workedMs === 'number' && t.workedMs >= 0
           ? Math.round((t.workedMs / 3600000) * 10) / 10
-          : t.totalHours ??
-            computeTotalHours(
-              t.loginTime,
-              t.logoutTime,
-              t.overriddenHours,
-              t.totalPausedMs,
-            );
+          : t.logoutTime &&
+              typeof t.totalHours === 'number' &&
+              t.totalHours >= 0
+            ? Math.round(t.totalHours * 10) / 10
+            : computeTotalHours(
+                t.loginTime,
+                t.logoutTime,
+                t.overriddenHours,
+                t.totalPausedMs,
+              );
       const key = t.project || '';
       if (!key) return;
       hoursByProjectName[key] = (hoursByProjectName[key] || 0) + hours;

@@ -9,6 +9,7 @@ import {
   assertEmployeeCanMutateNotesForBlockId,
   assertEmployeeCanMutateNotesForDate,
   assertEmployeeCanCopyLatestNotesForDate,
+  assertEmployeeCanReadNotesCopySource,
   assertEmployeeCanReadNotesForDate,
   getNotesAccessPayload,
   isNotesAdmin,
@@ -187,8 +188,13 @@ export const notesController = {
   getByDate: async (req: Request, res: Response): Promise<void> => {
     try {
       const date = paramStr(req.params.date);
+      const forCopyTo = paramStr(req.query.forCopyTo);
       if (!isNotesAdmin(req)) {
-        await assertEmployeeCanReadNotesForDate(req, date);
+        if (forCopyTo) {
+          await assertEmployeeCanReadNotesCopySource(req, date, forCopyTo);
+        } else {
+          await assertEmployeeCanReadNotesForDate(req, date);
+        }
       }
       const item = await notesService.getDailyBlockByDate(date);
       if (!item) {

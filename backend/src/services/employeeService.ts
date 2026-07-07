@@ -6,6 +6,7 @@ import {
   formatWorkedMsLabel,
   resolveSessionWorkedMs,
 } from './workingTimeService';
+import { formatAttendanceBreakLabel } from './workSessionService';
 import { formatDurationFromMs } from '../utils/durationFormat';
 import * as emailService from './emailService';
 import { ensureUserAccountForEmployee, getAdminLoginEmail, getEmployeeOfficialEmail, normalizeLoginEmail, syncPortalAdminForEmployee } from '../utils/employeeAuth';
@@ -918,6 +919,7 @@ export type DailyActivityLogEntry = {
   checkInTime: string;
   checkOutTime: string | null;
   worked: string | null;
+  break: string | null;
   checkOutType: 'manual' | 'auto' | null;
 };
 
@@ -955,6 +957,7 @@ export async function getDailyActivityLog(dateStr: string): Promise<DailyActivit
       eveningBreakMs: 1,
       workDayType: 1,
       sessionWorkedMs: 1,
+      defaultBreakDeductedMs: 1,
     })
     .sort({ checkInTime: -1 })
     .limit(200)
@@ -980,6 +983,20 @@ export async function getDailyActivityLog(dateStr: string): Promise<DailyActivit
         ? formatWorkedMsLabel(resolveSessionWorkedMs(attendance))
         : null;
 
+    const breakLabel =
+      checkOut != null && !Number.isNaN(checkOut.getTime())
+        ? formatAttendanceBreakLabel({
+            checkOutTime: checkOut,
+            defaultBreakDeductedMs: attendance.defaultBreakDeductedMs as number | null | undefined,
+            morningBreakAt: attendance.morningBreakAt as Date | null | undefined,
+            lunchBreakAt: attendance.lunchBreakAt as Date | null | undefined,
+            eveningBreakAt: attendance.eveningBreakAt as Date | null | undefined,
+            morningBreakMs: attendance.morningBreakMs as number | null | undefined,
+            lunchBreakMs: attendance.lunchBreakMs as number | null | undefined,
+            eveningBreakMs: attendance.eveningBreakMs as number | null | undefined,
+          })
+        : null;
+
     const sortAt =
       checkOut != null && !Number.isNaN(checkOut.getTime()) ? checkOut.getTime() : checkIn.getTime();
 
@@ -990,6 +1007,7 @@ export async function getDailyActivityLog(dateStr: string): Promise<DailyActivit
       checkOutTime:
         checkOut != null && !Number.isNaN(checkOut.getTime()) ? checkOut.toISOString() : null,
       worked,
+      break: breakLabel,
       checkOutType,
       sortAt,
     });

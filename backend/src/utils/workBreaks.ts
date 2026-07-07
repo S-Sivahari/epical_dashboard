@@ -1,7 +1,7 @@
 export type WorkBreakType = 'morning' | 'lunch' | 'evening';
 
-/** Auto-deducted when no breaks were taken for the day. */
-export const DAILY_STANDARD_BREAK_MS = 50 * 60 * 1000;
+/** Auto-deducted when no breaks were taken for the day (10m + 40m + 10m). */
+export const DAILY_STANDARD_BREAK_MS = 60 * 60 * 1000;
 
 export const WORK_BREAKS: Record<
   WorkBreakType,
@@ -22,10 +22,10 @@ export const WORK_BREAKS: Record<
   },
   lunch: {
     label: 'Lunch break',
-    durationMs: 30 * 60 * 1000,
-    durationMinutes: 30,
-    minDurationMs: 15 * 60 * 1000,
-    minDurationMinutes: 15,
+    durationMs: 40 * 60 * 1000,
+    durationMinutes: 40,
+    minDurationMs: 20 * 60 * 1000,
+    minDurationMinutes: 20,
   },
   evening: {
     label: 'Evening break',
@@ -58,6 +58,7 @@ type AttendanceBreakFields = {
   activeBreakType?: WorkBreakType | null;
   activeBreakStartedAt?: Date | null;
   activeBreakEndsAt?: Date | null;
+  projectBreakDeductedMs?: number | null;
 };
 
 export function isWorkBreakType(value: unknown): value is WorkBreakType {
@@ -232,6 +233,8 @@ export function buildBreaksPayload(attendance: AttendanceBreakFields, now = new 
     evening: slotPayload('evening'),
     activeBreak,
     dailyDeductionMinutes: DAILY_STANDARD_BREAK_MS / (60 * 1000),
+    defaultDeductionApplied: (attendance.projectBreakDeductedMs ?? 0) > 0,
+    canRecordBreaks: (attendance.projectBreakDeductedMs ?? 0) <= 0,
   };
 }
 

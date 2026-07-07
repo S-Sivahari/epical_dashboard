@@ -105,6 +105,23 @@ export async function assertEmployeeCanCopyLatestNotesForDate(
   await assertEmployeeCanMutateNotesForDate(req, targetDate);
 }
 
+/** Employees delegated for `targetDate` may read any earlier day as a copy source. */
+export async function assertEmployeeCanReadNotesCopySource(
+  req: Request,
+  sourceDate: string,
+  targetDate: string,
+): Promise<void> {
+  if (isNotesAdmin(req)) return;
+
+  await assertEmployeeCanMutateNotesForDate(req, targetDate);
+
+  const sourceKey = sourceDate.trim();
+  const targetKey = targetDate.trim();
+  if (!sourceKey || !targetKey || sourceKey >= targetKey) {
+    throw Object.assign(new Error('Copy source must be a day before the target date'), { status: 400 });
+  }
+}
+
 export async function assertEmployeeCanMutateNotesForDate(req: Request, date: string): Promise<void> {
   if (isNotesAdmin(req)) return;
 

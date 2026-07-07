@@ -93,6 +93,13 @@ export async function getDailyBlockByDate(date: string) {
   return res.data
 }
 
+export async function getDailyBlockByDateForCopy(sourceDate: string, targetDate: string) {
+  const res = await api.get<DailyNoteBlock>(`/notes/by-date/${sourceDate}`, {
+    params: { forCopyTo: targetDate },
+  })
+  return res.data
+}
+
 export async function getLatestDailyBlockBefore(beforeDate: string) {
   const res = await api.get<DailyNoteBlock>(`/notes/latest-before/${beforeDate}`)
   return res.data

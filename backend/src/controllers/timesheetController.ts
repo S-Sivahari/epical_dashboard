@@ -13,6 +13,7 @@ import {
   buildDashboardProjectHoursChart,
   type DashboardChartPeriod,
 } from '../services/dashboardProjectHoursService';
+import { buildTimesheetEffectiveHoursExpr } from '../utils/timesheetHoursAggregation';
 import { listWorkSessionsForAdmin } from '../services/workSessionService';
 
 const MOCK_EMPLOYEES = [
@@ -283,57 +284,7 @@ export const timesheetController = {
           $project: {
             project: 1,
             projectId: 1,
-            hours: {
-              $cond: {
-                // If overriddenHours is set, use it
-                if: {
-                  $and: [
-                    { $ne: [{ $type: "$overriddenHours" }, "missing"] },
-                    { $ne: ["$overriddenHours", null] }
-                  ]
-                },
-                then: "$overriddenHours",
-                else: {
-                  $cond: {
-                    if: {
-                      $and: [
-                        { $ne: [{ $ifNull: ['$workedMs', null] }, null] },
-                        { $gte: ['$workedMs', 0] },
-                        { $ne: [{ $ifNull: ['$logoutTime', null] }, null] },
-                      ],
-                    },
-                    then: { $divide: ['$workedMs', 3600000] },
-                    else: {
-                      $cond: {
-                        if: { $and: ['$logoutTime', { $gt: ['$logoutTime', '$loginTime'] }] },
-                        then: {
-                          $divide: [
-                            {
-                              $subtract: [
-                                { $subtract: ['$logoutTime', '$loginTime'] },
-                                { $ifNull: ['$totalPausedMs', 0] },
-                              ],
-                            },
-                            3600000,
-                          ],
-                        },
-                        else: {
-                          $divide: [
-                            {
-                              $subtract: [
-                                { $subtract: [new Date(), '$loginTime'] },
-                                { $ifNull: ['$totalPausedMs', 0] },
-                              ],
-                            },
-                            3600000,
-                          ],
-                        },
-                      },
-                    },
-                  },
-                },
-              }
-            }
+            hours: buildTimesheetEffectiveHoursExpr(),
           }
         },
         {
@@ -374,57 +325,7 @@ export const timesheetController = {
           $project: {
             employee: 1,
             employeeId: 1,
-            hours: {
-              $cond: {
-                // If overriddenHours is set, use it
-                if: {
-                  $and: [
-                    { $ne: [{ $type: "$overriddenHours" }, "missing"] },
-                    { $ne: ["$overriddenHours", null] }
-                  ]
-                },
-                then: "$overriddenHours",
-                else: {
-                  $cond: {
-                    if: {
-                      $and: [
-                        { $ne: [{ $ifNull: ['$workedMs', null] }, null] },
-                        { $gte: ['$workedMs', 0] },
-                        { $ne: [{ $ifNull: ['$logoutTime', null] }, null] },
-                      ],
-                    },
-                    then: { $divide: ['$workedMs', 3600000] },
-                    else: {
-                      $cond: {
-                        if: { $and: ['$logoutTime', { $gt: ['$logoutTime', '$loginTime'] }] },
-                        then: {
-                          $divide: [
-                            {
-                              $subtract: [
-                                { $subtract: ['$logoutTime', '$loginTime'] },
-                                { $ifNull: ['$totalPausedMs', 0] },
-                              ],
-                            },
-                            3600000,
-                          ],
-                        },
-                        else: {
-                          $divide: [
-                            {
-                              $subtract: [
-                                { $subtract: [new Date(), '$loginTime'] },
-                                { $ifNull: ['$totalPausedMs', 0] },
-                              ],
-                            },
-                            3600000,
-                          ],
-                        },
-                      },
-                    },
-                  },
-                },
-              }
-            }
+            hours: buildTimesheetEffectiveHoursExpr(),
           }
         },
         {

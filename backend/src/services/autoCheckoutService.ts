@@ -276,7 +276,6 @@ async function performAutoCheckoutForAttendance(
   const defaultBreakDeductionMs = await resolveDefaultCheckoutBreakDeduction(
     claimed.employeeId,
     claimed.date,
-    sessionBreakMs,
   );
 
   const sessionPreview = computeSessionWorkedMs(
@@ -287,16 +286,22 @@ async function performAutoCheckoutForAttendance(
     defaultBreakDeductionMs,
   );
 
-  const updatedLogs = finalizeOpenTimesheetsForCheckout(claimed, openLogs, checkoutTimestamp, {
-    incompleteTaskStatus: true,
-    workDayType: 'full_day',
-    defaultBreakDeductionMs,
-  });
+  const updatedLogs = await finalizeOpenTimesheetsForCheckout(
+    claimed,
+    openLogs,
+    checkoutTimestamp,
+    identityTokens,
+    {
+      incompleteTaskStatus: true,
+      workDayType: 'full_day',
+      defaultBreakDeductionMs,
+    },
+  );
 
   claimed.workDayType = 'full_day';
   claimed.sessionWorkedMs =
-    typeof updatedLogs[0]?.workedMs === 'number' && updatedLogs[0].workedMs >= 0
-      ? updatedLogs[0].workedMs
+    typeof sessionPreview.workedMs === 'number' && sessionPreview.workedMs >= 0
+      ? sessionPreview.workedMs
       : undefined;
   claimed.defaultBreakDeductedMs = sessionPreview.defaultDeductedMs;
 

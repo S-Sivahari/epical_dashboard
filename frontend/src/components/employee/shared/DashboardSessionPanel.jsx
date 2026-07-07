@@ -4,7 +4,6 @@ import { LogIn, LogOut, Loader2, Timer } from 'lucide-react'
 import { Button } from '@components/employee/ui/button'
 import { Textarea } from '@components/employee/ui/textarea'
 import { LiveSessionTimer } from '@pages/employee/TimesheetLiveSessionPanel'
-import { CheckoutWorkDaySelector } from '@components/employee/shared/CheckoutWorkDaySelector'
 import { EmployeeBreakTimeToday } from '@components/employee/shared/EmployeeBreakTimeToday'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
 import { useToast } from '@components/employee/shared/ToastProvider'
@@ -40,7 +39,6 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
   const { toast } = useToast()
   const [submitting, setSubmitting] = useState(false)
   const [checkoutReview, setCheckoutReview] = useState(false)
-  const [checkoutWorkDayType, setCheckoutWorkDayType] = useState('full_day')
   const [checkoutError, setCheckoutError] = useState('')
   const [workSummary, setWorkSummary] = useState('')
   const initialized = useTimesheetStore((s) => s.initialized)
@@ -95,20 +93,15 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
       if (currentWorkTask?.timesheetId) {
         await completeTask(currentWorkTask.timesheetId, summary)
       }
-      await checkOut(checkoutWorkDayType)
+      await checkOut()
       setCheckoutReview(false)
-      setCheckoutWorkDayType('full_day')
       setWorkSummary('')
       toast({
         title: 'Checked out',
         description: 'Your work was submitted for admin approval.',
       })
     } catch (err) {
-      const code = err.response?.data?.code
       const message = err.response?.data?.error || 'Please try again.'
-      if (code === 'USE_HALF_DAY_CHECKOUT') {
-        setCheckoutWorkDayType('half_day')
-      }
       setCheckoutError(message)
       toast({
         title: 'Check out failed',
@@ -188,12 +181,6 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
           <p className="emp-timesheet-session-note emp-timesheet-session-note--checkout text-amber-800">
             Update summary before checking out.
           </p>
-          <CheckoutWorkDaySelector
-            value={checkoutWorkDayType}
-            onChange={setCheckoutWorkDayType}
-            disabled={submitting}
-            className="mb-3"
-          />
           <Textarea
             className="emp-dash-session-panel__summary emp-timesheet-session-desc emp-timesheet-session-desc--checkout"
             value={workSummary}

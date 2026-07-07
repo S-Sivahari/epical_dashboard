@@ -9,7 +9,7 @@ import { Textarea } from '@components/employee/ui/textarea'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { DateRangePicker } from '@components/employee/shared/DateRangePicker'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
-import { formatSessionDuration, formatWorkedDuration, formatDurationFromMs } from '@utils/durationFormat'
+import { formatSessionDuration, formatWorkedDuration, formatDurationFromMs, formatBreakDisplayLabel, isDefaultBreakDeduction } from '@utils/durationFormat'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 import {
@@ -27,9 +27,9 @@ import {
 import {
   WORK_BREAK_OPTIONS,
   formatBreakCountdown,
+  DAILY_STANDARD_BREAK_MINUTES,
 } from '@utils/workBreaks'
 import { EmployeePageLoading } from '@components/employee/layout/EmployeePageLoading'
-import { CheckoutWorkDaySelector } from '@components/employee/shared/CheckoutWorkDaySelector'
 import { EmployeeBreakTimeToday } from '@components/employee/shared/EmployeeBreakTimeToday'
 
 const TimesheetWeeklyChart = lazy(() =>
@@ -75,7 +75,6 @@ const historyColumns = [
   { key: 'checkOut', label: 'Check out' },
   { key: 'break', label: 'Break' },
   { key: 'duration', label: 'Worked' },
-  { key: 'dayType', label: 'Day' },
 ]
 
 const CHART_HEIGHT = 260
@@ -86,16 +85,47 @@ function formatTimeLabel(iso) {
   return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
-function formatWorkDayTypeLabel(workDayType, autoCheckedOut) {
-  if (workDayType === 'half_day') return 'Half day'
-  if (workDayType === 'full_day') return autoCheckedOut ? 'Full day (auto)' : 'Full day'
-  if (autoCheckedOut) return 'Full day (auto)'
-  return '—'
+function formatBreakMsLabel(ms, { isDefault = false } = {}) {
+  return formatBreakDisplayLabel(ms, { isDefault })
 }
 
-function formatBreakMsLabel(breakMs) {
-  if (!breakMs || breakMs <= 0) return '—'
-  return formatDurationFromMs(breakMs)
+function resolveHistoryBreakDisplay(seg) {
+  const breakMs = resolveHistoryBreakMs(seg)
+  const isDefault = isDefaultBreakDeduction({
+    breakMs: seg.breakMs,
+    defaultBreakDeductedMs: seg.defaultBreakDeductedMs,
+    displayBreakMs: breakMs,
+  })
+  return formatBreakMsLabel(breakMs, { isDefault })
+}
+
+function resolveHistoryWorkedMs(seg) {
+  if (typeof seg.displayWorkedMs === 'number' && seg.displayWorkedMs >= 0) {
+    return seg.displayWorkedMs
+  }
+  if (typeof seg.sessionWorkedMs === 'number' && seg.sessionWorkedMs >= 0) {
+    const grossMs =
+      seg.checkInTime && seg.checkOutTime
+        ? Math.max(0, new Date(seg.checkOutTime).getTime() - new Date(seg.checkInTime).getTime())
+        : null
+    if (grossMs == null || seg.sessionWorkedMs <= grossMs) {
+      return seg.sessionWorkedMs
+    }
+  }
+  return 0
+}
+
+function resolveHistoryBreakMs(seg) {
+  if (typeof seg.displayBreakMs === 'number' && seg.displayBreakMs > 0) {
+    return seg.displayBreakMs
+  }
+  if (typeof seg.breakMs === 'number' && seg.breakMs > 0) {
+    return seg.breakMs
+  }
+  if (typeof seg.defaultBreakDeductedMs === 'number' && seg.defaultBreakDeductedMs > 0) {
+    return DAILY_STANDARD_BREAK_MINUTES * 60 * 1000
+  }
+  return 0
 }
 
 function isSessionApprovedByAdmin(session) {
@@ -135,7 +165,6 @@ export default function Timesheet() {
   const [submitting, setSubmitting] = useState(false)
   const [liveNow, setLiveNow] = useState(() => Date.now() + (serverTimeSkew || 0))
   const [checkoutReview, setCheckoutReview] = useState(false)
-  const [checkoutWorkDayType, setCheckoutWorkDayType] = useState('full_day')
   const [checkoutError, setCheckoutError] = useState('')
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false)
   const [breakWaitDialogOpen, setBreakWaitDialogOpen] = useState(false)
@@ -265,6 +294,7 @@ export default function Timesheet() {
   const activeWorkDescription = workNoteFromTask(currentWorkTask)
   const breakState = attendance?.breaks
   const activeBreak = breakState?.activeBreak ?? null
+  const canRecordBreaks = breakState?.canRecordBreaks !== false
   const activeBreakRemainingMs = activeBreak?.endsAt
     ? Math.max(0, new Date(activeBreak.endsAt).getTime() - liveNow)
     : 0
@@ -386,20 +416,15 @@ export default function Timesheet() {
       if (currentWorkTask?.timesheetId) {
         await completeTask(currentWorkTask.timesheetId, summary)
       }
-      await checkOut(checkoutWorkDayType)
+      await checkOut()
       setCheckoutReview(false)
-      setCheckoutWorkDayType('full_day')
       reset({ assignedTaskId: '', description: '' })
       toast({
         title: 'Checked out',
         description: 'Your work was submitted for admin approval.',
       })
     } catch (err) {
-      const code = err.response?.data?.code
       const message = err.response?.data?.error || 'Please try again.'
-      if (code === 'USE_HALF_DAY_CHECKOUT') {
-        setCheckoutWorkDayType('half_day')
-      }
       setCheckoutError(message)
       toast({
         title: 'Check out failed',
@@ -521,12 +546,7 @@ export default function Timesheet() {
       .filter((seg) => seg.checkOutTime)
       .map((seg) => {
         const loginMs = seg.checkInTime ? new Date(seg.checkInTime).getTime() : 0
-        const workedMs =
-          typeof seg.displayWorkedMs === 'number'
-            ? seg.displayWorkedMs
-            : typeof seg.sessionWorkedMs === 'number'
-              ? seg.sessionWorkedMs
-              : 0
+        const workedMs = resolveHistoryWorkedMs(seg)
         return {
           id: seg.id,
           sortAt: loginMs,
@@ -541,9 +561,8 @@ export default function Timesheet() {
                   : '—',
           checkIn: formatTimeLabel(seg.checkInTime),
           checkOut: formatTimeLabel(seg.checkOutTime),
-          break: formatBreakMsLabel(seg.breakMs),
+          break: resolveHistoryBreakDisplay(seg),
           duration: workedMs > 0 || seg.checkOutTime ? formatDurationFromMs(workedMs) : '—',
-          dayType: formatWorkDayTypeLabel(seg.workDayType, seg.autoCheckedOut),
           statusNote: seg.autoCheckedOut ? 'Auto Checked-Out' : null,
         }
       })
@@ -636,12 +655,6 @@ export default function Timesheet() {
                 <p className="emp-timesheet-session-note emp-timesheet-session-note--checkout text-amber-800">
                   Update summary before checking out.
                 </p>
-                <CheckoutWorkDaySelector
-                  value={checkoutWorkDayType}
-                  onChange={setCheckoutWorkDayType}
-                  disabled={submitting}
-                  className="mb-3"
-                />
                 <Textarea
                   className="emp-timesheet-session-desc emp-timesheet-session-desc--checkout"
                   {...register('description')}
@@ -696,6 +709,11 @@ export default function Timesheet() {
                     <p className="emp-timesheet-breaks-title">Daily breaks</p>
                   </div>
                 </div>
+                {!canRecordBreaks ? (
+                  <p className="emp-timesheet-session-note text-xs text-muted">
+                    The 60-minute default break has already been applied for today.
+                  </p>
+                ) : null}
 
                 {onBreak ? (
                   <div className="emp-timesheet-break-active">
@@ -728,7 +746,7 @@ export default function Timesheet() {
                           type="button"
                           className={`emp-timesheet-break-btn${used ? ' is-used' : ''}`}
                           onClick={() => void onStartBreak(option.type)}
-                          disabled={submitting || used || onBreak}
+                          disabled={submitting || used || onBreak || !canRecordBreaks}
                         >
                           <span className="emp-timesheet-break-btn-label">{option.label}</span>
                           <span className="emp-timesheet-break-btn-duration">{option.durationMinutes} min</span>

@@ -4,7 +4,7 @@ import { format, parseISO } from 'date-fns'
 import { Copy, NotebookPen, Plus } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
-import { Modal } from '@components/ui/Modal'
+import { CopyNotesFromDateModal } from '@components/notes/CopyNotesFromDateModal'
 import { DailyNotesEmailModal } from '@components/notes/DailyNotesEmailModal'
 import { DailyNotesNotepad } from '@components/notes/DailyNotesNotepad'
 import { NotesDashboardToolbar } from '@components/notes/NotesDashboardToolbar'
@@ -18,7 +18,7 @@ import {
   deleteChildBlock,
   deleteDailyBlock,
   getDailyBlockByDate,
-  getLatestDailyBlockBefore,
+  getDailyBlockByDateForCopy,
   getOrCreateDailyBlock,
   getNotesAccess,
   listDailyBlocksInRange,
@@ -41,7 +41,7 @@ import {
 } from '@/utils/notesSearchParams'
 import {
   formatWeekRangeLabel,
-  findLatestBlockWithNotesBefore,
+  blockHasActiveNotes,
   getSundayOfWeek,
   getCalendarWeekDays,
   isCurrentCalendarWeek,
@@ -87,7 +87,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   const normalizedBlockSignatures = useRef<Set<string>>(new Set())
   const [delegatedDateKeys, setDelegatedDateKeys] = useState<ReadonlySet<string>>(new Set())
   const [autoOpenAddNoteFor, setAutoOpenAddNoteFor] = useState<string | null>(null)
-  const [copyLatestConfirmOpen, setCopyLatestConfirmOpen] = useState(false)
+  const [copyNotesModalOpen, setCopyNotesModalOpen] = useState(false)
 
   const isEmployeeView = variant === 'employee'
   const inProjectManagement =
@@ -393,31 +393,30 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
     return (block?.childBlocks.filter((child) => !child.archived).length ?? 0) > 0
   }, [blocksByDate, todayDateKey])
 
-  const executeCopyLatestNotes = async () => {
+  const executeCopyNotes = async (sourceDateKey: string) => {
     if (!isCurrentWeek || isFutureNotesDay(todayDateKey)) return
     setBusy(true)
     try {
-      let sourceBlock = findLatestBlockWithNotesBefore(todayDateKey, blocksByDate)
-      if (!sourceBlock) {
+      let sourceBlock = blocksByDate[sourceDateKey] ?? null
+      if (!sourceBlock || !blockHasActiveNotes(sourceBlock)) {
         try {
-          sourceBlock = await getLatestDailyBlockBefore(todayDateKey)
+          sourceBlock = await getDailyBlockByDateForCopy(sourceDateKey, todayDateKey)
         } catch (err: unknown) {
           const axiosErr = err as { response?: { status?: number; data?: { error?: string } } }
           if (axiosErr.response?.status === 404) {
             setNotice({
               kind: 'error',
               title: 'Nothing to copy',
-              details: ['No earlier daily notes were found to copy.'],
+              details: ['No notes were found for the selected day.'],
             })
             return
           }
-          const message = axiosErr.response?.data?.error || 'Could not load the latest notes'
+          const message = axiosErr.response?.data?.error || 'Could not load notes for the selected day'
           setNotice({ kind: 'error', title: 'Copy failed', details: [message] })
           return
         }
       }
 
-      const sourceDateKey = sourceBlock.date
       const sourceEntries = sourceBlock.childBlocks
         .filter((child) => !child.archived)
         .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -425,7 +424,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
         setNotice({
           kind: 'error',
           title: 'Nothing to copy',
-          details: ['No earlier daily notes were found to copy.'],
+          details: ['No notes were found for the selected day.'],
         })
         return
       }
@@ -453,6 +452,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
       }))
       setSelectedDateKey(todayDateKey)
       setHighlightDateKey(todayDateKey)
+      setCopyNotesModalOpen(false)
       const sourceLabel = format(parseISO(sourceDateKey), 'EEE dd MMM yyyy')
       setNotice({
         kind: 'success',
@@ -463,20 +463,16 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
       })
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string } } }
-      const message = axiosErr.response?.data?.error || 'Failed to copy the latest notes'
+      const message = axiosErr.response?.data?.error || 'Failed to copy notes'
       setNotice({ kind: 'error', title: 'Copy failed', details: [message] })
     } finally {
       setBusy(false)
     }
   }
 
-  const handleCopyLatestNotes = () => {
+  const handleCopyNotes = () => {
     if (!isCurrentWeek || isFutureNotesDay(todayDateKey)) return
-    if (todayHasNotes) {
-      setCopyLatestConfirmOpen(true)
-      return
-    }
-    void executeCopyLatestNotes()
+    setCopyNotesModalOpen(true)
   }
 
   const handleDeleteBlock = useCallback(async (dateKey: string, blockId: string) => {
@@ -523,9 +519,9 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
                   variant="secondary"
                   icon={<Copy className="h-4 w-4" />}
                   disabled={busy || !isCurrentWeek}
-                  onClick={handleCopyLatestNotes}
+                  onClick={handleCopyNotes}
                 >
-                  Copy latest
+                  Copy from day
                 </Button>
                 <Button
                   type="button"
@@ -560,9 +556,9 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
                       variant="secondary"
                       icon={<Copy className="h-4 w-4" />}
                       disabled={busy || !isCurrentWeek}
-                      onClick={handleCopyLatestNotes}
+                      onClick={handleCopyNotes}
                     >
-                      Copy latest
+                      Copy from day
                     </Button>
                     <Button
                       type="button"
@@ -671,9 +667,9 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
                             setAutoOpenAddNoteFor(null)
                           }
                         }}
-                        onCopyLatest={
+                        onCopyFromDay={
                           selectedDay.dateKey === todayDateKey && isCurrentWeek
-                            ? handleCopyLatestNotes
+                            ? handleCopyNotes
                             : undefined
                         }
                       />
@@ -717,37 +713,19 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
         />
       ) : null}
 
-      <Modal
-        isOpen={copyLatestConfirmOpen}
+      <CopyNotesFromDateModal
+        isOpen={copyNotesModalOpen}
+        targetDateKey={todayDateKey}
+        todayHasNotes={todayHasNotes}
+        blocksByDate={blocksByDate}
+        busy={busy}
         onClose={() => {
-          if (!busy) setCopyLatestConfirmOpen(false)
+          if (!busy) setCopyNotesModalOpen(false)
         }}
-        title="Replace today's notes?"
-        size="md"
-      >
-        <p className="mb-4 text-sm leading-relaxed text-slate-600">
-          Today already has notes. Copying from the latest available day will{' '}
-          <strong>replace all of today&apos;s notes</strong> with those entries. You can edit them
-          before sending.
-        </p>
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" disabled={busy} onClick={() => setCopyLatestConfirmOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="primary"
-            disabled={busy}
-            loading={busy}
-            onClick={() => {
-              setCopyLatestConfirmOpen(false)
-              void executeCopyLatestNotes()
-            }}
-          >
-            Replace with latest
-          </Button>
-        </div>
-      </Modal>
+        onCopy={(sourceDateKey) => {
+          void executeCopyNotes(sourceDateKey)
+        }}
+      />
     </PageWrapper>
   )
 }

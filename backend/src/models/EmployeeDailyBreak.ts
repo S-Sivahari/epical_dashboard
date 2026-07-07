@@ -9,7 +9,7 @@ export interface EmployeeDailyBreak extends Document {
   morningBreakMs?: number;
   lunchBreakMs?: number;
   eveningBreakMs?: number;
-  /** Total break time already deducted from project hours today (max 50 min). */
+  /** Total break time already deducted from project hours today (max 60 min). */
   projectBreakDeductedMs: number;
   createdAt: Date;
   updatedAt: Date;

@@ -12,6 +12,7 @@ export type DailyActivitySession = {
   checkInTime: string
   checkOutTime: string | null
   worked: string | null
+  break: string | null
   checkOutType: 'manual' | 'auto' | null
 }
 
@@ -227,6 +228,10 @@ export function DashboardActivityLogPanel({ className }: DashboardActivityLogPan
                         >
                           {formatCheckOutLabel(entry.checkOutTime, entry.checkOutType)}
                         </dd>
+                      </div>
+                      <div className="dashboard-activity-session-row">
+                        <dt>Break</dt>
+                        <dd>{entry.break ?? '—'}</dd>
                       </div>
                       <div className="dashboard-activity-session-row">
                         <dt>Worked</dt>

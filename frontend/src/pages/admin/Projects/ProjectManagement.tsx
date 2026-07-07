@@ -58,7 +58,7 @@ import { filterAllocatableEmployees } from '@/utils/employeeView'
 import { useEmployeeStore } from '@store/employeeStore'
 import type { Employee } from '@/types'
 import { cn } from '@/utils/cn'
-import { formatDurationFromMs, formatWorkedDuration, resolveDisplayWorkedMs } from '@/utils/durationFormat'
+import { formatDurationFromMs, formatWorkedDuration, resolveDisplayWorkedMs, formatBreakDisplayLabel, isDefaultBreakDeduction } from '@/utils/durationFormat'
 import { getVisiblePageNumbers } from '@hooks/usePagination'
 import {
   ProjectHoursHoverCard,
@@ -146,7 +146,9 @@ interface WorkSessionLog {
   loginTime: string
   logoutTime?: string
   breakMs: number
+  displayBreakMs: number
   displayWorkedMs: number
+  defaultBreakDeductedMs?: number
   workDayType: 'half_day' | 'full_day' | null
   sessionStatus: string
   autoCheckedOut: boolean
@@ -197,10 +199,18 @@ function formatAdminWorkedDuration(t: TimesheetLog): string {
   })
 }
 
-function formatBreakTime(breakMs?: number): string {
-  const ms = breakMs ?? 0
-  if (ms <= 0) return '—'
-  return formatDurationFromMs(ms)
+function formatBreakTime(session: Pick<WorkSessionLog, 'breakMs' | 'displayBreakMs' | 'defaultBreakDeductedMs'>): string {
+  const actualMs = session.breakMs ?? 0
+  const displayMs =
+    typeof session.displayBreakMs === 'number' && session.displayBreakMs > 0
+      ? session.displayBreakMs
+      : actualMs
+  const isDefault = isDefaultBreakDeduction({
+    breakMs: actualMs,
+    defaultBreakDeductedMs: session.defaultBreakDeductedMs,
+    displayBreakMs: displayMs,
+  })
+  return formatBreakDisplayLabel(displayMs, { isDefault })
 }
 
 function formatWorkSessionDuration(session: Pick<WorkSessionLog, 'displayWorkedMs' | 'logoutTime'>): string {
@@ -208,18 +218,6 @@ function formatWorkSessionDuration(session: Pick<WorkSessionLog, 'displayWorkedM
     return formatDurationFromMs(session.displayWorkedMs)
   }
   if (!session.logoutTime) return 'In progress'
-  return '—'
-}
-
-function formatWorkDayType(
-  workDayType?: WorkSessionLog['workDayType'],
-  autoCheckedOut?: boolean,
-  inProgress?: boolean,
-): string {
-  if (inProgress) return '—'
-  if (workDayType === 'half_day') return 'Half day'
-  if (workDayType === 'full_day') return autoCheckedOut ? 'Full day (auto)' : 'Full day'
-  if (autoCheckedOut) return 'Full day (auto)'
   return '—'
 }
 
@@ -2585,8 +2583,7 @@ export function ProjectManagement() {
     sheet.getCell(currentRow, 5).value = 'Logout Time'
     sheet.getCell(currentRow, 6).value = 'Break'
     sheet.getCell(currentRow, 7).value = 'Worked'
-    sheet.getCell(currentRow, 8).value = 'Day'
-    styleTableHeader(currentRow, 8, 'FF0284C7') // Sky-600
+    styleTableHeader(currentRow, 7, 'FF0284C7') // Sky-600
     currentRow++
 
     filteredWorkSessions.forEach((s, idx) => {
@@ -2596,11 +2593,10 @@ export function ProjectManagement() {
       sheet.getCell(currentRow, 3).value = s.project
       sheet.getCell(currentRow, 4).value = formatDateTime(s.loginTime)
       sheet.getCell(currentRow, 5).value = s.logoutTime ? formatDateTime(s.logoutTime) : '—'
-      sheet.getCell(currentRow, 6).value = formatBreakTime(s.breakMs)
+      sheet.getCell(currentRow, 6).value = formatBreakTime(s)
       sheet.getCell(currentRow, 7).value = formatWorkSessionDuration(s)
-      sheet.getCell(currentRow, 8).value = formatWorkDayType(s.workDayType, s.autoCheckedOut)
 
-      styleDataRow(currentRow, 8, idx % 2 === 0, ['left', 'center', 'left', 'center', 'center', 'center', 'center', 'center'])
+      styleDataRow(currentRow, 7, idx % 2 === 0, ['left', 'center', 'left', 'center', 'center', 'center', 'center'])
       currentRow++
     })
 
@@ -2832,7 +2828,7 @@ export function ProjectManagement() {
     // ── Detailed time logs ──
     cursorY = addSectionTitle('Detailed Time Logs', cursorY)
 
-    const tableHeaders = ['Employee', 'Project', 'Login Time', 'Logout Time', 'Break', 'Duration', 'Day']
+    const tableHeaders = ['Employee', 'Project', 'Login Time', 'Logout Time', 'Break', 'Duration']
 
     const tableRows = filteredWorkSessions.map((s) => {
       const { key, name } = resolveTimesheetEmployeeKey(s, employees)
@@ -2841,9 +2837,8 @@ export function ProjectManagement() {
         s.project,
         formatDateTime(s.loginTime),
         s.logoutTime ? formatDateTime(s.logoutTime) : '—',
-        formatBreakTime(s.breakMs),
+        formatBreakTime(s),
         formatWorkSessionDuration(s),
-        formatWorkDayType(s.workDayType, s.autoCheckedOut),
       ]
     })
 
@@ -3508,13 +3503,12 @@ export function ProjectManagement() {
                     <th className="px-5 py-3.5 font-bold">Logout Time</th>
                     <th className="px-5 py-3.5 font-bold">Break Time</th>
                     <th className="px-5 py-3.5 font-bold">Duration</th>
-                    <th className="px-5 py-3.5 font-bold">Day</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70 text-base">
                   {timesheetsLoading && currentTimesheets.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-5 py-12 text-center text-slate-600">
+                      <td colSpan={6} className="px-5 py-12 text-center text-slate-600">
                         <Spinner className="mx-auto text-[var(--emerald-dark)]" />
                         <p className="mt-3 text-sm font-medium">Loading timesheet logs…</p>
                       </td>
@@ -3597,7 +3591,7 @@ export function ProjectManagement() {
 
                         <td className="whitespace-nowrap px-5 py-4">
                           <span className="inline-flex rounded-lg border border-border bg-[var(--bg-input)] px-3 py-1.5 font-mono text-sm font-bold text-slate-800">
-                            {formatBreakTime(t.breakMs)}
+                            {formatBreakTime(t)}
                           </span>
                         </td>
 
@@ -3611,17 +3605,12 @@ export function ProjectManagement() {
                             </p>
                           )}
                         </td>
-                        <td className="whitespace-nowrap px-5 py-4">
-                          <span className="inline-flex rounded-lg border border-border bg-[var(--bg-input)] px-3 py-1.5 text-sm font-semibold text-slate-800">
-                            {formatWorkDayType(t.workDayType, t.autoCheckedOut, !t.logoutTime)}
-                          </span>
-                        </td>
                       </tr>
                     )
                   })}
                   {filteredWorkSessions.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-sm font-semibold text-slate-600">
+                      <td colSpan={6} className="py-12 text-center text-sm font-semibold text-slate-600">
                         No work sessions correspond to selected range and filters.
                       </td>
                     </tr>

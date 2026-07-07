@@ -12,6 +12,10 @@ import { syncProjectForTimesheet, getTimesheetWorkflowStatus } from '../utils/sy
 import { buildAssignmentIdentityTokens, ensureAssignedTasksForEmployee } from '../utils/assignedTaskSync';
 import { finalizeOpenTimesheetsForCheckout } from '../services/projectBreakDeductionService';
 import {
+  aggregateProjectWiseHoursForEmployee,
+  type ProjectWiseHoursRow,
+} from '../services/projectWiseHoursService';
+import {
   expireBreakForAttendanceRecord,
   finalizeBreakEnd,
   tryExpireBreakForEmployee,
@@ -23,11 +27,11 @@ import {
   markDailyBreakSlotStarted,
   mergeDailyBreakWithOpenSession,
 } from '../services/dailyBreakStateService';
+import { resolveDefaultCheckoutBreakDeduction } from '../services/checkoutBreakPolicy';
 import {
-  FULL_DAY_TOO_SHORT_MESSAGE,
-  isFullDayCheckoutTooShort,
-  resolveDefaultCheckoutBreakDeduction,
-} from '../services/checkoutBreakPolicy';
+  hasDailyDefaultDeductionBeenApplied,
+  syncTodaysAttendanceBreakPolicy,
+} from '../services/dailyBreakPolicyService';
 import { buildEmployeeVisibleProjectsFilter } from '../utils/assignedProjectsHelper';
 import { openAttendanceFilter, timesheetsForCalendarDayFilter } from '../utils/attendanceQueries';
 import { computeTotalHoursDecimal } from '../utils/durationFormat';
@@ -51,8 +55,8 @@ import {
   activeBreakExpired,
   breakMinTimeReached,
   buildBreaksPayload,
-  computeGrossAttendanceMs,
   computeUsedBreakMs,
+  DAILY_STANDARD_BREAK_MS,
   isWorkBreakType,
   WORK_BREAKS,
   type WorkBreakType,
@@ -81,10 +85,6 @@ type ResolvedEmployee = {
   view: 'Public' | 'Private';
   isTimesheetEligible: boolean;
 };
-
-function isWorkDayType(value: unknown): value is WorkDayType {
-  return value === 'half_day' || value === 'full_day';
-}
 
 function rejectPrivateEmployee(employee: ResolvedEmployee, res: Response): boolean {
   if (employee.isTimesheetEligible) return false;
@@ -150,6 +150,8 @@ async function enrichAttendanceHistoryForEmployee(
       return {
         ...base,
         breakMs: session.breakMs,
+        displayBreakMs: session.displayBreakMs,
+        defaultBreakDeductedMs: record.defaultBreakDeductedMs ?? 0,
         project: session.project,
         projects: session.projects,
         displayWorkedMs: session.displayWorkedMs,
@@ -371,125 +373,14 @@ function buildSessionDateMatch(from?: string, to?: string) {
   };
 }
 
-export type ProjectWiseHoursRow = {
-  projectId: string;
-  project: string;
-  hours: number;
-  sessions: number;
-};
+export type { ProjectWiseHoursRow };
 
-async function aggregateProjectWiseHoursForEmployee(
+async function getProjectWiseHoursForEmployee(
   employee: ResolvedEmployee,
   from: string,
-  to: string
+  to: string,
 ): Promise<ProjectWiseHoursRow[]> {
-  const loginFrom = new Date(`${from}T00:00:00.000Z`);
-  const loginTo = new Date(`${to}T23:59:59.999Z`);
-  const now = new Date();
-
-  const rows = await TimesheetModel.aggregate([
-    {
-      $match: {
-        $and: [
-          {
-            $or: [
-              { employeeId: { $in: employee.identityTokens } },
-              { employee: { $in: employee.identityTokens } },
-            ],
-          },
-          { loginTime: { $gte: loginFrom, $lte: loginTo } },
-        ],
-      },
-    },
-    {
-      $addFields: {
-        effectiveHours: {
-          $cond: [
-            {
-              $and: [
-                { $ne: [{ $ifNull: ['$overriddenHours', null] }, null] },
-                { $ne: ['$overriddenHours', ''] },
-              ],
-            },
-            { $toDouble: '$overriddenHours' },
-            {
-              $cond: [
-                {
-                  $and: [
-                    { $ne: [{ $ifNull: ['$workedMs', null] }, null] },
-                    { $gte: ['$workedMs', 0] },
-                  ],
-                },
-                { $divide: ['$workedMs', 3600000] },
-                {
-                  $let: {
-                    vars: {
-                      endMs: { $toLong: { $ifNull: ['$logoutTime', now] } },
-                      startMs: { $toLong: '$loginTime' },
-                      pausedMs: {
-                        $add: [
-                          { $ifNull: ['$totalPausedMs', 0] },
-                          {
-                            $cond: [
-                              {
-                                $and: [
-                                  { $eq: ['$taskStatus', 'Paused'] },
-                                  { $ne: [{ $ifNull: ['$pausedAt', null] }, null] },
-                                  { $eq: [{ $ifNull: ['$logoutTime', null] }, null] },
-                                ],
-                              },
-                              { $subtract: [{ $toLong: now }, { $toLong: '$pausedAt' }] },
-                              0,
-                            ],
-                          },
-                        ],
-                      },
-                    },
-                    in: {
-                      $max: [
-                        0,
-                        {
-                          $divide: [
-                            { $subtract: ['$$endMs', { $add: ['$$startMs', '$$pausedMs'] }] },
-                            3600000,
-                          ],
-                        },
-                      ],
-                    },
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      },
-    },
-    {
-      $group: {
-        _id: '$projectId',
-        project: { $first: '$project' },
-        hours: { $sum: '$effectiveHours' },
-        sessions: { $sum: 1 },
-      },
-    },
-    {
-      $project: {
-        _id: 0,
-        projectId: { $toString: '$_id' },
-        project: '$project',
-        hours: 1,
-        sessions: 1,
-      },
-    },
-    { $sort: { hours: -1, project: 1 } },
-  ]);
-
-  return rows.map((r) => ({
-    projectId: r.projectId || '',
-    project: r.project || 'Unknown',
-    hours: Math.round((typeof r.hours === 'number' ? r.hours : 0) * 10) / 10,
-    sessions: r.sessions ?? 0,
-  }));
+  return aggregateProjectWiseHoursForEmployee(employee.id, employee.identityTokens, from, to);
 }
 
 async function fetchActiveTaskPayload(employee: ResolvedEmployee) {
@@ -606,8 +497,14 @@ async function buildAttendanceResponseForEmployee(
   latestAttendance: Awaited<ReturnType<typeof EmployeeAttendanceModel.findOne>>,
 ) {
   const date = openAttendance?.date ?? latestAttendance?.date ?? todayDateKey();
-  const dailyBreaks = await getOrCreateDailyBreakState(employeeId, date);
-  return buildAttendanceResponse(openAttendance, latestAttendance, dailyBreaks);
+  const daily = await getOrCreateDailyBreakState(employeeId, date);
+  if (await hasDailyDefaultDeductionBeenApplied(employeeId, date)) {
+    daily.projectBreakDeductedMs = Math.max(
+      daily.projectBreakDeductedMs ?? 0,
+      DAILY_STANDARD_BREAK_MS,
+    );
+  }
+  return buildAttendanceResponse(openAttendance, latestAttendance, daily);
 }
 
 async function pauseRunningTaskForBreak(employee: ResolvedEmployee, attendance: InstanceType<typeof EmployeeAttendanceModel>) {
@@ -683,6 +580,8 @@ export const employeeTimesheetController = {
         return;
       }
 
+      await syncTodaysAttendanceBreakPolicy(employee.id);
+
       void ensureAssignedTasksForEmployee({
         id: employee.id,
         name: employee.name,
@@ -727,7 +626,7 @@ export const employeeTimesheetController = {
           })
             .sort({ checkInTime: -1 })
             .lean(),
-          aggregateProjectWiseHoursForEmployee(employee, weekFrom, today),
+          getProjectWiseHoursForEmployee(employee, weekFrom, today),
         ]);
 
       res.json({
@@ -782,6 +681,8 @@ export const employeeTimesheetController = {
         return;
       }
 
+      await syncTodaysAttendanceBreakPolicy(employee.id);
+
       let openAttendance = await requireOpenAttendance(employee.id);
       if (openAttendance) {
         await expireBreakForAttendanceRecord(openAttendance);
@@ -821,6 +722,8 @@ export const employeeTimesheetController = {
         return;
       }
 
+      await syncTodaysAttendanceBreakPolicy(employee.id);
+
       const { from, to } = req.query;
       const match: Record<string, unknown> = { employeeId: employee.id };
 
@@ -856,7 +759,7 @@ export const employeeTimesheetController = {
         typeof req.query.from === 'string' && req.query.from ? req.query.from : startOfWeekISO();
       const to = typeof req.query.to === 'string' && req.query.to ? req.query.to : todayDateKey();
 
-      const projectWiseHours = await aggregateProjectWiseHoursForEmployee(employee, from, to);
+      const projectWiseHours = await getProjectWiseHoursForEmployee(employee, from, to);
       res.json({ from, to, projects: projectWiseHours });
     } catch (error) {
       console.error('Error fetching project-wise hours:', error);
@@ -912,6 +815,8 @@ export const employeeTimesheetController = {
         return;
       }
       if (rejectPrivateEmployee(employee, res)) return;
+
+      await syncTodaysAttendanceBreakPolicy(employee.id);
 
       const date = todayDateKey();
       const openAttendance = await requireOpenAttendance(employee.id);
@@ -994,14 +899,15 @@ export const employeeTimesheetController = {
       }
       if (rejectPrivateEmployee(employee, res)) return;
 
+      await syncTodaysAttendanceBreakPolicy(employee.id);
+
       const attendance = await requireOpenAttendance(employee.id);
       if (!attendance) {
         res.status(400).json({ error: 'You are not checked in' });
         return;
       }
 
-      const workDayTypeRaw = req.body?.workDayType;
-      const workDayType: WorkDayType = isWorkDayType(workDayTypeRaw) ? workDayTypeRaw : 'full_day';
+      const workDayType: WorkDayType = 'full_day';
 
       const now = new Date();
       if (attendance.activeBreakType) {
@@ -1010,27 +916,11 @@ export const employeeTimesheetController = {
       }
 
       const sessionBreakMs = computeUsedBreakMs(attendance, now);
-      const grossMs = computeGrossAttendanceMs(attendance.checkInTime, now);
 
-      const defaultBreakDeductionMs =
-        workDayType === 'half_day'
-          ? 0
-          : await resolveDefaultCheckoutBreakDeduction(
-              employee.id,
-              attendance.date,
-              sessionBreakMs,
-            );
-
-      if (
-        workDayType === 'full_day' &&
-        isFullDayCheckoutTooShort(grossMs, sessionBreakMs, defaultBreakDeductionMs)
-      ) {
-        res.status(400).json({
-          error: FULL_DAY_TOO_SHORT_MESSAGE,
-          code: 'USE_HALF_DAY_CHECKOUT',
-        });
-        return;
-      }
+      const defaultBreakDeductionMs = await resolveDefaultCheckoutBreakDeduction(
+        employee.id,
+        attendance.date,
+      );
 
       const sessionPreview = computeSessionWorkedMs(
         attendance.checkInTime,
@@ -1063,10 +953,16 @@ export const employeeTimesheetController = {
             openLogs[0] ?? null,
           );
 
-          const updatedLogs = finalizeOpenTimesheetsForCheckout(attendance, openLogs, now, {
-            workDayType,
-            defaultBreakDeductionMs,
-          });
+          const updatedLogs = await finalizeOpenTimesheetsForCheckout(
+            attendance,
+            openLogs,
+            now,
+            employee.identityTokens,
+            {
+              workDayType,
+              defaultBreakDeductionMs,
+            },
+          );
 
           const openLogIds = new Set(openLogs.map((log) => log._id.toString()));
           for (const log of updatedLogs) {
@@ -1081,8 +977,8 @@ export const employeeTimesheetController = {
           attendance.sessionStatus = 'Completed';
           attendance.workDayType = workDayType;
           attendance.sessionWorkedMs =
-            typeof updatedLogs[0]?.workedMs === 'number' && updatedLogs[0].workedMs >= 0
-              ? updatedLogs[0].workedMs
+            typeof sessionPreview.workedMs === 'number' && sessionPreview.workedMs >= 0
+              ? sessionPreview.workedMs
               : undefined;
           attendance.defaultBreakDeductedMs = sessionPreview.defaultDeductedMs;
           attendance.resumeProjectId = resumeCell.resumeProjectId;
@@ -1839,6 +1735,15 @@ export const employeeTimesheetController = {
       }
 
       await expireBreakForAttendanceRecord(attendance);
+
+      if (await hasDailyDefaultDeductionBeenApplied(employee.id, attendance.date)) {
+        res.status(400).json({
+          error:
+            'The standard 60-minute break deduction has already been applied for today. Breaks cannot be recorded.',
+          code: 'DAILY_BREAK_ENTITLEMENT_SETTLED',
+        });
+        return;
+      }
 
       const daily = await getOrCreateDailyBreakState(employee.id, attendance.date);
       if (isDailyBreakSlotUsed(daily, breakType)) {

@@ -37,7 +37,7 @@ export interface EmployeeAttendance extends Document {
   resumeCellId?: string;
   /** Net worked ms for this session (set at checkout; matches timesheet workedMs). */
   sessionWorkedMs?: number;
-  /** Default 50m break slice applied on this session (full day, no breaks taken). */
+  /** Default 60m break slice applied on this session (full day, no breaks taken). */
   defaultBreakDeductedMs?: number;
   createdAt: Date;
   updatedAt: Date;

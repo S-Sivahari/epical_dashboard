@@ -467,8 +467,8 @@ export const useTimesheetStore = create((set, get) => ({
     return data
   },
 
-  checkOut: async (workDayType = 'full_day') => {
-    const data = await apiCheckOut(workDayType)
+  checkOut: async () => {
+    const data = await apiCheckOut()
     const serverTimeSkew = data?.serverTime ? new Date(data.serverTime).getTime() - Date.now() : 0
     set({
       serverTimeSkew,

@@ -1214,6 +1214,28 @@
   padding: 0.5rem 0.625rem 0.625rem !important;
 }
 
+.emp-timesheet-chart-panel--breakdown {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.emp-timesheet-chart-panel--breakdown .emp-timesheet-breakdown-body {
+  flex: 1;
+  min-height: 0;
+  max-height: 18rem;
+}
+
+.emp-timesheet-breakdown-body .emp-timesheet-breakdown-list {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 0.125rem;
+}
+
 .emp-timesheet-breakdown-list--compact {
   display: flex;
   min-height: 0;

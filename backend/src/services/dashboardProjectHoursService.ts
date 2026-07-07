@@ -119,6 +119,14 @@ export function effectiveTimesheetHours(
     return roundHours(t.workedMs / 3600000);
   }
 
+  if (
+    typeof t.totalHours === 'number' &&
+    t.totalHours >= 0 &&
+    t.logoutTime
+  ) {
+    return roundHours(t.totalHours);
+  }
+
   if (!t.loginTime) return 0;
 
   const login = new Date(t.loginTime);

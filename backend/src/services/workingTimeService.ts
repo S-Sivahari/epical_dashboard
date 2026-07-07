@@ -49,10 +49,9 @@ export function resolveCheckoutDefaultBreakMs(
 
 /**
  * Single source of truth:
- *   worked = end − start − breaks
- *   breaks = actual breaks taken, OR 50 min default (full day only, when no breaks taken)
- *   half day = actual breaks only, no default
- * Returns breakMs = actual breaks only (for admin Break column; default 50 is not shown there).
+ *   worked = end − start − actual breaks − min(default daily deduction, time left in session)
+ *   defaultDeductedMs = full daily default applied (60m) for policy/display when no actual breaks
+ *   breakMs = actual breaks only (admin raw column)
  */
 export function computeSessionWorkedMs(
   checkInTime: Date,
@@ -63,16 +62,19 @@ export function computeSessionWorkedMs(
 ): { workedMs: number; breakMs: number; defaultDeductedMs: number } {
   const grossMs = computeGrossAttendanceMs(checkInTime, checkOutTime);
   const breakMs = computeUsedBreakMs(attendance ?? undefined, checkOutTime);
-  let deductMs = breakMs;
+  const availableMs = Math.max(0, grossMs - breakMs);
+
   let defaultDeductedMs = 0;
-  if (workDayType === 'full_day' && breakMs === 0) {
-    defaultDeductedMs = Math.max(0, defaultBreakDeductionMs);
-    deductMs += defaultDeductedMs;
+  let sessionDefaultSlice = 0;
+  if (workDayType === 'full_day' && breakMs === 0 && defaultBreakDeductionMs > 0) {
+    defaultDeductedMs = defaultBreakDeductionMs;
+    sessionDefaultSlice = Math.min(defaultBreakDeductionMs, availableMs);
   }
+
   return {
-    workedMs: Math.max(0, grossMs - deductMs),
+    workedMs: Math.max(0, grossMs - breakMs - sessionDefaultSlice),
     breakMs,
-    defaultDeductedMs: Math.min(defaultDeductedMs, Math.max(0, grossMs - breakMs)),
+    defaultDeductedMs,
   };
 }
 
@@ -132,7 +134,7 @@ export function formatWorkedMsLabel(ms: number): string {
 /**
  * Read worked ms for display. Checked-out sessions use the value saved at checkout.
  * New break/default logic is applied only at checkout — this function never writes to the DB
- * and never re-applies the daily 50m policy on read (uses stored defaultBreakDeductedMs only).
+ * and never re-applies the daily 60m policy on read (uses stored defaultBreakDeductedMs only).
  */
 export function resolveSessionWorkedMs(
   attendance: AttendanceBreakFields & {

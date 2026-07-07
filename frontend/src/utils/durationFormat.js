@@ -119,6 +119,17 @@ export function formatWorkflowDurationFromMs(ms) {
   return '0m'
 }
 
+/** Break duration for timesheets; append "(default)" for the daily 1h policy slice. */
+export function formatBreakDisplayLabel(ms, { isDefault = false } = {}) {
+  if (!ms || ms <= 0) return '—'
+  const duration = formatDurationFromMs(ms)
+  return isDefault ? `${duration} (default)` : duration
+}
+
+export function isDefaultBreakDeduction({ breakMs = 0, defaultBreakDeductedMs = 0, displayBreakMs = 0 } = {}) {
+  return defaultBreakDeductedMs > 0 && breakMs <= 0 && displayBreakMs > 0
+}
+
 /** Live header timer with days, hours, minutes, and seconds. e.g. "0d 0h 8m 45s". */
 export function formatLiveWorkflowDurationFromMs(ms) {
   const totalSeconds = Math.floor(Math.max(0, ms) / 1000)
