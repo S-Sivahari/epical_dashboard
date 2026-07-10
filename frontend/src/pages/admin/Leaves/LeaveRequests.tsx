@@ -10,10 +10,8 @@ import {
   excludeCancelledLeaves,
   canCancelLeave,
   isRevokedApprovedLeave,
-  formatMonthLabel,
+  formatYearLabel,
   formatLeaveDayCount,
-  getCurrentMonthDateRange,
-  getCurrentMonthKey,
   type LeaveFilters,
 } from '@/utils/leaveFilters'
 import * as leaveService from '@services/leaveService'
@@ -106,48 +104,26 @@ export function LeaveRequests({
 
 
 
-  const [monthKey, setMonthKey] = useState(() => getCurrentMonthKey())
-
-  useEffect(() => {
-    const syncMonth = () => {
-      const nextKey = getCurrentMonthKey()
-      if (nextKey === monthKey) return
-      setMonthKey(nextKey)
-      setStatusPagination({ Pending: 1, Approved: 1, Rejected: 1 })
-    }
-    syncMonth()
-    const id = window.setInterval(syncMonth, 60_000)
-    return () => window.clearInterval(id)
-  }, [monthKey])
-
-  const monthRange = useMemo(() => getCurrentMonthDateRange(), [monthKey])
-
-  const panelFilters = useMemo(
-    () => ({
-      ...filters,
-      dateFrom: monthRange.from,
-      dateTo: monthRange.to,
-    }),
-    [filters, monthRange],
-  )
-
-  const computedMonthLabel = useMemo(() => formatMonthLabel(monthRange.from), [monthRange.from])
-  const monthLabel = monthLabelProp ?? computedMonthLabel
+  const periodLabel = useMemo(() => {
+    if (monthLabelProp) return monthLabelProp
+    if (filters.dateFrom) return formatYearLabel(filters.dateFrom)
+    return formatYearLabel(String(new Date().getFullYear()))
+  }, [filters.dateFrom, monthLabelProp])
 
   const statusCounts = useMemo(() => {
-    const inMonth = filterLeaves(visibleLeaves, { ...panelFilters, status: 'All' })
+    const inPeriod = filterLeaves(visibleLeaves, { ...filters, status: 'All' })
     return {
-      Pending: inMonth.filter((l) => l.status === 'Pending').length,
-      Approved: inMonth.filter((l) => l.status === 'Approved').length,
-      Rejected: inMonth.filter((l) => l.status === 'Rejected').length,
+      Pending: inPeriod.filter((l) => l.status === 'Pending').length,
+      Approved: inPeriod.filter((l) => l.status === 'Approved').length,
+      Rejected: inPeriod.filter((l) => l.status === 'Rejected').length,
     }
-  }, [visibleLeaves, panelFilters])
+  }, [visibleLeaves, filters])
 
   const currentStatus = (filters.status as StatusType) || 'Pending'
 
   const filteredLeaves = useMemo(() => {
-    return filterLeaves(visibleLeaves, { ...panelFilters, status: currentStatus })
-  }, [visibleLeaves, panelFilters, currentStatus])
+    return filterLeaves(visibleLeaves, { ...filters, status: currentStatus })
+  }, [visibleLeaves, filters, currentStatus])
 
   // Calculate pagination
   const currentPage = statusPagination[currentStatus] || 1
@@ -335,7 +311,7 @@ export function LeaveRequests({
                 )
               })}
             </nav>
-            <span className="admin-leaves-status-month-label">{monthLabel}</span>
+            <span className="admin-leaves-status-month-label">{periodLabel}</span>
           </div>
         ) : null}
 
@@ -344,7 +320,7 @@ export function LeaveRequests({
             <div className="admin-leaves-feed-empty">Loading requests…</div>
           ) : paginatedLeaves.length === 0 ? (
             <div className="admin-leaves-empty-state">
-              <p>No {currentStatus.toLowerCase()} leave requests found for {monthLabel}.</p>
+              <p>No {currentStatus.toLowerCase()} leave requests found for {periodLabel}.</p>
             </div>
           ) : (
             <table className="admin-leaves-requests-table">

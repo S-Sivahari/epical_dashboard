@@ -9,7 +9,8 @@
     "build": "tsc",
     "seed": "tsx src/scripts/testConnection.ts",
     "verify:metal-import": "tsx src/scripts/verifyMetalRoutingImport.ts",
-    "backup:data": "tsx scripts/backupCriticalData.ts"
+    "backup:data": "tsx scripts/backupCriticalData.ts",
+    "restore:leave-archives": "tsx src/scripts/restoreLeaveArchives.ts"
   },
   "dependencies": {
     "axios": "^1.16.1",

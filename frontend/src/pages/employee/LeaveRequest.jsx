@@ -166,8 +166,8 @@ const leaveTypes = ['Casual Leave', 'Sick Leave', 'Earned Leave', 'Compensation 
 const leaveDurations = ['Full Day', 'Half Day']
 const halfDaySessions = ['First Half', 'Second Half']
 
-function currentMonthPrefix() {
-  return new Date().toISOString().slice(0, 7)
+function currentYearPrefix() {
+  return String(new Date().getFullYear())
 }
 
 const historyColumns = [
@@ -237,7 +237,7 @@ export default function LeaveRequest() {
   const halfDaySession = watch('halfDaySession')
   const selectedLeaveType = watch('type')
 
-  const monthPrefix = currentMonthPrefix()
+  const yearPrefix = currentYearPrefix()
 
   const leaveOwnerIds = useMemo(() => {
     const ids = new Set()
@@ -270,13 +270,13 @@ export default function LeaveRequest() {
             r.status === 'Pending' &&
             r.type === 'Sick Leave' &&
             typeof r.from === 'string' &&
-            r.from.startsWith(monthPrefix),
+            r.from.startsWith(yearPrefix),
         )
         .reduce((sum, r) => {
           const lop = Number(r.lopDays ?? 0) || 0
           return sum + Math.max(0, (Number(r.days) || 0) - lop)
         }, 0),
-    [requests, monthPrefix],
+    [requests, yearPrefix],
   )
 
   const sickBalanceRemaining = useMemo(() => {
@@ -347,7 +347,7 @@ export default function LeaveRequest() {
           r.status === 'Pending' &&
           r.type === 'Casual Leave' &&
           typeof r.from === 'string' &&
-          r.from.startsWith(monthPrefix),
+          r.from.startsWith(yearPrefix),
       )
       .reduce((sum, r) => {
         const lop = Number(r.lopDays ?? 0) || 0
@@ -355,7 +355,7 @@ export default function LeaveRequest() {
       }, 0)
     const remaining = casual.remaining ?? Math.max(0, casual.total - casual.used)
     return Math.max(0, remaining - pendingCasual)
-  }, [leaveBalances, requests, monthPrefix])
+  }, [leaveBalances, requests, yearPrefix])
 
   const isCasualSameDay =
     selectedLeaveType === 'Casual Leave' && fromDate && isCasualSameDayLeave(fromDate)
