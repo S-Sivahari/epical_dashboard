@@ -27,6 +27,17 @@ function assertDateKey(date: string): string {
   return trimmed;
 }
 
+function assertDailyBlockEditable(doc: { status?: DailyNoteStatus; archived?: boolean }) {
+  if (doc.archived) {
+    throw Object.assign(new Error('Archived daily notes cannot be changed.'), { status: 400 });
+  }
+  if (doc.status === 'email_sent') {
+    throw Object.assign(new Error('Email already sent — this day\'s notes are locked and cannot be changed.'), {
+      status: 400,
+    });
+  }
+}
+
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -432,6 +443,10 @@ export async function deleteDailyBlock(id: string) {
   if (!Types.ObjectId.isValid(id)) {
     throw Object.assign(new Error('Daily block not found'), { status: 404 });
   }
+  const existing = await DailyNoteBlockModel.findById(id).lean();
+  if (!existing) throw Object.assign(new Error('Daily block not found'), { status: 404 });
+  assertDailyBlockEditable(existing as { status?: DailyNoteStatus; archived?: boolean });
+
   const doc = await DailyNoteBlockModel.findByIdAndDelete(id).lean();
   if (!doc) throw Object.assign(new Error('Daily block not found'), { status: 404 });
   return serializeDailyBlock(doc as Record<string, unknown>);
@@ -461,6 +476,7 @@ export async function createChildBlock(
 
   const doc = await DailyNoteBlockModel.findById(dailyBlockId);
   if (!doc) throw Object.assign(new Error('Daily block not found'), { status: 404 });
+  assertDailyBlockEditable(doc);
 
   const actor = await resolveActor(userId, email);
   const nextOrder = doc.childBlocks.reduce((max, child) => Math.max(max, child.sortOrder ?? 0), -1) + 1;
@@ -499,6 +515,7 @@ export async function updateChildBlock(
 
   const doc = await DailyNoteBlockModel.findById(dailyBlockId);
   if (!doc) throw Object.assign(new Error('Daily block not found'), { status: 404 });
+  assertDailyBlockEditable(doc);
 
   const child = doc.childBlocks.find((item) => String(item._id) === childBlockId);
   if (!child) throw Object.assign(new Error('Work description not found'), { status: 404 });
@@ -547,6 +564,7 @@ export async function deleteChildBlock(dailyBlockId: string, childBlockId: strin
 
   const doc = await DailyNoteBlockModel.findById(dailyBlockId);
   if (!doc) throw Object.assign(new Error('Daily block not found'), { status: 404 });
+  assertDailyBlockEditable(doc);
 
   const childIndex = doc.childBlocks.findIndex((item) => String(item._id) === childBlockId);
   if (childIndex < 0) throw Object.assign(new Error('Work description not found'), { status: 404 });
@@ -573,6 +591,7 @@ export async function reorderChildBlocks(
 
   const doc = await DailyNoteBlockModel.findById(dailyBlockId);
   if (!doc) throw Object.assign(new Error('Daily block not found'), { status: 404 });
+  assertDailyBlockEditable(doc);
 
   const childMap = new Map(doc.childBlocks.map((child) => [String(child._id), child]));
   if (childBlockIds.some((id) => !childMap.has(id))) {
