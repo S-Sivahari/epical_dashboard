@@ -1656,7 +1656,7 @@ function isLeaveBeforeMonth(leave: { from?: string }, cutoffMonthKey: string): b
 
 /**
  * Archive and remove leave requests that start before the current month.
- * Example: on 1 June, removes May and earlier; keeps June and future months.
+ * Not scheduled — leave history is retained permanently. Kept for one-off ops only.
  */
 export async function archiveAndDeleteLeavesBeforeMonth(cutoffMonthKey: string): Promise<{
   archivedCount: number;
@@ -1704,26 +1704,9 @@ export async function runMonthlyLeaveHistoryReset(): Promise<{
   return { deletedCount, archivedCount, monthKey };
 }
 
-/** Runs on the 1st (or first server start in a new month if the 1st was missed). */
+/** Disabled — leave request logs are kept permanently; balances reset yearly only. */
 export async function ensureMonthlyLeaveHistoryReset(): Promise<{ ran: boolean; deletedCount?: number }> {
-  const monthKey = currentLeaveResetMonthKey();
-  const last = await getLastLeaveMonthlyResetMonth();
-
-  if (last === monthKey) {
-    return { ran: false };
-  }
-
-  // First run: anchor current month without deleting existing history.
-  if (last === null) {
-    await setLastLeaveMonthlyResetMonth(monthKey);
-    return { ran: false };
-  }
-
-  const { deletedCount, archivedCount } = await runMonthlyLeaveHistoryReset();
-  console.log(
-    `[LeaveReset] Monthly reset for ${monthKey}: archived ${archivedCount}, removed ${deletedCount} leave(s) from prior months (current/future kept)`,
-  );
-  return { ran: true, deletedCount };
+  return { ran: false };
 }
 
 const LEAVE_ANNUAL_RESET_SETTINGS_KEY = 'leaveAnnualResetYear';

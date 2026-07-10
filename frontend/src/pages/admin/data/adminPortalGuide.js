@@ -126,19 +126,16 @@ export const adminPortalGuideSections = [
   {
     key: 'shortcuts',
     title: 'Shortcuts & quick settings',
-    summary: 'Navigation wheel, notification sounds, and the hidden quick panel.',
+    summary: 'Navigation wheel and the hidden quick panel.',
     linkTo: '/admin/help',
     linkLabel: 'Admin Guide',
     steps: [
       'Navigation wheel — hold Ctrl+Shift anywhere in the portal to open the radial menu. Tap Shift to move to the next section, or hold Shift to cycle quickly. Release Ctrl to jump to the highlighted page.',
       'Quick panel — press Ctrl+Left Arrow to slide open a panel from the right with a live clock and timezone picker.',
-      'Notification sound — in the quick panel, use Import sound to upload an audio file from your device (saved in this browser). Tap Test to preview; Reset returns to the default app sound.',
-      'Imported sounds play for your dashboard notifications (alerts, updates, etc.) on this device.',
       'Close the quick panel with the × button, by clicking outside, or press Ctrl+Left Arrow again.',
     ],
     notes: [
       'Shortcuts are disabled while typing in a form field.',
-      'Custom notification sounds are stored locally in your browser, not on the server.',
     ],
   },
 ]
