@@ -276,6 +276,8 @@ async function performAutoCheckoutForAttendance(
   const defaultBreakDeductionMs = await resolveDefaultCheckoutBreakDeduction(
     claimed.employeeId,
     claimed.date,
+    claimed.checkInTime,
+    checkoutTimestamp,
   );
 
   const sessionPreview = computeSessionWorkedMs(

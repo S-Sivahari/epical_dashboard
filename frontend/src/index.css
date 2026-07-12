@@ -2,7 +2,9 @@
 @import './styles/employee-timesheet.css';
 @import './styles/employee-portal-transitions.css';
 @import './styles/employee-nav-wheel.css';
+@import './styles/secret-quick-sidebar.css';
 @import './styles/employee-leave.css';
+@import './styles/employee-tickets.css';
 @import './styles/viewport-layout.css';
 @import './styles/responsive-layout.css';
 @import './styles/metal-routing-premium.css';
@@ -11267,6 +11269,10 @@
   border: 1px solid rgba(var(--analytics-forest-rgb), 0.22);
   background: #ffffff;
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07);
+  /* Keep employee dropdown above the panel below */
+  position: relative;
+  z-index: 40;
+  overflow: visible !important;
 }
 
 .admin-analytics-view .admin-analytics-filters-bar > * {
@@ -11275,6 +11281,7 @@
 
 .admin-analytics-view .admin-analytics-filter-field {
   position: relative;
+  z-index: 2;
   flex: 1 1 200px;
   min-width: 0;
 }
@@ -11323,7 +11330,7 @@
 
 .admin-analytics-view .admin-analytics-filter-dropdown {
   position: absolute;
-  z-index: 50;
+  z-index: 80;
   top: calc(100% + 4px);
   left: 0;
   right: 0;
@@ -11584,6 +11591,8 @@
 }
 
 .admin-analytics-view .admin-analytics-main-panel {
+  position: relative;
+  z-index: 1;
   border-radius: 14px;
   border: 1px solid rgba(var(--analytics-forest-rgb), 0.18);
   border-left: 4px solid var(--analytics-forest);
@@ -12428,8 +12437,9 @@
   justify-content: space-between;
   gap: 0.375rem;
   margin-bottom: 0.125rem;
-  padding-bottom: 0.5rem;
+  padding: 0.65rem 1rem 0.75rem 1.25rem;
   border-bottom: 1px solid rgba(var(--analytics-forest-rgb), 0.12);
+  border-radius: 0.5rem;
 }
 
 .admin-analytics-view .admin-analytics-panel-title {

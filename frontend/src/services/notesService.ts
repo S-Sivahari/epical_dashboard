@@ -100,28 +100,23 @@ export async function getDailyBlockByDateForCopy(sourceDate: string, targetDate:
   return res.data
 }
 
+/** Replace target day's notes with copies from sourceDate (single request). */
+export async function copyNotesFromDate(sourceDate: string, targetDate: string) {
+  const res = await api.post<DailyNoteBlock>('/notes/copy-from-date', {
+    sourceDate,
+    targetDate,
+  })
+  return res.data
+}
+
 export async function getLatestDailyBlockBefore(beforeDate: string) {
   const res = await api.get<DailyNoteBlock>(`/notes/latest-before/${beforeDate}`)
   return res.data
 }
 
 export async function getOrCreateDailyBlock(date: string, status?: DailyNoteStatus) {
-  try {
-    return await getDailyBlockByDate(date)
-  } catch (err: unknown) {
-    const axiosErr = err as { response?: { status?: number } }
-    if (axiosErr.response?.status !== 404) throw err
-  }
-
-  try {
-    return await createDailyBlock(date, status)
-  } catch (err: unknown) {
-    const axiosErr = err as { response?: { status?: number } }
-    if (axiosErr.response?.status === 409) {
-      return await getDailyBlockByDate(date)
-    }
-    throw err
-  }
+  const res = await api.post<DailyNoteBlock>('/notes/ensure', { date, status })
+  return res.data
 }
 
 export async function createDailyBlock(date: string, status?: DailyNoteStatus) {
@@ -144,6 +139,22 @@ export async function deleteDailyBlock(id: string) {
 
 export async function createChildBlock(dailyBlockId: string, input: ChildBlockInput) {
   const res = await api.post<DailyNoteBlock>(`/notes/${dailyBlockId}/child-blocks`, input)
+  return res.data
+}
+
+export async function syncChildBlocks(
+  dailyBlockId: string,
+  payload: {
+    entries: Array<ChildBlockInput & { id?: string }>
+    deleteIds?: string[]
+  },
+) {
+  const res = await api.post<DailyNoteBlock>(`/notes/${dailyBlockId}/child-blocks/sync`, payload)
+  return res.data
+}
+
+export async function normalizeDailyBlockPerEmployee(dailyBlockId: string) {
+  const res = await api.post<DailyNoteBlock>(`/notes/${dailyBlockId}/normalize-per-employee`)
   return res.data
 }
 

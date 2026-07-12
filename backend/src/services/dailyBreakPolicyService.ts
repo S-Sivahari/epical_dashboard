@@ -12,6 +12,7 @@ import {
 } from './dailyBreakStateService';
 import { applySessionWorkedToTimesheetLogs } from './projectBreakDeductionService';
 import { computeSessionWorkedMs } from './workingTimeService';
+import { sessionQualifiesForDefaultBreak } from './checkoutBreakPolicy';
 
 export async function hasAnyDailyBreakRecordedForEmployee(
   employeeId: string,
@@ -115,7 +116,11 @@ export async function normalizeTodaysHalfDaySessions(employeeId: string): Promis
     const sessionBreakMs = computeUsedBreakMs(record, record.checkOutTime);
     let defaultDeduction = 0;
 
-    if (!anyBreakUsed && !defaultAlreadyApplied) {
+    if (
+      !anyBreakUsed &&
+      !defaultAlreadyApplied &&
+      sessionQualifiesForDefaultBreak(record.checkInTime, record.checkOutTime)
+    ) {
       defaultDeduction = DAILY_STANDARD_BREAK_MS;
       defaultAlreadyApplied = true;
     }
@@ -155,6 +160,9 @@ export async function reconcileTodaysDefaultDeductions(employeeId: string): Prom
   }).sort({ checkInTime: 1 });
 
   if (!firstSession?.checkOutTime) return;
+  if (!sessionQualifiesForDefaultBreak(firstSession.checkInTime, firstSession.checkOutTime)) {
+    return;
+  }
 
   firstSession.workDayType = 'full_day';
   const preview = computeSessionWorkedMs(

@@ -20,6 +20,8 @@ export function LeaveCard({
   used,
   total,
   remaining: remainingProp,
+  pending = 0,
+  approved,
   color,
   embedded = false,
   compact = false,
@@ -35,6 +37,11 @@ export function LeaveCard({
         : 0
   const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
   const isLop = type === 'LOP Days'
+  const pendingDays = Number(pending) || 0
+  const approvedDays =
+    approved != null && Number.isFinite(Number(approved))
+      ? Number(approved)
+      : Math.max(0, used - pendingDays)
 
   if (compact) {
     return (
@@ -59,13 +66,28 @@ export function LeaveCard({
         </div>
         <ul className="admin-leaves-balance-card__meta">
           {isLop ? (
-            <li className="admin-leaves-balance-card__meta-month">
-              <span>Availed this month:</span> <strong>{used}</strong> {dayLabel(used)}
-            </li>
+            <>
+              <li className="admin-leaves-balance-card__meta-month">
+                <span>This month:</span> <strong>{used}</strong> {dayLabel(used)}
+              </li>
+              {pendingDays > 0 ? (
+                <li>
+                  <span>Pending:</span> <strong>{pendingDays}</strong> {dayLabel(pendingDays)}
+                </li>
+              ) : null}
+              <li>
+                <span>Approved:</span> <strong>{approvedDays}</strong> {dayLabel(approvedDays)}
+              </li>
+            </>
           ) : (
             <>
               <li>
                 <span>Used:</span> <strong>{used}</strong> {dayLabel(used)}
+                {pendingDays > 0 ? (
+                  <span className="ml-1 text-[10px] font-medium text-amber-700">
+                    ({pendingDays} pending)
+                  </span>
+                ) : null}
               </li>
               <li>
                 <span>Total:</span> <strong>{total}</strong> {dayLabel(total)}

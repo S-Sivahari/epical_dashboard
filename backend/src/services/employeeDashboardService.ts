@@ -7,7 +7,6 @@ import * as companyCalendarEventService from '../services/companyCalendarEventSe
 import * as documentRequestService from '../services/documentRequestService';
 import { listEnrollments } from '../services/courseService';
 import { resolveEmployeeForAuthUser } from '../utils/employeeAuth';
-import { calculateBalances, calculateMonthlyLopSummary } from '../utils/leaveCalculator';
 import { buildAssignmentIdentityTokens } from '../utils/assignedTaskSync';
 import {
   getAssignedProjectsForUser,
@@ -97,8 +96,6 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
 
   const [
     profile,
-    leaves,
-    compCredits,
     holidays,
     calendarEvents,
     documents,
@@ -107,10 +104,9 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
     latestAttendance,
     monthSessions,
     projects,
+    leaves,
   ] = await Promise.all([
     getEmployeeProfileById(employeeDbId),
-    leaveService.getAllLeaves(employeeDbId),
-    leaveService.getCompensationLeaveCreditsForYear(employeeDbId),
     leaveService.getAllHolidays(),
     companyCalendarEventService.getAllCompanyCalendarEvents(),
     documentRequestService.listForEmployee(userId),
@@ -133,30 +129,10 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
       employeeRecord as any,
       { syncTasks: false },
     ),
+    leaveService.getAllLeaves(employeeDbId),
   ]);
 
-  const balanceOptions = {
-    compensationLeaveCredits: compCredits,
-    employeeAllocations: (employeeRecord as { leaveAllocations?: Record<string, number> }).leaveAllocations,
-    earnedLeaveMonthEndAccrual:
-      (employeeRecord as { earnedLeaveMonthEndAccrual?: boolean }).earnedLeaveMonthEndAccrual !== false,
-  };
-  const balances = calculateBalances(leaves, employeeRecord.joinedAt as string | undefined, balanceOptions);
-  const lop = calculateMonthlyLopSummary(
-    leaves,
-    employeeRecord.joinedAt as string | undefined,
-    balanceOptions,
-  );
-  const balancesWithLop = {
-    ...balances,
-    'LOP Days': {
-      total: 0,
-      used: lop.totalLopDays,
-      remaining: 0,
-      approved: lop.approvedLopDays,
-      pending: lop.pendingLopDays,
-    },
-  };
+  const balancesWithLop = await leaveService.getLeaveBalances(employeeDbId, new Date(), leaves);
 
   const sessionRows = monthSessions.map((s) => toFrontendTimesheetRow(s as any));
   const weekSessions = sessionRows.filter((s) => s.date && s.date >= weekFrom && s.date <= today);

@@ -9,13 +9,19 @@ export function DataTable({
   statusKey,
   compact = false,
   emptyMessage = 'No records found.',
+  emptyClassName,
   tableTheme,
   stickyHeader = false,
   embedded = false,
 }) {
   if (!data?.length) {
     return (
-      <div className="rounded-lg border border-dashed border-border bg-surface/30 px-4 py-10 text-center text-sm text-muted">
+      <div
+        className={cn(
+          'rounded-lg border border-dashed border-border bg-surface/30 px-4 py-10 text-center text-sm text-muted',
+          emptyClassName,
+        )}
+      >
         {emptyMessage}
       </div>
     )

@@ -14,11 +14,9 @@ import { ROUTES } from '@/constants/routes'
 import { isProjectAnalysisAdminPath } from '@pages/admin/Projects/projectPortal'
 import { NotesDelegationPanel } from '@components/notes/NotesDelegationPanel'
 import {
-  createChildBlock,
-  deleteChildBlock,
+  copyNotesFromDate,
   deleteDailyBlock,
   getDailyBlockByDate,
-  getDailyBlockByDateForCopy,
   getOrCreateDailyBlock,
   getNotesAccess,
   listDailyBlocksInRange,
@@ -41,7 +39,6 @@ import {
 } from '@/utils/notesSearchParams'
 import {
   formatWeekRangeLabel,
-  blockHasActiveNotes,
   getSundayOfWeek,
   getCalendarWeekDays,
   isCurrentCalendarWeek,
@@ -197,11 +194,13 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
     void (async () => {
       try {
         const updates: Record<string, DailyNoteBlock> = {}
-        for (const block of blocksToFix) {
-          const signature = `${block._id}:${block.updatedAt}`
-          normalizedBlockSignatures.current.add(signature)
-          updates[block.date] = await normalizePerEmployeeEntries(block)
-        }
+        await Promise.all(
+          blocksToFix.map(async (block) => {
+            const signature = `${block._id}:${block.updatedAt}`
+            normalizedBlockSignatures.current.add(signature)
+            updates[block.date] = await normalizePerEmployeeEntries(block)
+          }),
+        )
         setBlocksByDate((prev) => ({ ...prev, ...updates }))
       } catch (err: unknown) {
         const axiosErr = err as { response?: { data?: { error?: string } } }
@@ -406,72 +405,34 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
     if (!canCopyFromDay || isFutureNotesDay(todayDateKey)) return
     setBusy(true)
     try {
-      let sourceBlock = blocksByDate[sourceDateKey] ?? null
-      if (!sourceBlock || !blockHasActiveNotes(sourceBlock)) {
-        try {
-          sourceBlock = await getDailyBlockByDateForCopy(sourceDateKey, todayDateKey)
-        } catch (err: unknown) {
-          const axiosErr = err as { response?: { status?: number; data?: { error?: string } } }
-          if (axiosErr.response?.status === 404) {
-            setNotice({
-              kind: 'error',
-              title: 'Nothing to copy',
-              details: ['No notes were found for the selected day.'],
-            })
-            return
-          }
-          const message = axiosErr.response?.data?.error || 'Could not load notes for the selected day'
-          setNotice({ kind: 'error', title: 'Copy failed', details: [message] })
-          return
-        }
-      }
-
-      const sourceEntries = sourceBlock.childBlocks
-        .filter((child) => !child.archived)
-        .sort((a, b) => a.sortOrder - b.sortOrder)
-      if (sourceEntries.length === 0) {
-        setNotice({
-          kind: 'error',
-          title: 'Nothing to copy',
-          details: ['No notes were found for the selected day.'],
-        })
-        return
-      }
-
-      let todayBlock = blocksByDate[todayDateKey] ?? (await getOrCreateDailyBlock(todayDateKey))
-      const existingEntries = todayBlock.childBlocks.filter((child) => !child.archived)
-      for (const entry of existingEntries) {
-        todayBlock = await deleteChildBlock(todayBlock._id, entry._id)
-      }
-
-      for (const entry of sourceEntries) {
-        todayBlock = await createChildBlock(todayBlock._id, {
-          title: entry.title,
-          projectId: entry.projectId,
-          employeeIds: entry.employeeIds,
-          description: entry.description,
-          includeInEmail: entry.includeInEmail,
-        })
-      }
+      const todayBlock = await copyNotesFromDate(sourceDateKey, todayDateKey)
 
       setBlocksByDate((prev) => ({
         ...prev,
         [todayDateKey]: todayBlock,
-        [sourceDateKey]: sourceBlock,
       }))
       setSelectedDateKey(todayDateKey)
       setHighlightDateKey(todayDateKey)
       setCopyNotesModalOpen(false)
       const sourceLabel = format(parseISO(sourceDateKey), 'EEE dd MMM yyyy')
+      const copiedCount = todayBlock.childBlocks.filter((child) => !child.archived).length
       setNotice({
         kind: 'success',
         title: 'Notes copied',
         details: [
-          `Replaced today's notes with ${sourceEntries.length} note(s) from ${sourceLabel}. Review and edit before sending.`,
+          `Replaced today's notes with ${copiedCount} note(s) from ${sourceLabel}. Review and edit before sending.`,
         ],
       })
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } }
+      const axiosErr = err as { response?: { status?: number; data?: { error?: string } } }
+      if (axiosErr.response?.status === 404) {
+        setNotice({
+          kind: 'error',
+          title: 'Nothing to copy',
+          details: [axiosErr.response?.data?.error || 'No notes were found for the selected day.'],
+        })
+        return
+      }
       const message = axiosErr.response?.data?.error || 'Failed to copy notes'
       setNotice({ kind: 'error', title: 'Copy failed', details: [message] })
     } finally {

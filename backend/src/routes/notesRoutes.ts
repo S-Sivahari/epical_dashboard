@@ -18,6 +18,8 @@ router.get('/search', notesController.search);
 router.get('/search/options', notesController.searchOptions);
 router.get('/by-date/:date', notesController.getByDate);
 router.get('/latest-before/:date', notesController.getLatestBefore);
+router.post('/copy-from-date', notesController.copyFromDate);
+router.post('/ensure', notesController.ensure);
 router.get('/projects', notesController.listProjects);
 router.get('/employees', notesController.listEmployees);
 router.get('/projects/:projectId/employees', notesController.listProjectEmployees);
@@ -29,6 +31,8 @@ router.patch('/:id', notesController.update);
 router.delete('/:id', adminOnly, notesController.remove);
 
 router.put('/:id/child-blocks/reorder', notesController.reorderChildren);
+router.post('/:id/child-blocks/sync', notesController.syncChildren);
+router.post('/:id/normalize-per-employee', notesController.normalizePerEmployee);
 router.post('/:id/child-blocks', notesController.createChild);
 router.patch('/:id/child-blocks/:childId', notesController.updateChild);
 router.delete('/:id/child-blocks/:childId', notesController.removeChild);

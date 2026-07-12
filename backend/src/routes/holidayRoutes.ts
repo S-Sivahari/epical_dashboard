@@ -25,6 +25,7 @@ router.post(
   leaveController.importHolidaysFromExcel,
 );
 router.post('/', roleMiddleware('Admin'), leaveController.createHoliday);
+router.post('/bulk', roleMiddleware('Admin'), leaveController.createHolidaysBulk);
 router.put('/:id', roleMiddleware('Admin'), leaveController.updateHoliday);
 router.patch('/:id/skip', roleMiddleware('Admin'), leaveController.skipHoliday);
 router.delete('/:id', roleMiddleware('Admin'), leaveController.deleteHoliday);

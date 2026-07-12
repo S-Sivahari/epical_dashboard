@@ -339,13 +339,14 @@ export default function Timesheet() {
       setCheckoutReview(false)
       setCheckoutError('')
       await checkIn()
+      // Close as soon as attendance is marked — don't wait on task/cell start or history refresh.
+      setCheckInDialogOpen(false)
       try {
         const result = await startTask({
           assignedTaskId: selectedTaskId,
           description: String(workDescription || '').trim(),
           cellId,
         })
-        setCheckInDialogOpen(false)
         const projectLabel = selectedTask?.projectName || selectedTask?.title || 'your project'
         if (result?.cellWorkStarted) {
           toast({
@@ -417,6 +418,7 @@ export default function Timesheet() {
         await completeTask(currentWorkTask.timesheetId, summary)
       }
       await checkOut()
+      // Clear checkout UI as soon as attendance is closed — don't wait on history refresh.
       setCheckoutReview(false)
       reset({ assignedTaskId: '', description: '' })
       toast({
@@ -749,7 +751,6 @@ export default function Timesheet() {
                           disabled={submitting || used || onBreak || !canRecordBreaks}
                         >
                           <span className="emp-timesheet-break-btn-label">{option.label}</span>
-                          <span className="emp-timesheet-break-btn-duration">{option.durationMinutes} min</span>
                         </button>
                       )
                     })}

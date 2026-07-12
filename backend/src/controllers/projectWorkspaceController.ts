@@ -276,8 +276,7 @@ async function syncProjectProgress(projectId: Types.ObjectId) {
   return { total, completed, pct };
 }
 
-async function computeDependencyMeta(projectId: Types.ObjectId, cell: any) {
-  const allCells = await ProjectCellModel.find({ projectId });
+function computeDependencyMetaFromCells(allCells: any[], cell: any) {
   const completedIds = new Set(
     allCells.filter((c) => c.status === 'completed').map((c) => c._id.toString()),
   );
@@ -286,6 +285,11 @@ async function computeDependencyMeta(projectId: Types.ObjectId, cell: any) {
   const status = normalizeStatus(cell.status || 'ready');
   const isReady = !isBlocked && status === 'ready';
   return { isBlocked, isReady };
+}
+
+async function computeDependencyMeta(projectId: Types.ObjectId, cell: any) {
+  const allCells = await ProjectCellModel.find({ projectId });
+  return computeDependencyMetaFromCells(allCells, cell);
 }
 
 async function refreshBlockedStatuses(_projectId: Types.ObjectId) {
@@ -328,18 +332,16 @@ export const projectWorkspaceController = {
         buildWorkflowTimingMap(projectId, cells),
       ]);
       const cellsWithMeta = await enrichAssigneeNames(
-        await Promise.all(
-          cells.map(async (cell) => {
-            const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
-            const cellId = cell._id.toString();
-            return toCell(
-              cell,
-              meta,
-              durationMap.get(cellId),
-              timingMap.get(cellId),
-            );
-          }),
-        ),
+        cells.map((cell) => {
+          const meta = computeDependencyMetaFromCells(cells, cell);
+          const cellId = cell._id.toString();
+          return toCell(
+            cell,
+            meta,
+            durationMap.get(cellId),
+            timingMap.get(cellId),
+          );
+        }),
       );
 
       const cellCount = cells.length;

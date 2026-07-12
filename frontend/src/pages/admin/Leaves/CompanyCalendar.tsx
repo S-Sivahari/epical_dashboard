@@ -363,20 +363,10 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
         })
       } else {
         const existingDates = new Set(holidays.map((h) => h.date))
-        let created = 0
-        let skipped = 0
+        const datesToCreate = datesToSave.filter((isoDate) => !existingDates.has(isoDate))
+        const skipped = datesToSave.length - datesToCreate.length
 
-        for (const isoDate of datesToSave) {
-          if (existingDates.has(isoDate)) {
-            skipped += 1
-            continue
-          }
-          await leaveService.addHoliday({ title, date: isoDate, type })
-          existingDates.add(isoDate)
-          created += 1
-        }
-
-        if (created === 0) {
+        if (datesToCreate.length === 0) {
           toast.error(
             skipped > 0
               ? 'No new holidays added — selected date(s) already exist on the calendar'
@@ -385,8 +375,25 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
           return
         }
 
-        if (skipped > 0) {
-          toast.message(`${skipped} date(s) skipped (already on calendar)`)
+        const result = await leaveService.addHolidaysBulk({
+          title,
+          type,
+          dates: datesToCreate,
+        })
+        const created = result.created.length
+
+        if (created === 0) {
+          toast.error(
+            skipped > 0 || result.skippedDates.length > 0
+              ? 'No new holidays added — selected date(s) already exist on the calendar'
+              : 'No holidays were added',
+          )
+          return
+        }
+
+        const totalSkipped = skipped + result.skippedDates.length
+        if (totalSkipped > 0) {
+          toast.message(`${totalSkipped} date(s) skipped (already on calendar)`)
         }
       }
 

@@ -511,6 +511,24 @@
   z-index: 1;
 }
 
+/* Analytics filters — allow employee dropdown to escape the mint bar and sit above the panel */
+.admin-analytics-view .admin-analytics-filters-bar {
+  position: relative;
+  z-index: 40;
+  overflow: visible !important;
+}
+
+.admin-analytics-view .admin-analytics-main-panel {
+  position: relative;
+  z-index: 1;
+}
+
+/* Analytics panel title — inset from left accent stripe */
+.admin-analytics-view .admin-analytics-panel-header {
+  padding-left: 1.25rem !important;
+  padding-right: 1rem !important;
+}
+
 /* Training + Documents panel headers — inset text from left accent stripe */
 .admin-training-view .admin-training-panel-header,
 .admin-documents-view .admin-documents-panel-header {
@@ -1391,12 +1409,24 @@
 
 [data-employee-dashboard] .emp-dash-session-panel__timer {
   margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 1.75rem;
   font-weight: 800;
   line-height: 1;
   letter-spacing: 0.02em;
   color: #1a4329;
+}
+
+[data-employee-dashboard] .emp-dash-session-panel__today-worked {
+  font-size: 0.8125rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: #475569;
+  white-space: nowrap;
 }
 
 [data-employee-dashboard] .emp-dash-session-panel__since {

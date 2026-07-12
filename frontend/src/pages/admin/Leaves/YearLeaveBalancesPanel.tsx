@@ -250,14 +250,23 @@ export function YearLeaveBalancesPanel({
   return (
     <div className="admin-leaves-year-balances-panel">
       <div className="admin-leaves-year-balances-search-wrap">
-        <Search className="admin-leaves-year-balances-search-icon" />
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name, ID, or department..."
-          className="admin-leaves-year-balances-search"
-        />
+        <div className="admin-leaves-year-balances-search-field">
+          <Search className="admin-leaves-year-balances-search-icon" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, ID, or department..."
+            className="admin-leaves-year-balances-search"
+          />
+        </div>
+        {!loading ? (
+          <span className="admin-leaves-year-balances-count" aria-live="polite">
+            {filteredRows.length}
+            {search.trim() ? ` of ${rows.length}` : ''} employee
+            {(search.trim() ? filteredRows.length : rows.length) === 1 ? '' : 's'}
+          </span>
+        ) : null}
       </div>
 
       <div className="admin-leaves-year-balances-list admin-leaves-scroll">

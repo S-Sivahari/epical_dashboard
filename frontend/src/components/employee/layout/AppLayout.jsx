@@ -6,6 +6,7 @@ import { EmployeeCommandBar } from './EmployeeCommandBar'
 import { EmployeePageShell } from './EmployeePageShell'
 import { EmployeeTopNav } from './EmployeeTopNav'
 import { EmployeeNavWheel } from './EmployeeNavWheel'
+import { SecretQuickSidebar } from '@components/layout/SecretQuickSidebar'
 import { EmployeePageTransition } from './EmployeePageTransition'
 import { EmployeePageLoading } from './EmployeePageLoading'
 import { EmployeeTimesheetSync } from '@components/employee/shared/EmployeeTimesheetSync'
@@ -46,6 +47,7 @@ export function AppLayout() {
       <EmployeeTimesheetSync />
       <EmployeeAuthProfileSync />
       <EmployeeNavWheel />
+      <SecretQuickSidebar />
       {!isProjectAnalysis ? (
         <div className="employee-portal-chrome relative z-20 shrink-0">
           <EmployeeCommandBar />

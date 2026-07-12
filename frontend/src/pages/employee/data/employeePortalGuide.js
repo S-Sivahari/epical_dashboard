@@ -64,13 +64,13 @@ export const employeePortalGuideSections = [
       'Each type shows used and left (LOP shows count only). Pending is leave you applied for but admin has not approved yet.',
       'When you submit, the system compares remaining balance to the business days you requested (0.5 for half-day).',
       'If remaining is less than requested days, submission fails with an insufficient balance message — the request is not created.',
-      'If admin approves but your balance was used up by other approvals in the meantime, approval can fail; your status may stay Pending or become Rejected with a reason.',
-      'Casual and Sick leave usage is counted for the current calendar month; balances refresh at the start of each month.',
+      'When a request is pending, Used goes up and Remaining goes down in your leave boxes right away (reserved).',
+      'If admin approves, that change stays. If the request is rejected or you cancel it, the days return to your balance.',
       'Earned leave is tracked for the calendar year (0.5 days per month). Compensation leave comes from admin credits.',
     ],
     notes: [
       'Applying when balance is zero: sick and compensation types are hidden; casual and earned stay visible but cannot be submitted — use LOP. If requested days exceed casual or earned balance, submit separate casual/earned and LOP requests.',
-      'Pending days do not reduce your left count until approved, but pending sick days are reserved when you apply.',
+      'Pending days are reserved in your balance boxes until approved, rejected, or cancelled.',
       'Compensation credits from admin appear in your Compensation balance on the same page.',
     ],
   },
@@ -170,19 +170,16 @@ export const employeePortalGuideSections = [
   {
     key: 'shortcuts',
     title: 'Shortcuts & quick settings',
-    summary: 'Navigation wheel, notification sounds, and the hidden quick panel.',
+    summary: 'Navigation wheel and the hidden quick panel.',
     linkTo: '/employee/help',
     linkLabel: 'Employee Guide',
     steps: [
       'Navigation wheel — hold Ctrl+Shift anywhere in the portal to open the radial menu. Tap Shift to move to the next section, or hold Shift to cycle quickly. Release Ctrl to jump to the highlighted page.',
       'Quick panel — press Ctrl+Left Arrow to slide open a panel from the right with a live clock and timezone picker.',
-      'Notification sound — in the quick panel, use Import sound to upload an audio file from your device (saved in this browser). Tap Test to preview; Reset returns to the default app sound.',
-      'Imported sounds play for your dashboard notifications (alerts, updates, etc.) on this device.',
       'Close the quick panel with the × button, by clicking outside, or press Ctrl+Left Arrow again.',
     ],
     notes: [
       'Shortcuts are disabled while typing in a form field.',
-      'Custom notification sounds are stored locally in your browser, not on the server.',
     ],
   },
 ]

@@ -667,6 +667,52 @@ export const leaveController = {
     }
   },
 
+  // POST /api/holidays/bulk
+  createHolidaysBulk: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { title, dates, description, type } = req.body;
+      const titleText = String(title ?? '').trim();
+      const dateList = Array.isArray(dates)
+        ? dates.map((d: unknown) => String(d).trim()).filter(Boolean)
+        : [];
+      if (!titleText || dateList.length === 0) {
+        res.status(400).json({ error: 'Title and dates[] are required' });
+        return;
+      }
+      if (dateList.some((d: string) => !/^\d{4}-\d{2}-\d{2}$/.test(d))) {
+        res.status(400).json({ error: 'Each date must be YYYY-MM-DD' });
+        return;
+      }
+
+      const holidayType = type || 'National';
+      if (!isValidHolidayType(holidayType)) {
+        res.status(400).json({ error: 'Invalid holiday type' });
+        return;
+      }
+
+      const result = await leaveService.createHolidaysBulk(
+        { title: titleText, type: holidayType, description },
+        dateList,
+      );
+
+      if (result.created.length > 0 && !isCalendarEventHolidayType(holidayType)) {
+        void notificationService.notifyAllEmployees({
+          type: 'HolidayAdded',
+          title: 'New Holidays Added',
+          message: `${titleText} was added for ${result.created.length} date(s) on the company calendar.`,
+          relatedData: {
+            holidayTitle: titleText,
+            holidayDates: result.created.map((h) => h.date),
+          },
+        });
+      }
+
+      res.status(201).json(result);
+    } catch {
+      res.status(500).json({ error: 'Failed to create holidays' });
+    }
+  },
+
   // PUT /api/holidays/:id
   updateHoliday: async (req: Request, res: Response): Promise<void> => {
     try {

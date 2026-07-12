@@ -136,24 +136,45 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
     }
   },
   approveLeave: async (id) => {
-    await leaveService.approveLeave(id)
-    await get().fetchLeaves()
+    const updated = await leaveService.approveLeave(id)
+    if (updated?.id) {
+      set({
+        leaves: get().leaves.map((l) => (l.id === updated.id ? updated : l)),
+      })
+    }
+    void get().fetchLeaves().catch(() => {})
   },
   rejectLeave: async (id, reason) => {
-    await leaveService.rejectLeave(id, reason)
-    await get().fetchLeaves()
+    const updated = await leaveService.rejectLeave(id, reason)
+    if (updated?.id) {
+      set({
+        leaves: get().leaves.map((l) => (l.id === updated.id ? updated : l)),
+      })
+    }
+    void get().fetchLeaves().catch(() => {})
   },
   cancelLeave: async (id) => {
-    await leaveService.cancelLeave(id)
-    await get().fetchLeaves()
+    const updated = await leaveService.cancelLeave(id)
+    if (updated?.id) {
+      set({
+        leaves: get().leaves.map((l) => (l.id === updated.id ? updated : l)),
+      })
+    }
+    void get().fetchLeaves().catch(() => {})
   },
   revokeApprovedLeave: async (id, reason) => {
-    await leaveService.revokeApprovedLeave(id, reason)
-    await get().fetchLeaves()
+    const updated = await leaveService.revokeApprovedLeave(id, reason)
+    if (updated?.id) {
+      set({
+        leaves: get().leaves.map((l) => (l.id === updated.id ? updated : l)),
+      })
+    }
+    void get().fetchLeaves().catch(() => {})
   },
   deleteLeave: async (id) => {
     await leaveService.deleteLeave(id)
-    await get().fetchLeaves()
+    set({ leaves: get().leaves.filter((l) => l.id !== id) })
+    void get().fetchLeaves().catch(() => {})
   },
   deleteAllLeaves: async () => {
     const { deletedCount } = await leaveService.deleteAllLeaves()
@@ -161,31 +182,45 @@ export const useLeaveStore = create<LeaveState>((set, get) => ({
     return deletedCount
   },
   addHoliday: async (h) => {
-    await leaveService.addHoliday(h)
-    await get().fetchHolidays()
+    const created = await leaveService.addHoliday(h)
+    if (created?.id) {
+      set({ holidays: [...get().holidays, created] })
+    }
+    void get().fetchHolidays().catch(() => {})
   },
   updateHoliday: async (id, h) => {
-    await leaveService.updateHoliday(id, h)
-    await get().fetchHolidays()
+    const updated = await leaveService.updateHoliday(id, h)
+    if (updated?.id) {
+      set({
+        holidays: get().holidays.map((x) => (x.id === updated.id ? updated : x)),
+      })
+    }
+    void get().fetchHolidays().catch(() => {})
   },
   deleteHoliday: async (id) => {
     await leaveService.deleteHoliday(id)
-    await get().fetchHolidays()
+    set({ holidays: get().holidays.filter((x) => x.id !== id) })
+    void get().fetchHolidays().catch(() => {})
   },
   skipHoliday: async (id, reason) => {
-    await leaveService.skipHoliday(id, reason)
-    await get().fetchHolidays()
+    const updated = await leaveService.skipHoliday(id, reason)
+    if (updated?.id) {
+      set({
+        holidays: get().holidays.map((x) => (x.id === updated.id ? updated : x)),
+      })
+    }
+    void get().fetchHolidays().catch(() => {})
   },
   addCompanyCalendarEvent: async (payload) => {
     await calendarEventService.createCompanyCalendarEvent(payload)
-    await get().fetchHolidays()
+    void get().fetchHolidays().catch(() => {})
   },
   updateCompanyCalendarEvent: async (id, payload) => {
     await calendarEventService.updateCompanyCalendarEvent(id, payload)
-    await get().fetchHolidays()
+    void get().fetchHolidays().catch(() => {})
   },
   deleteCompanyCalendarEvent: async (id) => {
     await calendarEventService.deleteCompanyCalendarEvent(id)
-    await get().fetchHolidays()
+    void get().fetchHolidays().catch(() => {})
   },
 }))

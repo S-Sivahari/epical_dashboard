@@ -2889,6 +2889,18 @@
   text-align: center;
 }
 
+.notes-notepad-pad__read-only-hint--sent {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid rgba(47, 107, 79, 0.2);
+  background: rgba(47, 107, 79, 0.1);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #1a4329;
+  letter-spacing: 0.01em;
+}
+
 .notes-controls-panel .notes-toolbar__search-input {
   background: rgba(255, 255, 255, 0.78);
   border-color: rgba(45, 122, 106, 0.16);
@@ -3820,6 +3832,11 @@
 [data-admin-notes] .notes-day-card__meta,
 [data-admin-notes] .notes-day-card__badge {
   font-size: calc(1em * var(--notes-font-scale));
+}
+
+[data-admin-notes] .notes-notepad-pad__read-only-hint--sent {
+  /* Bypass --notes-font-scale so the lock message stays readable */
+  font-size: 0.875rem !important;
 }
 
 [data-admin-notes] .notes-notepad-pad__letter {

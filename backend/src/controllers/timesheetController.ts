@@ -216,6 +216,18 @@ export const timesheetController = {
   // GET /api/timesheets
   getAll: async (req: Request, res: Response): Promise<void> => {
     try {
+      const idsParam = typeof req.query.ids === 'string' ? req.query.ids : '';
+      if (idsParam.trim()) {
+        const ids = idsParam
+          .split(',')
+          .map((id) => id.trim())
+          .filter((id) => Types.ObjectId.isValid(id))
+          .map((id) => new Types.ObjectId(id));
+        const entries = await TimesheetModel.find({ _id: { $in: ids } }).lean();
+        res.json(entries.map((t) => toFrontendTimesheet(t)));
+        return;
+      }
+
       const match = await buildMatchStage(req);
       const entries = await TimesheetModel.find(match)
         .select({

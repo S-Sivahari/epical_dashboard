@@ -274,6 +274,8 @@ export default function Dashboard() {
                           used={lb.used}
                           total={lb.total}
                           remaining={lb.remaining}
+                          pending={lb.pending}
+                          approved={lb.approved}
                         />
                       ))}
                     </div>

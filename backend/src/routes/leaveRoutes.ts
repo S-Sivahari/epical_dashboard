@@ -61,6 +61,7 @@ router.delete('/:id', roleMiddleware('Admin'), leaveController.delete);
 // Holidays (prefer /api/holidays for admin writes; these mirror read access)
 router.get('/holidays', leaveController.getHolidays);
 router.post('/holidays', roleMiddleware('Admin'), leaveController.createHoliday);
+router.post('/holidays/bulk', roleMiddleware('Admin'), leaveController.createHolidaysBulk);
 router.put('/holidays/:id', roleMiddleware('Admin'), leaveController.updateHoliday);
 router.patch('/holidays/:id/skip', roleMiddleware('Admin'), leaveController.skipHoliday);
 router.delete('/holidays/:id', roleMiddleware('Admin'), leaveController.deleteHoliday);

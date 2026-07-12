@@ -136,12 +136,29 @@ export function ProjectTasksModal({
         .map((a) => a.timesheetId as string)
 
       if (missingTimesheetIds.length > 0) {
-        const extras = await Promise.all(
-          missingTimesheetIds.map((id) =>
-            api.get(`/timesheets/${id}`).then((r) => r.data as TimesheetEntry).catch(() => null)
+        try {
+          const batch = await api.get('/timesheets', {
+            params: { ids: missingTimesheetIds.join(',') },
+          })
+          const rows = Array.isArray(batch.data) ? (batch.data as TimesheetEntry[]) : []
+          if (rows.length > 0) {
+            mergedEntries = [...mergedEntries, ...rows.filter((e) => e && !knownIds.has(e.id))]
+          } else {
+            const extras = await Promise.all(
+              missingTimesheetIds.map((id) =>
+                api.get(`/timesheets/${id}`).then((r) => r.data as TimesheetEntry).catch(() => null),
+              ),
+            )
+            mergedEntries = [...mergedEntries, ...extras.filter((e): e is TimesheetEntry => !!e)]
+          }
+        } catch {
+          const extras = await Promise.all(
+            missingTimesheetIds.map((id) =>
+              api.get(`/timesheets/${id}`).then((r) => r.data as TimesheetEntry).catch(() => null),
+            ),
           )
-        )
-        mergedEntries = [...mergedEntries, ...extras.filter((e): e is TimesheetEntry => !!e)]
+          mergedEntries = [...mergedEntries, ...extras.filter((e): e is TimesheetEntry => !!e)]
+        }
       }
 
       setEntries(mergedEntries)

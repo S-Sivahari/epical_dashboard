@@ -272,7 +272,117 @@ async function projectsForAttendanceWindow(
     .sort({ loginTime: 1 })
     .lean();
 
-  return Array.from(new Set(tasks.map((t) => String(t.project || '').trim()).filter(Boolean)));
+  return projectsFromTasksForWindow(tasks, checkInTime, windowEnd);
+}
+
+function projectsFromTasksForWindow(
+  tasks: Array<{ project?: string | null; loginTime?: Date | string; logoutTime?: Date | string | null }>,
+  checkInTime: Date,
+  windowEnd: Date,
+): string[] {
+  const checkInMs = checkInTime.getTime();
+  const endMs = windowEnd.getTime();
+  const names: string[] = [];
+  const seen = new Set<string>();
+
+  for (const task of tasks) {
+    const loginMs = new Date(task.loginTime as Date).getTime();
+    if (!Number.isFinite(loginMs) || loginMs < checkInMs || loginMs > endMs) continue;
+    const logout = task.logoutTime ? new Date(task.logoutTime).getTime() : null;
+    if (logout != null && Number.isFinite(logout) && logout < checkInMs) continue;
+    const project = String(task.project || '').trim();
+    if (!project || seen.has(project)) continue;
+    seen.add(project);
+    names.push(project);
+  }
+  return names;
+}
+
+/** Batch-load timesheets once, then enrich many attendance rows in memory. */
+export async function enrichAttendanceHistoryRows(
+  records: Array<{
+    _id: { toString(): string };
+    employeeId: string;
+    employeeName: string;
+    date: string;
+    checkInTime: Date;
+    checkOutTime?: Date | null;
+    sessionStatus?: string;
+    autoCheckedOut?: boolean;
+    workDayType?: 'half_day' | 'full_day' | null;
+    sessionWorkedMs?: number | null;
+    defaultBreakDeductedMs?: number | null;
+    morningBreakAt?: Date | null;
+    lunchBreakAt?: Date | null;
+    eveningBreakAt?: Date | null;
+    morningBreakMs?: number | null;
+    lunchBreakMs?: number | null;
+    eveningBreakMs?: number | null;
+    activeBreakType?: 'morning' | 'lunch' | 'evening' | null;
+    activeBreakStartedAt?: Date | null;
+    activeBreakEndsAt?: Date | null;
+  }>,
+  identityTokens: string[] = [],
+): Promise<WorkSessionRow[]> {
+  if (records.length === 0) return [];
+
+  const tokens = Array.from(
+    new Set(
+      [
+        ...identityTokens,
+        ...records.flatMap((r) => [r.employeeId, r.employeeName]),
+      ]
+        .map((value) => String(value || '').trim())
+        .filter(Boolean),
+    ),
+  );
+
+  let tasks: Array<{ project?: string | null; loginTime?: Date | string; logoutTime?: Date | string | null }> = [];
+  if (tokens.length > 0) {
+    const minCheckIn = Math.min(...records.map((r) => new Date(r.checkInTime).getTime()));
+    const maxEnd = Math.max(
+      ...records.map((r) =>
+        r.checkOutTime ? new Date(r.checkOutTime).getTime() : Date.now(),
+      ),
+    );
+    tasks = await TimesheetModel.find({
+      $and: [
+        { $or: [{ employeeId: { $in: tokens } }, { employee: { $in: tokens } }] },
+        { loginTime: { $gte: new Date(minCheckIn), $lte: new Date(maxEnd) } },
+      ],
+    })
+      .select({ project: 1, loginTime: 1, logoutTime: 1 })
+      .sort({ loginTime: 1 })
+      .lean();
+  }
+
+  return records.map((attendance) => {
+    const checkInTime = new Date(attendance.checkInTime);
+    const windowEnd = attendance.checkOutTime ? new Date(attendance.checkOutTime) : new Date();
+    const projectNames = projectsFromTasksForWindow(tasks, checkInTime, windowEnd);
+    const { displayWorkedMs, displayBreakMs } = resolveAttendanceHistoryMetrics(attendance);
+    const breakMs = sessionBreakMs(attendance);
+
+    return {
+      id: String(attendance._id),
+      employeeId: attendance.employeeId,
+      employeeName: attendance.employeeName,
+      project: projectNames.length === 1 ? projectNames[0] : projectNames.length > 1 ? 'Multiple' : '—',
+      projects: projectNames,
+      date: attendance.date,
+      loginTime: checkInTime.toISOString(),
+      logoutTime: attendance.checkOutTime ? new Date(attendance.checkOutTime).toISOString() : undefined,
+      breakMs,
+      displayBreakMs,
+      displayWorkedMs,
+      defaultBreakDeductedMs: attendance.defaultBreakDeductedMs ?? 0,
+      workDayType: attendance.workDayType ?? (attendance.autoCheckedOut ? 'full_day' : null),
+      sessionStatus: attendance.checkOutTime
+        ? (attendance.sessionStatus ?? 'Completed')
+        : (attendance.sessionStatus ?? 'Active'),
+      autoCheckedOut: attendance.autoCheckedOut ?? false,
+    };
+  });
 }
 
 function workedMsFromTimesheetRow(task: {

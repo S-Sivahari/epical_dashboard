@@ -6,7 +6,9 @@ import { Textarea } from '@components/employee/ui/textarea'
 import { LiveSessionTimer } from '@pages/employee/TimesheetLiveSessionPanel'
 import { EmployeeBreakTimeToday } from '@components/employee/shared/EmployeeBreakTimeToday'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
+import { useAttendanceWeeklyHours } from '@hooks/useAttendanceWeeklyHours'
 import { useToast } from '@components/employee/shared/ToastProvider'
+import { formatWorkedDuration } from '@utils/durationFormat'
 import { cn } from '@pages/employee/lib/utils'
 
 function resolveCheckInTime(value) {
@@ -54,9 +56,12 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
   const checkOut = useTimesheetStore((s) => s.checkOut)
   const completeTask = useTimesheetStore((s) => s.completeTask)
   const hydrate = useTimesheetStore((s) => s.hydrate)
+  const { todayMs } = useAttendanceWeeklyHours()
 
   const resolvedCheckIn = useMemo(() => resolveCheckInTime(checkInTime), [checkInTime])
   const currentWorkTask = activeTask || pausedTasks?.[0] || null
+  const showTodayWorked = todayMs > 0
+  const todayWorkedLabel = formatWorkedDuration(todayMs)
 
   useEffect(() => {
     void hydrate()
@@ -94,6 +99,7 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
         await completeTask(currentWorkTask.timesheetId, summary)
       }
       await checkOut()
+      // Clear checkout UI as soon as attendance is closed — don't wait on history refresh.
       setCheckoutReview(false)
       setWorkSummary('')
       toast({
@@ -234,6 +240,11 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
               backendElapsedLastFetch={backendElapsedLastFetch}
               inline
             />
+            {showTodayWorked ? (
+              <span className="emp-dash-session-panel__today-worked" title="Total worked today">
+                · Today {todayWorkedLabel}
+              </span>
+            ) : null}
           </p>
 
           <EmployeeBreakTimeToday

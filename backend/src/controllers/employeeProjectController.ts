@@ -38,10 +38,10 @@ function normalizeStatus(value: string): CellStatus {
   return 'ready';
 }
 
-async function computeDependencyMeta(projectId: Types.ObjectId, cell: any) {
-  const allCells = await ProjectCellModel.find({ projectId });
+async function computeDependencyMeta(projectId: Types.ObjectId, cell: any, allCells?: any[]) {
+  const cells = allCells ?? (await ProjectCellModel.find({ projectId }));
   const completedIds = new Set(
-    allCells.filter((c) => c.status === 'completed').map((c) => c._id.toString()),
+    cells.filter((c) => c.status === 'completed').map((c) => c._id.toString()),
   );
   const deps = (cell.dependencyCellIds || []).map((id: Types.ObjectId) => id.toString());
   const isBlocked = deps.length > 0 && deps.some((depId: string) => !completedIds.has(depId));
@@ -561,7 +561,7 @@ export const employeeProjectController = {
       const cellsWithMeta = await enrichAssigneeNames(
         await Promise.all(
           cells.map(async (cell) => {
-            const meta = await computeDependencyMeta(projectObjectId, cell);
+            const meta = await computeDependencyMeta(projectObjectId, cell, cells);
             return toEmployeeCellWithTiming(cell, tokens, meta);
           }),
         ),
@@ -988,7 +988,7 @@ export const employeeProjectController = {
       const cells = await ProjectCellModel.find({ projectId });
       const nodes = await Promise.all(
         cells.map(async (cell) => {
-          const meta = await computeDependencyMeta(projectObjectId, cell);
+          const meta = await computeDependencyMeta(projectObjectId, cell, cells);
           return {
             id: cell._id.toString(),
             name: cell.name,

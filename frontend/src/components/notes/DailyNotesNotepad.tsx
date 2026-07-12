@@ -240,10 +240,12 @@ export function DailyNotesNotepad({
               ) : null}
 
               {hasBlock && isEmailSent && !isEditing ? (
-                <p className="notes-notepad-pad__read-only-hint">
-                  Notes for this day have been sent and can no longer be edited.
+                <p className="notes-notepad-pad__read-only-hint notes-notepad-pad__read-only-hint--sent">
+                  Email sent — this day&apos;s notes are locked and can no longer be changed.
                 </p>
-              ) : hasBlock && !canEdit && !isEditing ? (
+              ) : null}
+
+              {hasBlock && !canEdit && !isEmailSent && !isEditing ? (
                 <p className="notes-notepad-pad__read-only-hint">
                   View only — you are not assigned to manage notes for this date.
                 </p>

@@ -23,14 +23,29 @@ export function getCurrentMonthDateRange() {
   return { from: formatDateKey(first), to: formatDateKey(last) }
 }
 
+/** Current calendar year as YYYY-MM-DD (local), for yearly leave request views. */
+export function getCurrentYearDateRange(refDate = new Date()) {
+  const year = refDate.getFullYear()
+  return { from: `${year}-01-01`, to: `${year}-12-31` }
+}
+
 export function getCurrentMonthKey() {
   const now = new Date()
   return `${now.getFullYear()}-${now.getMonth()}`
 }
 
+export function getCurrentYearKey(refDate = new Date()) {
+  return String(refDate.getFullYear())
+}
+
 export function formatMonthLabel(monthStart: string) {
   const d = new Date(`${monthStart}T12:00:00`)
   return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+}
+
+export function formatYearLabel(yearStart: string) {
+  const year = yearStart.slice(0, 4)
+  return year || String(new Date().getFullYear())
 }
 
 /** True when a YYYY-MM-DD key falls within [from, to] inclusive. */
@@ -42,8 +57,8 @@ export const defaultLeaveFilters: LeaveFilters = {
   selectedEmployees: [],
   status: 'All',
   leaveType: '',
-  dateFrom: getCurrentMonthDateRange().from,
-  dateTo: getCurrentMonthDateRange().to,
+  dateFrom: getCurrentYearDateRange().from,
+  dateTo: getCurrentYearDateRange().to,
 }
 
 /** True when leave period [from, to] overlaps filter range [dateFrom, dateTo]. */

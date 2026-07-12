@@ -175,13 +175,16 @@ export default function RaiseTickets() {
   }
 
   return (
-    <div className="max-w-full space-y-5 overflow-x-hidden" data-employee-tickets>
-      <div className="grid gap-5 lg:grid-cols-2 lg:items-stretch">
+    <div
+      className="emp-tickets-page flex min-h-0 w-full flex-1 flex-col overflow-hidden"
+      data-employee-tickets
+    >
+      <div className="emp-tickets-layout">
         <InteractiveCard
           as="form"
           selectable={false}
           onSubmit={handleSubmit(onSubmit)}
-          className={cn(CARD_CLASS, 'flex h-full flex-col')}
+          className={cn(CARD_CLASS, 'emp-tickets-panel flex h-full flex-col')}
         >
           <SectionHeader
             icon={Ticket}
@@ -234,14 +237,14 @@ export default function RaiseTickets() {
           </div>
         </InteractiveCard>
 
-        <InteractiveCard className={cn(CARD_CLASS, 'flex h-full min-h-0 flex-col')}>
+        <InteractiveCard className={cn(CARD_CLASS, 'emp-tickets-panel flex h-full min-h-0 flex-col')}>
           <SectionHeader
             icon={History}
             title="Ticket history"
             description="Status updates and remarks from the support team"
           />
 
-          <div className="flex min-h-0 flex-1 flex-col">
+          <div className="emp-tickets-history-body">
             {ticketsLoading && displayTickets.length === 0 ? (
               <div className="flex flex-1 items-center justify-center gap-2 py-12 text-sm text-muted">
                 <Loader className="h-5 w-5 animate-spin text-primary" />
@@ -249,13 +252,14 @@ export default function RaiseTickets() {
               </div>
             ) : (
               <>
-                <div className="min-h-0 flex-1">
+                <div className="emp-tickets-table-wrap">
                   <DataTable
                     columns={columns}
                     data={pagedTickets}
                     statusKey="status"
                     compact
                     emptyMessage="No tickets yet. Submit your first request using the form."
+                    emptyClassName="emp-tickets-empty"
                   />
                 </div>
 

@@ -72,7 +72,7 @@ import {
   workingMsToDecimalHours,
   type WorkDayType,
 } from '../services/workingTimeService';
-import { enrichAttendanceSessionRow } from '../services/workSessionService';
+import { enrichAttendanceHistoryRows } from '../services/workSessionService';
 
 type ResolvedEmployee = {
   id: string;
@@ -143,21 +143,20 @@ async function enrichAttendanceHistoryForEmployee(
   records: Array<InstanceType<typeof EmployeeAttendanceModel>>,
   identityTokens: string[],
 ) {
-  return Promise.all(
-    records.map(async (record) => {
-      const base = toFrontendAttendance(record);
-      const session = await enrichAttendanceSessionRow(record, identityTokens);
-      return {
-        ...base,
-        breakMs: session.breakMs,
-        displayBreakMs: session.displayBreakMs,
-        defaultBreakDeductedMs: record.defaultBreakDeductedMs ?? 0,
-        project: session.project,
-        projects: session.projects,
-        displayWorkedMs: session.displayWorkedMs,
-      };
-    }),
-  );
+  const sessions = await enrichAttendanceHistoryRows(records, identityTokens);
+  return records.map((record, index) => {
+    const base = toFrontendAttendance(record);
+    const session = sessions[index];
+    return {
+      ...base,
+      breakMs: session?.breakMs,
+      displayBreakMs: session?.displayBreakMs,
+      defaultBreakDeductedMs: record.defaultBreakDeductedMs ?? 0,
+      project: session?.project,
+      projects: session?.projects,
+      displayWorkedMs: session?.displayWorkedMs,
+    };
+  });
 }
 
 function toFrontendAttendance(a: {
@@ -920,6 +919,8 @@ export const employeeTimesheetController = {
       const defaultBreakDeductionMs = await resolveDefaultCheckoutBreakDeduction(
         employee.id,
         attendance.date,
+        attendance.checkInTime,
+        now,
       );
 
       const sessionPreview = computeSessionWorkedMs(

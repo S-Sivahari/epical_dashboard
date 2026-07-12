@@ -27,6 +27,17 @@ function assertDateKey(date: string): string {
   return trimmed;
 }
 
+function assertDailyBlockEditable(doc: { status?: DailyNoteStatus; archived?: boolean }) {
+  if (doc.archived) {
+    throw Object.assign(new Error('Archived daily notes cannot be changed.'), { status: 400 });
+  }
+  if (doc.status === 'email_sent') {
+    throw Object.assign(new Error('Email already sent — this day\'s notes are locked and cannot be changed.'), {
+      status: 400,
+    });
+  }
+}
+
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -408,6 +419,288 @@ export async function createDailyBlock(
   return serializeDailyBlock(doc.toObject() as unknown as Record<string, unknown>);
 }
 
+/**
+ * Replace target day's active notes with copies from sourceDate in a single save.
+ * Archived notes on the target day are preserved.
+ */
+export async function replaceDailyNotesFromDate(
+  sourceDate: string,
+  targetDate: string,
+  userId: string,
+  email?: string,
+) {
+  const sourceKey = assertDateKey(sourceDate);
+  const targetKey = assertDateKey(targetDate);
+  if (sourceKey >= targetKey) {
+    throw Object.assign(new Error('Copy source must be a day before the target date'), { status: 400 });
+  }
+
+  const sourceDoc = await DailyNoteBlockModel.findOne({ date: sourceKey }).lean();
+  if (!sourceDoc) {
+    throw Object.assign(new Error('No notes were found for the selected day.'), { status: 404 });
+  }
+
+  const sourceChildren = (Array.isArray(sourceDoc.childBlocks) ? sourceDoc.childBlocks : [])
+    .filter((child) => !child.archived)
+    .sort((a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0));
+
+  if (sourceChildren.length === 0) {
+    throw Object.assign(new Error('No notes were found for the selected day.'), { status: 404 });
+  }
+
+  const actor = await resolveActor(userId, email);
+  let targetDoc = await DailyNoteBlockModel.findOne({ date: targetKey });
+  if (!targetDoc) {
+    targetDoc = await DailyNoteBlockModel.create({
+      date: targetKey,
+      name: formatDailyBlockName(targetKey),
+      status: 'draft',
+      archived: false,
+      childBlocks: [],
+      createdBy: actor,
+      updatedBy: actor,
+    });
+  }
+
+  assertDailyBlockEditable(targetDoc);
+
+  const actorReadyChildren = sourceChildren.map((child, index) => {
+    const { employeeIds, employees } = normalizeChildEmployees(child as unknown as Record<string, unknown>);
+    return {
+      title: String(child.title ?? '').trim() || 'Note',
+      projectId: String(child.projectId ?? ''),
+      projectName: String(child.projectName ?? ''),
+      employeeIds,
+      employees,
+      description: String(child.description ?? ''),
+      includeInEmail: Boolean(child.includeInEmail),
+      sortOrder: index,
+      archived: false,
+      createdBy: actor,
+      updatedBy: actor,
+    };
+  });
+
+  // Validate uniqueness across the replacement set (same rules as createChildBlock).
+  const building: Array<{
+    _id?: unknown;
+    archived?: boolean;
+    projectId?: string;
+    employeeIds?: string[];
+    employees?: NoteActor[];
+  }> = targetDoc.childBlocks.filter((child) => Boolean(child.archived));
+  for (const child of actorReadyChildren) {
+    if (child.projectId && child.employeeIds.length > 0) {
+      assertEmployeesUniqueOnProject(building, child.projectId, child.employeeIds);
+    }
+    building.push(child);
+  }
+
+  for (let i = targetDoc.childBlocks.length - 1; i >= 0; i -= 1) {
+    if (!targetDoc.childBlocks[i]?.archived) {
+      targetDoc.childBlocks.splice(i, 1);
+    }
+  }
+  for (const child of actorReadyChildren) {
+    targetDoc.childBlocks.push(child);
+  }
+  targetDoc.updatedBy = actor;
+  await targetDoc.save();
+
+  return serializeDailyBlock(targetDoc.toObject() as unknown as Record<string, unknown>);
+}
+
+/** Ensure a daily block exists for date (single round-trip upsert). */
+export async function ensureDailyBlock(
+  date: string,
+  userId: string,
+  email?: string,
+  status: DailyNoteStatus = 'draft',
+) {
+  const dateKey = assertDateKey(date);
+  const existing = await DailyNoteBlockModel.findOne({ date: dateKey }).lean();
+  if (existing) {
+    return serializeDailyBlock(existing as Record<string, unknown>);
+  }
+
+  const actor = await resolveActor(userId, email);
+  try {
+    const doc = await DailyNoteBlockModel.create({
+      date: dateKey,
+      name: formatDailyBlockName(dateKey),
+      status,
+      archived: false,
+      childBlocks: [],
+      createdBy: actor,
+      updatedBy: actor,
+    });
+    return serializeDailyBlock(doc.toObject() as unknown as Record<string, unknown>);
+  } catch (err: unknown) {
+    // Race: another request created it.
+    const again = await DailyNoteBlockModel.findOne({ date: dateKey }).lean();
+    if (again) return serializeDailyBlock(again as Record<string, unknown>);
+    throw err;
+  }
+}
+
+type SyncChildEntryInput = {
+  id?: string;
+  title: string;
+  projectId?: string;
+  employeeIds?: string[];
+  description?: string;
+  includeInEmail?: boolean;
+};
+
+/**
+ * Sync active child notes in one save: update matched ids, create new, delete removed.
+ */
+export async function syncDailyBlockChildren(
+  dailyBlockId: string,
+  userId: string,
+  email: string | undefined,
+  payload: { entries: SyncChildEntryInput[]; deleteIds?: string[] },
+) {
+  if (!Types.ObjectId.isValid(dailyBlockId)) {
+    throw Object.assign(new Error('Daily block not found'), { status: 404 });
+  }
+
+  const doc = await DailyNoteBlockModel.findById(dailyBlockId);
+  if (!doc) throw Object.assign(new Error('Daily block not found'), { status: 404 });
+  assertDailyBlockEditable(doc);
+
+  const actor = await resolveActor(userId, email);
+  const deleteIds = new Set((payload.deleteIds ?? []).map(String).filter(Boolean));
+  const entries = Array.isArray(payload.entries) ? payload.entries : [];
+
+  // Remove deleted active children
+  for (let i = doc.childBlocks.length - 1; i >= 0; i -= 1) {
+    const child = doc.childBlocks[i];
+    if (child && deleteIds.has(String(child._id))) {
+      doc.childBlocks.splice(i, 1);
+    }
+  }
+
+  const building = doc.childBlocks.map((child) => child);
+  let nextOrder = doc.childBlocks.reduce((max, child) => Math.max(max, child.sortOrder ?? 0), -1) + 1;
+
+  for (const entry of entries) {
+    const title = String(entry.title ?? '').trim();
+    if (!title) throw Object.assign(new Error('Title is required'), { status: 400 });
+
+    const relations = await resolveChildProjectAndEmployees({
+      projectId: entry.projectId,
+      employeeIds: entry.employeeIds,
+    });
+
+    const existingId = entry.id ? String(entry.id) : '';
+    const existing = existingId
+      ? doc.childBlocks.find((child) => String(child._id) === existingId)
+      : undefined;
+
+    if (existing) {
+      assertEmployeesUniqueOnProject(
+        building.filter((c) => String(c._id) !== existingId),
+        relations.projectId,
+        relations.employeeIds,
+      );
+      existing.title = title;
+      existing.projectId = relations.projectId;
+      existing.projectName = relations.projectName;
+      existing.employeeIds = relations.employeeIds;
+      existing.employees = relations.employees;
+      existing.description = entry.description ?? '';
+      existing.includeInEmail = Boolean(entry.includeInEmail);
+      existing.updatedBy = actor;
+      const idx = building.findIndex((c) => String(c._id) === existingId);
+      if (idx >= 0) building[idx] = existing;
+    } else {
+      assertEmployeesUniqueOnProject(building, relations.projectId, relations.employeeIds);
+      const created = {
+        title,
+        projectId: relations.projectId,
+        projectName: relations.projectName,
+        employeeIds: relations.employeeIds,
+        employees: relations.employees,
+        description: entry.description ?? '',
+        includeInEmail: Boolean(entry.includeInEmail),
+        sortOrder: nextOrder++,
+        archived: false,
+        createdBy: actor,
+        updatedBy: actor,
+      };
+      doc.childBlocks.push(created);
+      building.push(created as (typeof doc.childBlocks)[number]);
+    }
+  }
+
+  doc.updatedBy = actor;
+  await doc.save();
+  return serializeDailyBlock(doc.toObject() as unknown as Record<string, unknown>);
+}
+
+/** Split multi-employee child notes into one-per-employee in a single save. */
+export async function normalizeDailyBlockPerEmployee(
+  dailyBlockId: string,
+  userId: string,
+  email?: string,
+) {
+  if (!Types.ObjectId.isValid(dailyBlockId)) {
+    throw Object.assign(new Error('Daily block not found'), { status: 404 });
+  }
+
+  const doc = await DailyNoteBlockModel.findById(dailyBlockId);
+  if (!doc) throw Object.assign(new Error('Daily block not found'), { status: 404 });
+  assertDailyBlockEditable(doc);
+
+  const actor = await resolveActor(userId, email);
+  const combined = doc.childBlocks.filter(
+    (entry) => !entry.archived && (entry.employeeIds?.length ?? 0) > 1,
+  );
+  if (combined.length === 0) {
+    return serializeDailyBlock(doc.toObject() as unknown as Record<string, unknown>);
+  }
+
+  let nextOrder = doc.childBlocks.reduce((max, child) => Math.max(max, child.sortOrder ?? 0), -1) + 1;
+
+  for (const entry of combined) {
+    const employeeIds = (entry.employeeIds ?? []).map(String).filter(Boolean);
+    let first = true;
+    for (const employeeId of employeeIds) {
+      const hasDedicated = doc.childBlocks.some(
+        (child) =>
+          !child.archived &&
+          child.projectId === entry.projectId &&
+          (child.employeeIds?.length ?? 0) === 1 &&
+          String(child.employeeIds?.[0]) === employeeId,
+      );
+      if (hasDedicated) continue;
+
+      const employees = (entry.employees ?? []).filter((e) => String(e.id) === employeeId);
+      doc.childBlocks.push({
+        title: entry.title,
+        projectId: entry.projectId,
+        projectName: entry.projectName,
+        employeeIds: [employeeId],
+        employees: employees.length > 0 ? employees : [{ id: employeeId, name: employeeId }],
+        description: first ? entry.description : '',
+        includeInEmail: entry.includeInEmail,
+        sortOrder: nextOrder++,
+        archived: false,
+        createdBy: actor,
+        updatedBy: actor,
+      });
+      first = false;
+    }
+    entry.archived = true;
+    entry.updatedBy = actor;
+  }
+
+  doc.updatedBy = actor;
+  await doc.save();
+  return serializeDailyBlock(doc.toObject() as unknown as Record<string, unknown>);
+}
+
 export async function updateDailyBlock(
   id: string,
   userId: string,
@@ -432,6 +725,10 @@ export async function deleteDailyBlock(id: string) {
   if (!Types.ObjectId.isValid(id)) {
     throw Object.assign(new Error('Daily block not found'), { status: 404 });
   }
+  const existing = await DailyNoteBlockModel.findById(id).lean();
+  if (!existing) throw Object.assign(new Error('Daily block not found'), { status: 404 });
+  assertDailyBlockEditable(existing as { status?: DailyNoteStatus; archived?: boolean });
+
   const doc = await DailyNoteBlockModel.findByIdAndDelete(id).lean();
   if (!doc) throw Object.assign(new Error('Daily block not found'), { status: 404 });
   return serializeDailyBlock(doc as Record<string, unknown>);
@@ -461,6 +758,7 @@ export async function createChildBlock(
 
   const doc = await DailyNoteBlockModel.findById(dailyBlockId);
   if (!doc) throw Object.assign(new Error('Daily block not found'), { status: 404 });
+  assertDailyBlockEditable(doc);
 
   const actor = await resolveActor(userId, email);
   const nextOrder = doc.childBlocks.reduce((max, child) => Math.max(max, child.sortOrder ?? 0), -1) + 1;
@@ -499,6 +797,7 @@ export async function updateChildBlock(
 
   const doc = await DailyNoteBlockModel.findById(dailyBlockId);
   if (!doc) throw Object.assign(new Error('Daily block not found'), { status: 404 });
+  assertDailyBlockEditable(doc);
 
   const child = doc.childBlocks.find((item) => String(item._id) === childBlockId);
   if (!child) throw Object.assign(new Error('Work description not found'), { status: 404 });
@@ -547,6 +846,7 @@ export async function deleteChildBlock(dailyBlockId: string, childBlockId: strin
 
   const doc = await DailyNoteBlockModel.findById(dailyBlockId);
   if (!doc) throw Object.assign(new Error('Daily block not found'), { status: 404 });
+  assertDailyBlockEditable(doc);
 
   const childIndex = doc.childBlocks.findIndex((item) => String(item._id) === childBlockId);
   if (childIndex < 0) throw Object.assign(new Error('Work description not found'), { status: 404 });
@@ -573,6 +873,7 @@ export async function reorderChildBlocks(
 
   const doc = await DailyNoteBlockModel.findById(dailyBlockId);
   if (!doc) throw Object.assign(new Error('Daily block not found'), { status: 404 });
+  assertDailyBlockEditable(doc);
 
   const childMap = new Map(doc.childBlocks.map((child) => [String(child._id), child]));
   if (childBlockIds.some((id) => !childMap.has(id))) {

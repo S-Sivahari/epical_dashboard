@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, Save, X } from 'lucide-react'
 import { Button } from '@components/ui/Button'
-import {
-  createChildBlock,
-  deleteChildBlock,
-  updateChildBlock,
-} from '@/services/notesService'
+import { syncChildBlocks } from '@/services/notesService'
 import type { DailyNoteBlock, NoteProjectOption } from '@/types/notes'
 import type { Employee } from '@/types'
 import { matchExistingEntry, parseNotepadText, serializeBlockToNotepadText } from '@/utils/notepadDocument'
@@ -56,40 +52,25 @@ export function DailyNotesInlineEditor({
     setSaving(true)
 
     try {
-      let currentBlock = block
       const activeEntries = block.childBlocks.filter((child) => !child.archived)
       const matchedIds = new Set<string>()
-
-      for (const draft of parsed.entries) {
+      const entries = parsed.entries.map((draft) => {
         const existing = matchExistingEntry(activeEntries, draft)
-        const descriptionHtml = plainTextToNoteHtml(draft.description)
-
-        if (existing) {
-          matchedIds.add(existing._id)
-          currentBlock = await updateChildBlock(block._id, existing._id, {
-            title: draft.projectName,
-            projectId: draft.projectId,
-            employeeIds: draft.employeeIds,
-            description: descriptionHtml,
-            includeInEmail: true,
-          })
-        } else {
-          currentBlock = await createChildBlock(block._id, {
-            title: draft.projectName,
-            projectId: draft.projectId,
-            employeeIds: draft.employeeIds,
-            description: descriptionHtml,
-            includeInEmail: true,
-          })
+        if (existing) matchedIds.add(existing._id)
+        return {
+          id: existing?._id,
+          title: draft.projectName,
+          projectId: draft.projectId,
+          employeeIds: draft.employeeIds,
+          description: plainTextToNoteHtml(draft.description),
+          includeInEmail: true,
         }
-      }
+      })
+      const deleteIds = activeEntries
+        .filter((entry) => !matchedIds.has(entry._id))
+        .map((entry) => entry._id)
 
-      for (const entry of activeEntries) {
-        if (!matchedIds.has(entry._id)) {
-          currentBlock = await deleteChildBlock(block._id, entry._id)
-        }
-      }
-
+      const currentBlock = await syncChildBlocks(block._id, { entries, deleteIds })
       onSaved(currentBlock)
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string } } }
