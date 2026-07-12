@@ -265,10 +265,14 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   }
 
   const canEditDate = useCallback(
-    (dateKey: string) =>
-      !isEmployeeView ||
-      (dateKey === todayDateKey && delegatedDateKeys.has(todayDateKey)),
-    [delegatedDateKeys, isEmployeeView, todayDateKey],
+    (dateKey: string) => {
+      if (blocksByDate[dateKey]?.status === 'email_sent') return false
+      return (
+        !isEmployeeView ||
+        (dateKey === todayDateKey && delegatedDateKeys.has(todayDateKey))
+      )
+    },
+    [blocksByDate, delegatedDateKeys, isEmployeeView, todayDateKey],
   )
 
   const isEmployeeDaySelectable = useCallback(
@@ -386,15 +390,20 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   const canAddToday =
     !busy &&
     isCurrentWeek &&
-    (!isEmployeeView || delegatedDateKeys.has(todayDateKey))
+    (!isEmployeeView || delegatedDateKeys.has(todayDateKey)) &&
+    blocksByDate[todayDateKey]?.status !== 'email_sent'
+
+  const todayEmailSent = blocksByDate[todayDateKey]?.status === 'email_sent'
 
   const todayHasNotes = useMemo(() => {
     const block = blocksByDate[todayDateKey]
     return (block?.childBlocks.filter((child) => !child.archived).length ?? 0) > 0
   }, [blocksByDate, todayDateKey])
 
+  const canCopyFromDay = isCurrentWeek && !todayEmailSent
+
   const executeCopyNotes = async (sourceDateKey: string) => {
-    if (!isCurrentWeek || isFutureNotesDay(todayDateKey)) return
+    if (!canCopyFromDay || isFutureNotesDay(todayDateKey)) return
     setBusy(true)
     try {
       let sourceBlock = blocksByDate[sourceDateKey] ?? null
@@ -471,7 +480,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   }
 
   const handleCopyNotes = () => {
-    if (!isCurrentWeek || isFutureNotesDay(todayDateKey)) return
+    if (!canCopyFromDay || isFutureNotesDay(todayDateKey)) return
     setCopyNotesModalOpen(true)
   }
 
@@ -514,15 +523,17 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
               </div>
 
               <div className="admin-notes-header__actions">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  icon={<Copy className="h-4 w-4" />}
-                  disabled={busy || !isCurrentWeek}
-                  onClick={handleCopyNotes}
-                >
-                  Copy from day
-                </Button>
+                {canCopyFromDay ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    icon={<Copy className="h-4 w-4" />}
+                    disabled={busy}
+                    onClick={handleCopyNotes}
+                  >
+                    Copy from day
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   variant="primary"
@@ -551,15 +562,17 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
               trailingAction={
                 inProjectManagement ? (
                   <div className="notes-toolbar__trailing-actions">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      icon={<Copy className="h-4 w-4" />}
-                      disabled={busy || !isCurrentWeek}
-                      onClick={handleCopyNotes}
-                    >
-                      Copy from day
-                    </Button>
+                    {canCopyFromDay ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        icon={<Copy className="h-4 w-4" />}
+                        disabled={busy}
+                        onClick={handleCopyNotes}
+                      >
+                        Copy from day
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="primary"
@@ -654,7 +667,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
                         onBlockChange={(updated) => handleBlockChange(selectedDay.dateKey, updated)}
                         onSendEmail={setEmailBlock}
                         onDelete={
-                          selectedDay.block
+                          selectedDay.block && canEditDate(selectedDay.dateKey)
                             ? () => void handleDeleteBlock(selectedDay.dateKey, selectedDay.block!._id)
                             : undefined
                         }
@@ -668,7 +681,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
                           }
                         }}
                         onCopyFromDay={
-                          selectedDay.dateKey === todayDateKey && isCurrentWeek
+                          selectedDay.dateKey === todayDateKey && canCopyFromDay
                             ? handleCopyNotes
                             : undefined
                         }

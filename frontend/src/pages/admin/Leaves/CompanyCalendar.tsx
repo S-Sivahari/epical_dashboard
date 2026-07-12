@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, type CSSProperties } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useLeaves } from '@hooks/useLeaves'
 import {
   format,
@@ -900,10 +900,11 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
               {/* Holidays */}
               <section
                 className={cn(
-                  'flex flex-col rounded-lg',
+                  'flex min-h-0 flex-1 flex-col rounded-lg',
+                  useAdminLayout && 'admin-cal-side-section--scroll',
                   sidebarHolidays.length > 0 &&
                     (useAdminLayout
-                      ? 'admin-cal-side-section--active admin-cal-side-section--active-holidays admin-cal-side-section--scroll'
+                      ? 'admin-cal-side-section--active admin-cal-side-section--active-holidays'
                       : 'border border-emerald-100/90 bg-emerald-50/50 px-2 py-1.5'),
                 )}
               >
@@ -958,7 +959,9 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                   <div
                     className={cn(
                       'space-y-1 overflow-y-auto pr-1 custom-scrollbar',
-                      useAdminLayout ? 'admin-cal-side-section-list' : 'admin-cal-side-section-list max-h-[6.75rem]',
+                      useAdminLayout
+                        ? 'admin-cal-side-section-list admin-cal-side-section-list--fills'
+                        : 'admin-cal-side-section-list max-h-[6.75rem]',
                     )}
                   >
                     {[...sidebarHolidays]
@@ -1057,10 +1060,11 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
               {/* Company Events */}
               <section
                 className={cn(
-                  'flex flex-col rounded-lg',
+                  'flex min-h-0 flex-1 flex-col rounded-lg',
+                  useAdminLayout && 'admin-cal-side-section--scroll',
                   sidebarEvents.length > 0 &&
                     (useAdminLayout
-                      ? 'admin-cal-side-section--active admin-cal-side-section--active-events admin-cal-side-section--scroll'
+                      ? 'admin-cal-side-section--active admin-cal-side-section--active-events'
                       : 'border border-amber-100/90 bg-amber-50/50 px-2 py-1.5'),
                 )}
               >
@@ -1099,7 +1103,9 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                   <div
                     className={cn(
                       'space-y-1 overflow-y-auto pr-1 custom-scrollbar',
-                      useAdminLayout ? 'admin-cal-side-section-list' : 'admin-cal-side-section-list max-h-[6.75rem]',
+                      useAdminLayout
+                        ? 'admin-cal-side-section-list admin-cal-side-section-list--fills'
+                        : 'admin-cal-side-section-list max-h-[6.75rem]',
                     )}
                   >
                     {[...sidebarEvents]
@@ -1188,10 +1194,11 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
               {/* Approved Leaves */}
               <section
                 className={cn(
-                  'flex flex-col rounded-lg',
+                  'flex min-h-0 flex-1 flex-col rounded-lg',
+                  useAdminLayout && 'admin-cal-side-section--scroll',
                   sidebarLeaves.length > 0 &&
                     (useAdminLayout
-                      ? 'admin-cal-side-section--active admin-cal-side-section--active-leaves admin-cal-side-section--scroll'
+                      ? 'admin-cal-side-section--active admin-cal-side-section--active-leaves'
                       : 'border border-lime-100/90 bg-lime-50/50 px-2 py-1.5'),
                 )}
               >
@@ -1221,19 +1228,9 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                     className={cn(
                       'space-y-1 overflow-y-auto pr-1 custom-scrollbar',
                       useAdminLayout
-                        ? 'admin-cal-side-section-list'
+                        ? 'admin-cal-side-section-list admin-cal-side-section-list--fills'
                         : 'admin-cal-side-section-list max-h-[6.75rem]',
                     )}
-                    style={
-                      useAdminLayout
-                        ? ({
-                            '--admin-cal-side-visible-rows': Math.min(
-                              Math.max(sidebarLeaves.length, 1),
-                              4,
-                            ),
-                          } as CSSProperties)
-                        : undefined
-                    }
                   >
                     {sidebarLeaves.map((leave) => {
                       const pastLeave = isLeaveEnded(leave)

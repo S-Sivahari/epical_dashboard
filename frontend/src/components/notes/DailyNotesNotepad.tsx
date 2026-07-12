@@ -99,10 +99,11 @@ export function DailyNotesNotepad({
   const hasBlock = Boolean(block)
   const status = block?.status ?? 'draft'
   const isPastDay = isPastNotesDay(dateKey)
+  const isEmailSent = status === 'email_sent'
   const canEditNotes =
-    hasBlock && block && !block.archived && !isPastDay && canEdit
+    hasBlock && block && !block.archived && !isPastDay && canEdit && !isEmailSent
   const canSendEmail =
-    hasBlock && block && !block.archived && !isPastDay && canEdit
+    hasBlock && block && !block.archived && !isPastDay && canEdit && !isEmailSent
   const emailIncludeCount = entries.filter((entry) => entry.includeInEmail).length
   const hasNotes = entries.length > 0
 
@@ -238,7 +239,11 @@ export function DailyNotesNotepad({
                 </div>
               ) : null}
 
-              {hasBlock && !canEdit && !isEditing ? (
+              {hasBlock && isEmailSent && !isEditing ? (
+                <p className="notes-notepad-pad__read-only-hint">
+                  Notes for this day have been sent and can no longer be edited.
+                </p>
+              ) : hasBlock && !canEdit && !isEditing ? (
                 <p className="notes-notepad-pad__read-only-hint">
                   View only — you are not assigned to manage notes for this date.
                 </p>

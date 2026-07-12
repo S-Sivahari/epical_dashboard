@@ -169,7 +169,7 @@ export function CopyNotesFromDateModal({
           loading={busy}
           onClick={() => onCopy(sourceDateKey)}
         >
-          {todayHasNotes ? 'Replace today&apos;s notes' : 'Copy notes'}
+          {todayHasNotes ? "Replace today's notes" : 'Copy notes'}
         </Button>
       </div>
     </Modal>

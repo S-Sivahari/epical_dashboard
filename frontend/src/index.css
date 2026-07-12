@@ -8978,18 +8978,25 @@
 }
 
 .admin-calendar-view .admin-cal-side-unified-body {
+  display: flex;
+  flex-direction: column;
   padding: calc(0.5rem * var(--calendar-font-scale)) calc(0.625rem * var(--calendar-font-scale));
   gap: calc(0.5rem * var(--calendar-font-scale));
   min-height: 0;
+  height: 100%;
   overflow-x: hidden;
   overflow-y: hidden;
   overscroll-behavior: contain;
   justify-content: flex-start;
-  align-content: flex-start;
+  align-content: stretch;
 }
 
 .admin-calendar-view .admin-cal-side-unified-body > section {
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .admin-calendar-view .admin-cal-side-section-head {
@@ -9029,8 +9036,7 @@
 }
 
 .admin-calendar-view .admin-cal-side-section--scroll {
-  flex: 0 0 auto;
-  flex-grow: 0;
+  flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -9070,6 +9076,15 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+.admin-calendar-view .admin-cal-side-unified-body > section > .admin-cal-empty {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .admin-calendar-view .admin-cal-empty-compact {
