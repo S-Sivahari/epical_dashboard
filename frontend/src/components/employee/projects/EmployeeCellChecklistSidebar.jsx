@@ -21,6 +21,7 @@ export function EmployeeCellChecklistSidebar({
   cellStatus = 'ready',
   readOnly = false,
   showCompletionRequirement = false,
+  layoutSchemeComplete = false,
   onChange,
   onCellCompleted,
 }) {
@@ -120,11 +121,11 @@ export function EmployeeCellChecklistSidebar({
           ) : null}
           {readOnly ? (
             <p className="emp-wf-checklist-panel-readonly">View only — you cannot edit this cell</p>
-          ) : showCompletionRequirement && totalCount > 0 && !checklist?.isFilled ? (
+          ) : cellStatus === 'completed' ? null : showCompletionRequirement && totalCount > 0 && !checklist?.isFilled ? (
             <p className="emp-wf-checklist-panel-required">
               Answer all checklist items before completing the final stage
             </p>
-          ) : showCompletionRequirement && totalCount > 0 && checklist?.isFilled && !checklist?.isExtensionFilled ? (
+          ) : (showCompletionRequirement || layoutSchemeComplete) && !checklist?.isExtensionFilled ? (
             <p className="emp-wf-checklist-panel-required">
               Complete the final cell details before completing the final stage
             </p>
@@ -225,6 +226,7 @@ export function EmployeeCellChecklistSidebar({
         cellStatus={cellStatus}
         readOnly={readOnly}
         showCompletionRequirement={showCompletionRequirement}
+        layoutSchemeComplete={layoutSchemeComplete}
         onCellCompleted={onCellCompleted}
         onChange={(data) => {
           setChecklist(data)
