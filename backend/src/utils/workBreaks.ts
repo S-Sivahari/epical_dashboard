@@ -146,7 +146,8 @@ export function computeNetAttendanceMs(
   _attendance?: AttendanceBreakFields | null,
   now = new Date(),
 ): number {
-  return computeGrossAttendanceMs(checkInTime, checkOutTime, now);
+  const grossMs = computeGrossAttendanceMs(checkInTime, checkOutTime, now);
+  return Math.max(0, grossMs - DAILY_STANDARD_BREAK_MS);
 }
 
 /** Total break time taken (capped per slot). Used for project-hour pause accounting. */

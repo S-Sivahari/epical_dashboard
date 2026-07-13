@@ -13,7 +13,10 @@ import {
 import type { TooltipProps } from 'recharts'
 import { easeOut } from '@/utils/motionPresets'
 import { cn } from '@/utils/cn'
-import { formatHoursDecimalAsLongDuration } from '@/utils/durationFormat'
+import {
+  formatChartAxisMinutesFromHours,
+  formatHoursDecimalAsLongDuration,
+} from '@/utils/durationFormat'
 
 type ChartPoint = { name: string; hours: number }
 
@@ -163,7 +166,7 @@ export function ProjectHoursDynamicBarChart({
                 domain={[0, yMax]}
                 allowDecimals={false}
                 ticks={yTicks}
-                tickFormatter={(v) => `${v}h`}
+                tickFormatter={formatChartAxisMinutesFromHours}
               />
               <Tooltip
                 content={<DynamicBarTooltip />}

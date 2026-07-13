@@ -34,9 +34,32 @@ export const DEFAULT_EXTERNAL_NEWS_FILTERS = [
   'Semiconductor',
   'Chip Manufacturing',
   'VLSI',
-  'Technology',
-  'Artificial Intelligence',
+  'Hardware',
+  'ASIC',
+  'FPGA',
 ] as const
+
+export type HardwareNewsFilter = (typeof DEFAULT_EXTERNAL_NEWS_FILTERS)[number]
+
+function normalizeFilterTerm(term: string): string {
+  return term.trim().toLowerCase()
+}
+
+export function resolveHardwareNewsFilters(filters?: string[]): string[] {
+  const terms = (filters ?? [...DEFAULT_EXTERNAL_NEWS_FILTERS])
+    .map((term) => term.trim())
+    .filter(Boolean)
+  return terms.length > 0 ? terms : [...DEFAULT_EXTERNAL_NEWS_FILTERS]
+}
+
+export function matchesHardwareNewsFilters(
+  item: Pick<ExternalNewsItem, 'title' | 'content'>,
+  filters: string[],
+): boolean {
+  if (filters.length === 0) return true
+  const haystack = `${item.title} ${item.content}`.toLowerCase()
+  return filters.some((term) => haystack.includes(normalizeFilterTerm(term)))
+}
 
 export type FetchHeadlinesOptions = {
   limit?: number
@@ -44,10 +67,7 @@ export type FetchHeadlinesOptions = {
 }
 
 function buildSearchQuery(filters: string[]): string {
-  const terms = filters.map((term) => term.trim()).filter(Boolean)
-  if (terms.length === 0) {
-    return DEFAULT_EXTERNAL_NEWS_FILTERS.map((term) => `"${term}"`).join(' OR ')
-  }
+  const terms = resolveHardwareNewsFilters(filters)
   return terms.map((term) => `"${term}"`).join(' OR ')
 }
 
@@ -82,6 +102,7 @@ async function fetchTopHeadlinesPage(
   const url = new URL('https://gnews.io/api/v4/top-headlines')
   url.searchParams.set('token', env.GNEWS_API_KEY!)
   url.searchParams.set('q', query)
+  url.searchParams.set('category', 'technology')
   url.searchParams.set('lang', 'en')
   url.searchParams.set('max', String(max))
   url.searchParams.set('page', String(page))
@@ -108,9 +129,7 @@ export async function fetchTopHeadlinesByDate(
     throw new Error('GNews API key is not configured')
   }
 
-  const filters =
-    options?.filters?.map((term) => term.trim()).filter(Boolean) ??
-    [...DEFAULT_EXTERNAL_NEWS_FILTERS]
+  const filters = resolveHardwareNewsFilters(options?.filters)
   const query = buildSearchQuery(filters)
 
   const rawLimit = options?.limit ?? 10
@@ -128,6 +147,7 @@ export async function fetchTopHeadlinesByDate(
 
     let added = 0
     for (const item of batch) {
+      if (!matchesHardwareNewsFilters(item, filters)) continue
       if (!deduped.has(item.link)) {
         deduped.set(item.link, item)
         added += 1

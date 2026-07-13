@@ -13,6 +13,7 @@ import { IndividualPerformancePanel } from '@components/analytics/IndividualPerf
 import { useAnalyticsData } from '@/hooks/useAnalyticsData'
 import { fetchEmployeeAnalyticsReport, getPeriodLabel, type AnalyticsPeriodPreset } from '@/services/analyticsService'
 import { exportEmployeeAnalyticsReport } from '@/utils/exportEmployeeAnalyticsReport'
+import { formatHoursAsDuration } from '@/utils/durationFormat'
 import { useAuthStore } from '@store/authStore'
 import { FileText, Loader2, RotateCcw, Users } from 'lucide-react'
 
@@ -94,11 +95,11 @@ export function Analytics({ embedded = false }: { embedded?: boolean }) {
   const heroKpis = isAllEmployees
     ? [
         { label: 'Total Employees', value: String(comparisonSummary.totalEmployees) },
-        { label: 'Total Hours', value: `${comparisonSummary.totalHours} hrs` },
-        { label: 'Avg / Employee', value: `${comparisonSummary.avgHoursPerEmployee} hrs` },
+        { label: 'Total Hours', value: formatHoursAsDuration(comparisonSummary.totalHours) },
+        { label: 'Avg / Employee', value: formatHoursAsDuration(comparisonSummary.avgHoursPerEmployee) },
       ]
     : [
-        { label: 'Hours Logged', value: `${individualPerformance?.attendance.hoursLogged ?? 0} hrs` },
+        { label: 'Hours Logged', value: formatHoursAsDuration(individualPerformance?.attendance.hoursLogged ?? 0) },
         { label: 'Attendance', value: `${individualPerformance?.attendance.attendancePercentage ?? 0}%` },
         { label: 'Productivity', value: `${individualPerformance?.attendance.productivityScore ?? 0}%` },
       ]
@@ -236,11 +237,11 @@ export function Analytics({ embedded = false }: { embedded?: boolean }) {
                   />
                   <SummaryStat
                     label="Total Hours Logged"
-                    value={dataLoading ? '—' : `${comparisonSummary.totalHours} hrs`}
+                    value={dataLoading ? '—' : formatHoursAsDuration(comparisonSummary.totalHours)}
                   />
                   <SummaryStat
                     label="Average Hours / Employee"
-                    value={dataLoading ? '—' : `${comparisonSummary.avgHoursPerEmployee} hrs`}
+                    value={dataLoading ? '—' : formatHoursAsDuration(comparisonSummary.avgHoursPerEmployee)}
                   />
                 </div>
 

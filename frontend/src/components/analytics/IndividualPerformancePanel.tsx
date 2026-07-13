@@ -10,6 +10,10 @@ import {
   YAxis,
 } from 'recharts'
 import type { IndividualPerformance } from '@/services/analyticsService'
+import {
+  formatChartAxisMinutesFromHours,
+  formatHoursAsDuration,
+} from '@/utils/durationFormat'
 import { CalendarDays, Clock, TrendingUp, Umbrella } from 'lucide-react'
 
 const GREEN = {
@@ -34,7 +38,7 @@ function HoursTooltip({
   return (
     <div className="analytics-floating-tooltip">
       <span className="analytics-floating-tooltip-label">{label}</span>
-      <span className="analytics-floating-tooltip-value">{payload[0].value} hrs logged</span>
+      <span className="analytics-floating-tooltip-value">{formatHoursAsDuration(payload[0].value)} logged</span>
     </div>
   )
 }
@@ -99,7 +103,7 @@ export function IndividualPerformancePanel({
   return (
     <div className="admin-analytics-individual-grid">
       <div className="admin-analytics-mini-kpi-row">
-        <MiniKpi icon={Clock} label="Hours Logged" value={`${attendance.hoursLogged} hrs`} />
+        <MiniKpi icon={Clock} label="Hours Logged" value={formatHoursAsDuration(attendance.hoursLogged)} />
         <MiniKpi
           icon={CalendarDays}
           label="Attendance"
@@ -139,7 +143,7 @@ export function IndividualPerformancePanel({
                   tickLine={false}
                   width={32}
                   domain={[0, hoursMax]}
-                  tickFormatter={(v) => `${v}h`}
+                  tickFormatter={formatChartAxisMinutesFromHours}
                 />
                 <Tooltip content={<HoursTooltip />} />
                 <Area

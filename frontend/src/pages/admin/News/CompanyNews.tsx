@@ -52,8 +52,9 @@ const DEFAULT_FETCH_FILTERS = [
   'Semiconductor',
   'Chip Manufacturing',
   'VLSI',
-  'Technology',
-  'Artificial Intelligence',
+  'Hardware',
+  'ASIC',
+  'FPGA',
 ]
 
 const DEFAULT_FETCH_LIMIT = 10

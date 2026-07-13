@@ -123,9 +123,7 @@ export function CellCompletionTimeSummary({
       {stageRows.length > 0 ? (
         <div className="admin-projects-cell-completion-stages">
           <h3>Calculation Breakdown</h3>
-          <p className="admin-projects-cell-completion-stages-note">
-            Productive time by workflow stage (excludes hold periods).
-          </p>
+          
           <ul className="admin-projects-cell-completion-stages-list">
             {stageRows.map((stage) => (
               <li

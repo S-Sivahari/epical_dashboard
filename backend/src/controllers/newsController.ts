@@ -1,7 +1,7 @@
 import { Request, Response } from 'express'
 import type { ParsedQs } from 'qs'
 import * as newsService from '../services/newsService'
-import { fetchTopHeadlinesByDate } from '../services/externalNewsService'
+import { fetchTopHeadlinesByDate, resolveHardwareNewsFilters } from '../services/externalNewsService'
 import {
   assertPastNewsDateKey,
   coercePastNewsDateKey,
@@ -177,10 +177,11 @@ export const newsController = {
           .map((term) => term.trim())
           .filter(Boolean)
       : undefined
+    const resolvedFilters = resolveHardwareNewsFilters(filters)
 
     try {
-      const items = await fetchTopHeadlinesByDate(newsDate, { limit, filters })
-      res.json({ date: newsDate, limit, filters: filters ?? [], items })
+      const items = await fetchTopHeadlinesByDate(newsDate, { limit, filters: resolvedFilters })
+      res.json({ date: newsDate, limit, filters: resolvedFilters, items })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to fetch external news'
       res.status(500).json({ error: message })

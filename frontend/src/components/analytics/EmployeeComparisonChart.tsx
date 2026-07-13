@@ -12,6 +12,10 @@ import {
 } from 'recharts'
 import { PaginationBar } from '@components/tables/Pagination'
 import type { EmployeePerformanceRow, PerformanceTier } from '@/services/analyticsService'
+import {
+  formatChartAxisMinutesFromHours,
+  formatHoursAsDuration,
+} from '@/utils/durationFormat'
 import { cn } from '@/utils/cn'
 
 const TABLE_PAGE_SIZE = 5
@@ -55,8 +59,8 @@ function ComparisonTooltip({
       <p className="analytics-comparison-tooltip-name">{row.name}</p>
       <p className="analytics-comparison-tooltip-id">{row.employeeId}</p>
       <div className="analytics-comparison-tooltip-grid">
-        <span>Hours</span>
-        <strong>{row.totalHours} hrs</strong>
+        <span>Time</span>
+        <strong>{formatHoursAsDuration(row.totalHours)}</strong>
         <span>Attendance</span>
         <strong>{row.attendancePercent}%</strong>
         <span>Leave days</span>
@@ -112,7 +116,7 @@ export function EmployeeComparisonChart({
             tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(v) => `${v}h`}
+            tickFormatter={formatChartAxisMinutesFromHours}
           />
           <YAxis
             type="category"
@@ -137,7 +141,7 @@ export function EmployeeComparisonChart({
             <LabelList
               dataKey="totalHours"
               position="right"
-              formatter={(v: number) => `${v} hrs`}
+              formatter={(v: number) => formatHoursAsDuration(v)}
               fill={GREEN.dark}
               fontSize={11}
               fontWeight={700}
@@ -180,7 +184,7 @@ export function EmployeeComparisonTable({ data }: { data: EmployeePerformanceRow
               <tr key={row.id}>
                 <td className="font-semibold text-slate-900">{row.name}</td>
                 <td className="text-slate-600">{row.employeeId}</td>
-                <td className="tabular-nums font-bold text-[#2f6b4f]">{row.totalHours} hrs</td>
+                <td className="tabular-nums font-bold text-[#2f6b4f]">{formatHoursAsDuration(row.totalHours)}</td>
                 <td className="tabular-nums">{row.totalWorkingDays}</td>
                 <td className="tabular-nums">{row.attendancePercent}%</td>
                 <td className="tabular-nums">{row.leaveDays}</td>
