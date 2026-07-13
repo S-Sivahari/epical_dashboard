@@ -92,5 +92,9 @@ export function isProjectAnalysisPath(path: string): boolean {
 /** Open Project Analysis in a new tab with a one-time launch grant. */
 export function openProjectAnalysisTab(url: string): void {
   ensureProjectAnalysisSession()
-  window.open(url, '_blank', 'noopener,noreferrer')
+  const opened = window.open(url, '_blank')
+  if (!opened) {
+    // Popup blocked — stay in this tab so Project Management still opens.
+    window.location.assign(url)
+  }
 }

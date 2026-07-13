@@ -7,7 +7,9 @@ import {
 import { Button } from '@components/employee/ui/button'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { cn } from '@pages/employee/lib/utils'
-import { isChecklistExtensionComplete } from '@/utils/checklistExtensionUtils'
+import {
+  isChecklistExtensionCompleteWithDrafts,
+} from '@/utils/checklistExtensionUtils'
 
 const YES_NO_OPTIONS = [
   { value: 'yes', label: 'Yes', className: 'is-yes' },
@@ -46,13 +48,15 @@ export function EmployeeFinalCellDetailsSection({
   cellStatus = 'ready',
   readOnly = false,
   showCompletionRequirement = false,
+  layoutSchemeComplete = false,
   onChange,
   onCellCompleted,
 }) {
   const extension = checklist?.extension ?? EMPTY_CHECKLIST_EXTENSION
-  const checklistComplete = checklist?.isFilled ?? false
   const totalCount = checklist?.items?.length ?? 0
   const hasChecklistConfigured = Boolean(checklist?.hasFile || totalCount > 0)
+  /** No checklist (or empty questions) counts as complete for gating. */
+  const checklistComplete = !hasChecklistConfigured || totalCount === 0 || Boolean(checklist?.isFilled)
   const locked = hasChecklistConfigured && totalCount > 0 && !checklistComplete
   const [drafts, setDrafts] = useState({
     dimensionX: '',
@@ -61,12 +65,7 @@ export function EmployeeFinalCellDetailsSection({
   })
   const [saving, setSaving] = useState(false)
   const [completing, setCompleting] = useState(false)
-  const [completed, setCompleted] = useState(cellStatus === 'completed')
   const { toast } = useToast()
-
-  useEffect(() => {
-    setCompleted(cellStatus === 'completed')
-  }, [cellStatus])
 
   useEffect(() => {
     setDrafts({
@@ -74,17 +73,19 @@ export function EmployeeFinalCellDetailsSection({
       dimensionY: extension.dimensionY != null ? String(extension.dimensionY) : '',
       highestMetalUsed: extension.highestMetalUsed ?? '',
     })
-  }, [extension.dimensionX, extension.dimensionY, extension.highestMetalUsed])
+  }, [cellId, extension.dimensionX, extension.dimensionY, extension.highestMetalUsed])
 
   const saveExtension = async (payload) => {
-    if (readOnly || locked) return
+    if (readOnly || locked) return null
     setSaving(true)
     try {
       const data = await updateMyCellChecklistExtension(projectId, cellId, payload)
       onChange?.(data)
+      return data
     } catch (err) {
       const message = err?.response?.data?.error
       toast({ title: 'Error', description: message || 'Failed to save final cell details' })
+      return null
     } finally {
       setSaving(false)
     }
@@ -132,21 +133,33 @@ export function EmployeeFinalCellDetailsSection({
       : extension.area
 
   const fieldsDisabled = readOnly || locked || saving || completing
-  const extensionComplete = isChecklistExtensionComplete(extension)
-  const isCellCompleted = cellStatus === 'completed' || completed
+  const extensionComplete = isChecklistExtensionCompleteWithDrafts(extension, drafts)
+  const isCellCompleted = cellStatus === 'completed'
+  const layoutReady = layoutSchemeComplete || showCompletionRequirement
   const canComplete =
-    showCompletionRequirement &&
+    layoutReady &&
     !readOnly &&
     checklistComplete &&
     extensionComplete &&
     !isCellCompleted
 
-  const handleComplete = async () => {
+  const flushDraftsAndComplete = async () => {
     if (!canComplete) return
     setCompleting(true)
     try {
+      const parsedDimX = Number(drafts.dimensionX)
+      const parsedDimY = Number(drafts.dimensionY)
+      const saved = await saveExtension({
+        dimensionX: Number.isFinite(parsedDimX) ? parsedDimX : extension.dimensionX,
+        dimensionY: Number.isFinite(parsedDimY) ? parsedDimY : extension.dimensionY,
+        highestMetalUsed: drafts.highestMetalUsed.trim(),
+        virtualConnection: extension.virtualConnection,
+        overallSubstrateContact: extension.overallSubstrateContact,
+        waivableDrcError: extension.waivableDrcError,
+      })
+      if (!saved) return
+
       const updatedCell = await completeMyCell(projectId, cellId)
-      setCompleted(true)
       onCellCompleted?.(updatedCell)
       toast({ title: 'Cell completed', description: 'This cell has been marked complete.' })
     } catch (err) {
@@ -164,8 +177,6 @@ export function EmployeeFinalCellDetailsSection({
     }
   }
 
-  if (!hasChecklistConfigured) return null
-
   return (
     <section
       className={cn('emp-wf-final-cell-details', locked && 'is-locked')}
@@ -174,7 +185,9 @@ export function EmployeeFinalCellDetailsSection({
       <div className="emp-wf-final-cell-details-head">
         <h3 className="emp-wf-final-cell-details-title">Final Cell Details</h3>
         <p className="emp-wf-final-cell-details-subtitle">
-          Fill in after the checklist is completed. These are not checklist questions.
+          {hasChecklistConfigured && totalCount > 0
+            ? 'Fill in after the checklist is completed. These are not checklist questions.'
+            : 'Fill in these details for the cell. These are not checklist questions.'}
         </p>
       </div>
 
@@ -183,7 +196,7 @@ export function EmployeeFinalCellDetailsSection({
           Complete all checklist questions first ({checklist?.items?.filter((item) => item.response).length ?? 0}/
           {totalCount} answered).
         </p>
-      ) : showCompletionRequirement && !extensionComplete ? (
+      ) : layoutReady && !isCellCompleted && !extensionComplete ? (
         <p className="emp-wf-final-cell-details-lock-note is-warning">
           Complete all final cell details before completing the final stage.
         </p>
@@ -274,14 +287,14 @@ export function EmployeeFinalCellDetailsSection({
           />
         </div>
 
-        {showCompletionRequirement ? (
+        {layoutReady || showCompletionRequirement || isCellCompleted ? (
           <div className="emp-wf-final-cell-details-footer">
             <Button
               type="button"
               size="sm"
               className="emp-wf-final-cell-complete-btn"
               disabled={!canComplete || saving || completing}
-              onClick={() => void handleComplete()}
+              onClick={() => void flushDraftsAndComplete()}
             >
               {completing ? 'Completing…' : isCellCompleted ? 'Completed' : 'Complete cell'}
             </Button>

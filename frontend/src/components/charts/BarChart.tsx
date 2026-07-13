@@ -1,6 +1,10 @@
 import { useId, useMemo } from 'react'
 import { cn } from '@/utils/cn'
 import {
+  formatChartAxisMinutesFromHours,
+  formatHoursAsDuration,
+} from '@/utils/durationFormat'
+import {
   Bar,
   BarChart,
   CartesianGrid,
@@ -15,7 +19,7 @@ import {
 function formatHoursLabel(v: unknown) {
   if (typeof v !== 'number' || Number.isNaN(v)) return ''
   if (v === 0) return ''
-  return v.toFixed(1)
+  return formatChartAxisMinutesFromHours(v)
 }
 
 // ── Colour palette that matches the reference image ──────────────────────────
@@ -246,10 +250,11 @@ export function HoursBarChart({
             domain={[0, yMax]}
             allowDecimals={false}
             tickCount={5}
+            tickFormatter={formatChartAxisMinutesFromHours}
             label={
               isAnalytics
                 ? {
-                    value: 'Hours',
+                    value: 'Minutes',
                     angle: -90,
                     position: 'insideLeft',
                     fill: axisColor,
@@ -267,7 +272,7 @@ export function HoursBarChart({
               isAnalytics || isDashboard ? { color: 'rgba(255,255,255,0.85)', fontWeight: 600, marginBottom: 2 } : undefined
             }
             itemStyle={isAnalytics || isDashboard ? { color: '#ffffff', fontWeight: 700 } : undefined}
-            formatter={(v: number) => [`${v} hrs`, 'Logged']}
+            formatter={(v: number) => [formatHoursAsDuration(v), 'Logged']}
           />
           <Bar
             dataKey="hours"

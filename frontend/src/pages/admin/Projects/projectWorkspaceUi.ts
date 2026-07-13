@@ -208,6 +208,20 @@ export function cellDisplayStatus(cell: ProjectCell) {
   return STATUS_LABELS[cell.status]
 }
 
+/** True when every layout workflow stage is finished (matches backend canCompleteCell). */
+export function isLayoutSchemeComplete(cell?: Pick<ProjectCell, 'workflow'> | null): boolean {
+  const normalized = normalizeCellWorkflow(cell?.workflow)
+  return (
+    stageStatus(normalized, 'floor_plan') === 'completed' &&
+    stageStatus(normalized, 'drc_first') === 'completed' &&
+    stageStatus(normalized, 'review_1') === 'approved' &&
+    stageStatus(normalized, 'routing') === 'completed' &&
+    stageStatus(normalized, 'drc_final') === 'completed' &&
+    stageStatus(normalized, 'lvs') === 'completed' &&
+    stageStatus(normalized, 'review_2') === 'approved'
+  )
+}
+
 /** Project progress: completed cells / total cells (0–100). */
 export function projectCellProgressPercent(completedCells: number, totalCells: number): number {
   if (totalCells <= 0) return 0

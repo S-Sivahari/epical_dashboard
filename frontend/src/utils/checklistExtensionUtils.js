@@ -35,6 +35,33 @@ export function isChecklistExtensionComplete(extension) {
   )
 }
 
+/** Prefer live form drafts so Complete enables before blur saves finish. */
+export function isChecklistExtensionCompleteWithDrafts(extension, drafts = {}) {
+  const ext = normalizeChecklistExtension(extension)
+  const dimensionXRaw = drafts.dimensionX != null ? String(drafts.dimensionX).trim() : ''
+  const dimensionYRaw = drafts.dimensionY != null ? String(drafts.dimensionY).trim() : ''
+  const metalRaw =
+    drafts.highestMetalUsed != null ? String(drafts.highestMetalUsed).trim() : ext.highestMetalUsed
+
+  const dimensionX =
+    dimensionXRaw !== '' && Number.isFinite(Number(dimensionXRaw))
+      ? Number(dimensionXRaw)
+      : ext.dimensionX
+  const dimensionY =
+    dimensionYRaw !== '' && Number.isFinite(Number(dimensionYRaw))
+      ? Number(dimensionYRaw)
+      : ext.dimensionY
+
+  return (
+    dimensionX != null &&
+    dimensionY != null &&
+    String(metalRaw ?? '').trim().length > 0 &&
+    ext.virtualConnection != null &&
+    ext.overallSubstrateContact != null &&
+    ext.waivableDrcError != null
+  )
+}
+
 export function areTypeChecklistItemsFilled(items = []) {
   if (!items.length) return true
   return items.every((item) => {
@@ -52,16 +79,14 @@ export function canCompleteCellWithChecklist({
   extension,
 } = {}) {
   const hasChecklist = checklistItems.length > 0
-  if (!hasChecklist) {
-    return { ready: true, message: '' }
-  }
 
-  if (!mappingFilled) {
-    return { ready: false, message: 'Complete all checklist questions first' }
-  }
-
-  if (!areTypeChecklistItemsFilled(checklistItems)) {
-    return { ready: false, message: 'Complete all checklist questions first' }
+  if (hasChecklist) {
+    if (!mappingFilled) {
+      return { ready: false, message: 'Complete all checklist questions first' }
+    }
+    if (!areTypeChecklistItemsFilled(checklistItems)) {
+      return { ready: false, message: 'Complete all checklist questions first' }
+    }
   }
 
   if (!isChecklistExtensionComplete(extension)) {

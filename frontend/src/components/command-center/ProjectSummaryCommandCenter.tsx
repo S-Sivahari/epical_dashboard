@@ -8,6 +8,7 @@ import {
   type ChartPeriod,
   type ProjectTableRow,
 } from '@/pages/admin/Dashboard/dashboardChartUtils'
+import { formatHoursAsDuration } from '@/utils/durationFormat'
 import { cn } from '@/utils/cn'
 
 interface ProjectSummaryCommandCenterProps {
@@ -49,7 +50,7 @@ export function ProjectSummaryCommandCenter({
           <div className="text-right">
             <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Total</p>
             <p className="font-display text-xl font-extrabold tabular-nums text-[#1a4712] sm:text-2xl">
-              {loading ? '—' : `${totalPeriodHours}h`}
+              {loading ? '—' : formatHoursAsDuration(totalPeriodHours)}
             </p>
           </div>
           <div className="relative">

@@ -1,7 +1,7 @@
 import { LineChart } from 'lucide-react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { ROUTES } from '@constants/routes'
-import { openProjectAnalysisTab } from '@/utils/projectAnalysisAccess'
+import { ensureProjectAnalysisSession, openProjectAnalysisTab } from '@/utils/projectAnalysisAccess'
 import { cn } from '@/utils/cn'
 
 type ProjectAnalysisLaunchButtonProps = {
@@ -13,16 +13,24 @@ export function ProjectAnalysisLaunchButton({
   className,
   audience = 'admin',
 }: ProjectAnalysisLaunchButtonProps) {
+  const navigate = useNavigate()
   const { pathname } = useLocation()
   const base =
     audience === 'employee' ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS : ROUTES.PROJECT_ANALYSIS
+  const projectsUrl = `${base}/projects`
 
   if (pathname.startsWith(base)) {
     return null
   }
 
   const openProjectAnalysis = () => {
-    openProjectAnalysisTab(`${base}/projects`)
+    // Employees open in the same tab so Projects always loads (no popup blocker).
+    if (audience === 'employee') {
+      ensureProjectAnalysisSession()
+      navigate(projectsUrl)
+      return
+    }
+    openProjectAnalysisTab(projectsUrl)
   }
 
   return (

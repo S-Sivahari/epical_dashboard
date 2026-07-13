@@ -98,5 +98,6 @@ export function computeNetAttendanceMs(checkInTime, checkOutTime, nowOrOptions) 
     now = nowOrOptions.now
   }
   const end = checkOutTime ? new Date(checkOutTime).getTime() : (now ?? Date.now())
-  return computeGrossAttendanceMs(checkInTime, checkOutTime, end)
+  const grossMs = computeGrossAttendanceMs(checkInTime, checkOutTime, end)
+  return applyDailyStandardBreakDeductionMs(grossMs)
 }

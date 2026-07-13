@@ -24,7 +24,7 @@ import { VIEW_TABS, getAdvancePayload, isFinalLayoutStage } from '@/utils/cellWo
 import { CellWorkflowDurationLabel } from '@pages/admin/Projects/CellWorkflowDurationLabel'
 import { CellWorkflowTimingSummary } from '@pages/admin/Projects/CellWorkflowTimingSummary'
 import { CellCompletionTimeSummaryModal } from '@pages/admin/Projects/CellCompletionTimeSummaryModal'
-import { cellDisplayStatus, isReviewStageKey } from '@pages/admin/Projects/projectWorkspaceUi'
+import { cellDisplayStatus, isLayoutSchemeComplete, isReviewStageKey } from '@pages/admin/Projects/projectWorkspaceUi'
 import '@pages/admin/Projects/adminProjects.css'
 import '@components/employee/projects/employeeProjectWorkflow.css'
 import '@components/employee/projects/employeeProjectsAdminTheme.css'
@@ -351,6 +351,7 @@ export default function EmployeeCellWorkflow() {
               cellStatus={cell.status}
               readOnly={!canManageWorkflow}
               showCompletionRequirement={isFinalLayoutStage(cell)}
+              layoutSchemeComplete={isLayoutSchemeComplete(cell)}
               onCellCompleted={(updatedCell) => {
                 updateCellInState(updatedCell)
                 void reload()
@@ -358,10 +359,14 @@ export default function EmployeeCellWorkflow() {
               onChange={(checklistDetail) => {
                 const total = checklistDetail?.items?.length ?? 0
                 const hasChecklist = Boolean(checklistDetail?.hasFile || total > 0)
-                const ready =
-                  !hasChecklist ||
-                  (Boolean(checklistDetail?.isFilled) && Boolean(checklistDetail?.isExtensionFilled))
-                setChecklistReady(ready)
+                const checklistFilled = !hasChecklist || total === 0 || Boolean(checklistDetail?.isFilled)
+                const extensionFilled = Boolean(checklistDetail?.isExtensionFilled)
+                // At final layout stage, final cell details are required even without a checklist file.
+                if (isFinalLayoutStage(cell) || isLayoutSchemeComplete(cell)) {
+                  setChecklistReady(checklistFilled && extensionFilled)
+                } else {
+                  setChecklistReady(checklistFilled)
+                }
               }}
             />
           </div>

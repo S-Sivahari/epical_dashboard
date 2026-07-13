@@ -39,6 +39,9 @@ export interface EmployeeAttendance extends Document {
   sessionWorkedMs?: number;
   /** Default 60m break slice applied on this session (full day, no breaks taken). */
   defaultBreakDeductedMs?: number;
+  /** Project pinned when the employee starts a task during this check-in (display fallback). */
+  checkedInProjectId?: string;
+  checkedInProjectName?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -76,6 +79,8 @@ const EmployeeAttendanceSchema = new Schema<EmployeeAttendance>(
     resumeCellId: { type: String },
     sessionWorkedMs: { type: Number },
     defaultBreakDeductedMs: { type: Number },
+    checkedInProjectId: { type: String },
+    checkedInProjectName: { type: String },
   },
   { timestamps: true }
 );

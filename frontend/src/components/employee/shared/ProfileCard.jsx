@@ -4,6 +4,7 @@ import {
   Calendar,
   BadgeCheck,
   Building2,
+  Briefcase,
   Clock,
   FileText,
   CalendarOff,
@@ -16,6 +17,7 @@ import { cn } from '@pages/employee/lib/utils'
 
 const quickLinks = [
   { to: '/employee/timesheet', label: 'Timesheet', icon: Clock },
+  { to: '/employee/project-analysis/projects', label: 'Projects', icon: Briefcase },
   { to: '/employee/leave', label: 'Leave', icon: CalendarOff },
   { to: '/employee/documents', label: 'Documents', icon: FileText },
 ]

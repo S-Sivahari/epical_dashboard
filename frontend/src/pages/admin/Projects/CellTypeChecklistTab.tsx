@@ -22,6 +22,10 @@ import {
   updateCellTypeChecklistResponse,
 } from '@/services/projectTypeChecklistService'
 import { completeCell } from '@/services/projectWorkspaceService'
+import {
+  fetchCellCompletionReadiness,
+  type CellCompletionReadiness,
+} from '@/services/projectWorkspaceService'
 import type { CellStatus } from '@/types/projectWorkspace'
 
 const RESPONSE_OPTIONS: { value: TypeChecklistAnswer; label: string; className: string }[] = [
@@ -60,6 +64,7 @@ export function CellTypeChecklistTab({ projectId, cellId, cellStatus, onUpdated 
   const [savingExtension, setSavingExtension] = useState(false)
   const [completingFinalDetails, setCompletingFinalDetails] = useState(false)
   const [finalDetailsCompleted, setFinalDetailsCompleted] = useState(false)
+  const [completionReadiness, setCompletionReadiness] = useState<CellCompletionReadiness | null>(null)
   const [extensionDrafts, setExtensionDrafts] = useState({
     dimensionX: '',
     dimensionY: '',
@@ -69,8 +74,12 @@ export function CellTypeChecklistTab({ projectId, cellId, cellStatus, onUpdated 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await fetchCellTypeChecklistResponses(projectId, cellId)
+      const [data, readiness] = await Promise.all([
+        fetchCellTypeChecklistResponses(projectId, cellId),
+        fetchCellCompletionReadiness(projectId, cellId).catch(() => null),
+      ])
       setDetail(data)
+      setCompletionReadiness(readiness)
       const drafts: Record<string, string> = {}
       const open: Record<string, boolean> = {}
       for (const item of data.items) {
@@ -229,6 +238,8 @@ export function CellTypeChecklistTab({ projectId, cellId, cellStatus, onUpdated 
         dimensionY: updated.dimensionY != null ? String(updated.dimensionY) : '',
         highestMetalUsed: updated.highestMetalUsed ?? '',
       })
+      const readiness = await fetchCellCompletionReadiness(projectId, cellId).catch(() => null)
+      setCompletionReadiness(readiness)
       onUpdated?.()
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
@@ -345,9 +356,14 @@ export function CellTypeChecklistTab({ projectId, cellId, cellStatus, onUpdated 
     extension.overallSubstrateContact != null &&
     extension.waivableDrcError != null
 
+  const layoutSchemeComplete = completionReadiness?.sections.layoutDetails ?? false
   const isCellCompleted = cellStatus === 'completed'
   const canCompleteFinalDetails =
-    checklistComplete && extensionFieldsComplete && !finalDetailsCompleted && !isCellCompleted
+    checklistComplete &&
+    extensionFieldsComplete &&
+    layoutSchemeComplete &&
+    !finalDetailsCompleted &&
+    !isCellCompleted
 
   if (loading) {
     return (
@@ -631,6 +647,14 @@ export function CellTypeChecklistTab({ projectId, cellId, cellStatus, onUpdated 
           {postChecklistLocked ? (
             <p className="admin-projects-final-cell-details-lock-note">
               Complete checklist first ({answeredCount}/{totalCount})
+            </p>
+          ) : !isCellCompleted && !layoutSchemeComplete ? (
+            <p className="admin-projects-final-cell-details-lock-note">
+              Finish the full layout scheme before completing this cell.
+            </p>
+          ) : !isCellCompleted && !extensionFieldsComplete ? (
+            <p className="admin-projects-final-cell-details-lock-note">
+              Complete all final cell details before completing this cell.
             </p>
           ) : null}
         </div>

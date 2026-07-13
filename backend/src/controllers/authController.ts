@@ -161,67 +161,67 @@ export const authController = {
 
 
   updateProfile: async (req: AuthRequest, res: Response): Promise<void> => {
-
     try {
-
       if (!req.user) {
-
         res.status(401).json({ error: 'Unauthorized' });
-
         return;
-
       }
 
       // JWT role is always lowercase 'admin' | 'employee' (normalizeApiRole is applied at token creation)
       const jwtRole = normalizeApiRole(String(req.user.role ?? ''));
+      const { name, adminDisplayName, preferredTimezones } = req.body ?? {};
+      const wantsDisplayName = adminDisplayName !== undefined || name !== undefined;
+      const wantsTimezones = preferredTimezones !== undefined;
 
-      if (jwtRole !== 'admin') {
-
-        res.status(403).json({ error: 'Only accessible from the admin portal' });
-
+      if (!wantsDisplayName && !wantsTimezones) {
+        res.status(400).json({ error: 'Nothing to update' });
         return;
-
       }
 
-      const { name, adminDisplayName } = req.body ?? {};
-
-      const displayName = typeof adminDisplayName === 'string' ? adminDisplayName
-        : typeof name === 'string' ? name : '';
-
-      if (!displayName.trim()) {
-
-        res.status(400).json({ error: 'Name is required' });
-
+      let user = await authService.getUserById(req.user.id);
+      if (!user) {
+        res.status(404).json({ error: 'User not found' });
         return;
-
       }
 
-      const user = await authService.updateAdminDisplayName(req.user.id, displayName);
+      if (wantsTimezones) {
+        user = await authService.updatePreferredTimezones(req.user.id, preferredTimezones);
+      }
+
+      if (wantsDisplayName) {
+        if (jwtRole !== 'admin') {
+          res.status(403).json({ error: 'Only accessible from the admin portal' });
+          return;
+        }
+
+        const displayName =
+          typeof adminDisplayName === 'string'
+            ? adminDisplayName
+            : typeof name === 'string'
+              ? name
+              : '';
+
+        if (!displayName.trim()) {
+          res.status(400).json({ error: 'Name is required' });
+          return;
+        }
+
+        user = await authService.updateAdminDisplayName(req.user.id, displayName);
+      }
 
       const portalAdmin = await authService.resolveSessionPortalAdmin(
-
         req.user.id,
-
         req.user.email,
-
       );
 
       res.json({
-
         user,
-
         role: jwtRole,
-
         portalAdmin,
-
       });
-
     } catch (err: any) {
-
       res.status(err.status || 500).json({ error: err.message || 'Failed to update profile' });
-
     }
-
   },
 
 

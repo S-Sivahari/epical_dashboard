@@ -88,6 +88,24 @@ export function formatHoursDecimalAsDuration(hours) {
   return formatDurationFromMs(Math.round(safeHours * 3600000))
 }
 
+/** Alias used by dashboard/analytics charts (decimal hours → "Xh YYm"). */
+export const formatHoursAsDuration = formatHoursDecimalAsDuration
+
+/**
+ * Compact Y-axis tick label from decimal hours.
+ * e.g. 0 → "0", 0.5 → "30m", 2 → "2h", 2.25 → "2h 15m"
+ */
+export function formatChartAxisMinutesFromHours(hours) {
+  const totalMinutes = Math.round(Math.max(0, Number(hours) || 0) * 60)
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+
+  if (h === 0 && m === 0) return '0'
+  if (h === 0) return `${m}m`
+  if (m === 0) return `${h}h`
+  return `${h}h ${m}m`
+}
+
 /** Decimal hours → "6hrs, 48 minutes" (admin dashboard chart labels). */
 export function formatHoursDecimalAsLongDuration(hours) {
   const totalMinutes = Math.round(Math.max(0, Number(hours) || 0) * 60)
