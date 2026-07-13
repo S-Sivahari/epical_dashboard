@@ -1,15 +1,10 @@
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { Loader2, BarChart3, ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useTimesheetStore } from '@store/employee/timesheetStore'
-import { getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 import { cn } from '@pages/employee/lib/utils'
-import { formatHoursDecimalAsDuration, msToFlooredChartHours } from '@utils/durationFormat'
-import {
-  buildGrossAttendanceByDate,
-  segmentNetAttendanceMs,
-} from '@utils/workBreaks'
+import { formatWorkedDuration } from '@utils/durationFormat'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
+import { useAttendanceWeeklyHours } from '@hooks/useAttendanceWeeklyHours'
 
 const TimesheetWeeklyChart = lazy(() =>
   import('@pages/employee/TimesheetWeeklyChart').then((m) => ({ default: m.TimesheetWeeklyChart })),
@@ -17,57 +12,11 @@ const TimesheetWeeklyChart = lazy(() =>
 
 const CARD_CLASS = portalCardClass({ className: 'overflow-hidden p-4 sm:p-5' })
 
-function getDayKey(date) {
-  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]
-}
-
-function segmentChartHours(seg, grossByDate, checkedIn, liveNow) {
-  return msToFlooredChartHours(segmentNetAttendanceMs(seg, grossByDate, checkedIn, liveNow))
-}
-
 export function DashboardWorkInsights({ className, compact = false, fill = false }) {
-  const { checkedIn, attendanceHistory, initialized, hydrate, serverTimeSkew } = useTimesheetStore()
-  const [liveNow, setLiveNow] = useState(() => Date.now() + (serverTimeSkew || 0))
+  const { weeklyHours, totalWeeklyMs, todayMs, chartLoading } = useAttendanceWeeklyHours()
   const cardClass = compact
     ? portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-3' })
     : CARD_CLASS
-
-  useEffect(() => {
-    void hydrate()
-  }, [hydrate])
-
-  useEffect(() => {
-    if (!checkedIn) return undefined
-    const tick = () => setLiveNow(Date.now() + (serverTimeSkew || 0))
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
-  }, [checkedIn, serverTimeSkew])
-
-  const weekRange = useMemo(() => getWeekRange(), [liveNow])
-
-  const weeklyHours = useMemo(() => {
-    const byDay = {}
-    const chartDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-    const grossByDate = buildGrossAttendanceByDate(attendanceHistory, checkedIn, liveNow, {
-      inRange: (date) => isDateInRange(date, weekRange.start, weekRange.end),
-    })
-
-    attendanceHistory.forEach((seg) => {
-      if (!isDateInRange(seg.date, weekRange.start, weekRange.end)) return
-      const key = getDayKey(new Date(`${seg.date}T12:00:00`))
-      byDay[key] = (byDay[key] || 0) + segmentChartHours(seg, grossByDate, checkedIn, liveNow)
-    })
-
-    return chartDays.map((day) => ({
-      day,
-      hours: byDay[day] || 0,
-      target: 8,
-    }))
-  }, [attendanceHistory, checkedIn, liveNow, weekRange])
-
-  const totalWeekly = weeklyHours.reduce((sum, row) => sum + row.hours, 0)
-  const chartLoading = !initialized
 
   return (
     <InteractiveCard
@@ -89,10 +38,12 @@ export function DashboardWorkInsights({ className, compact = false, fill = false
           </div>
           <div className="min-w-0">
             <h3 className="emp-dash-work-insights__title font-heading font-semibold text-foreground">
-              Weekly hours
+              Hours this week
             </h3>
             <p className="emp-dash-work-insights__subtitle mt-0.5 text-muted">
-              {chartLoading ? 'Loading…' : `${formatHoursDecimalAsDuration(totalWeekly)} this week`}
+              {chartLoading
+                ? 'Loading…'
+                : `Today ${formatWorkedDuration(todayMs)} · ${formatWorkedDuration(totalWeeklyMs)} total`}
             </p>
           </div>
         </div>

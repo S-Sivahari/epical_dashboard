@@ -4,13 +4,13 @@ import {
   ProjectHoursPeriodDialog,
   ProjectHoursPeriodTrigger,
 } from './ProjectHoursPeriodDialog'
-import { AnimatedCounter } from './AnimatedCounter'
 import { SkeletonBlock } from './shared'
 import {
   formatDateKey,
   getChartSubtitleForRange,
   type ChartDateRange,
 } from '@/pages/admin/Dashboard/dashboardChartUtils'
+import { formatHoursDecimalAsLongDuration } from '@/utils/durationFormat'
 import { cn } from '@/utils/cn'
 
 export function ProjectHoursChartPanel({
@@ -67,17 +67,8 @@ export function ProjectHoursChartPanel({
           <div className="flex items-center gap-3">
             <div className="text-right">
               <p className="dashboard-panel-meta">Total</p>
-              <p className="dashboard-panel-stat">
-                {chartLoading ? (
-                  '—'
-                ) : (
-                  <AnimatedCounter
-                    value={totalPeriodHours}
-                    suffix="h"
-                    duration={0.85}
-                    className="tabular-nums"
-                  />
-                )}
+              <p className="dashboard-panel-stat tabular-nums">
+                {chartLoading ? '—' : formatHoursDecimalAsLongDuration(totalPeriodHours)}
               </p>
             </div>
             <ProjectHoursPeriodTrigger

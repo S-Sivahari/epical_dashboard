@@ -30,6 +30,15 @@ export interface EmployeeAttendance extends Document {
   activeBreakStartedAt?: Date;
   activeBreakEndsAt?: Date;
   breakPausedTimesheetId?: string;
+  /** Declared at checkout — affects default break deduction policy. */
+  workDayType?: 'half_day' | 'full_day';
+  /** Cell to auto-resume on the next project check-in after checkout. */
+  resumeProjectId?: string;
+  resumeCellId?: string;
+  /** Net worked ms for this session (set at checkout; matches timesheet workedMs). */
+  sessionWorkedMs?: number;
+  /** Default 60m break slice applied on this session (full day, no breaks taken). */
+  defaultBreakDeductedMs?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -62,11 +71,17 @@ const EmployeeAttendanceSchema = new Schema<EmployeeAttendance>(
     activeBreakStartedAt: { type: Date },
     activeBreakEndsAt: { type: Date },
     breakPausedTimesheetId: { type: String },
+    workDayType: { type: String, enum: ['half_day', 'full_day'] },
+    resumeProjectId: { type: String },
+    resumeCellId: { type: String },
+    sessionWorkedMs: { type: Number },
+    defaultBreakDeductedMs: { type: Number },
   },
   { timestamps: true }
 );
 
 EmployeeAttendanceSchema.index({ employeeId: 1, date: 1, checkInTime: -1 });
+EmployeeAttendanceSchema.index({ checkInTime: -1 });
 EmployeeAttendanceSchema.index({ employeeId: 1, checkOutTime: 1 });
 EmployeeAttendanceSchema.index({ sessionStatus: 1, checkOutTime: 1 });
 

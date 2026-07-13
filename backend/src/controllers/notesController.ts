@@ -9,6 +9,7 @@ import {
   assertEmployeeCanMutateNotesForBlockId,
   assertEmployeeCanMutateNotesForDate,
   assertEmployeeCanCopyLatestNotesForDate,
+  assertEmployeeCanReadNotesCopySource,
   assertEmployeeCanReadNotesForDate,
   getNotesAccessPayload,
   isNotesAdmin,
@@ -187,8 +188,13 @@ export const notesController = {
   getByDate: async (req: Request, res: Response): Promise<void> => {
     try {
       const date = paramStr(req.params.date);
+      const forCopyTo = paramStr(req.query.forCopyTo);
       if (!isNotesAdmin(req)) {
-        await assertEmployeeCanReadNotesForDate(req, date);
+        if (forCopyTo) {
+          await assertEmployeeCanReadNotesCopySource(req, date, forCopyTo);
+        } else {
+          await assertEmployeeCanReadNotesForDate(req, date);
+        }
       }
       const item = await notesService.getDailyBlockByDate(date);
       if (!item) {
@@ -215,6 +221,43 @@ export const notesController = {
       res.json(item);
     } catch (err) {
       handleError(res, err, 'Failed to load latest daily notes');
+    }
+  },
+
+  copyFromDate: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const sourceDate = paramStr(req.body?.sourceDate);
+      const targetDate = paramStr(req.body?.targetDate);
+      if (!sourceDate || !targetDate) {
+        res.status(400).json({ error: 'sourceDate and targetDate are required' });
+        return;
+      }
+      if (!isNotesAdmin(req)) {
+        await assertEmployeeCanReadNotesCopySource(req, sourceDate, targetDate);
+      } else {
+        // Admins still must copy into an editable target day.
+        await assertEmployeeCanMutateNotesForDate(req, targetDate);
+      }
+      const userId = req.user?.id || '';
+      const email = req.user?.email;
+      const item = await notesService.replaceDailyNotesFromDate(sourceDate, targetDate, userId, email);
+      res.json(item);
+    } catch (err) {
+      handleError(res, err, 'Failed to copy notes');
+    }
+  },
+
+  ensure: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const date = paramStr(req.body?.date);
+      const status = req.body?.status as DailyNoteStatus | undefined;
+      await assertEmployeeCanMutateNotesForDate(req, date);
+      const userId = req.user?.id || '';
+      const email = req.user?.email;
+      const item = await notesService.ensureDailyBlock(date, userId, email, status);
+      res.json(item);
+    } catch (err) {
+      handleError(res, err, 'Failed to ensure daily block');
     }
   },
 
@@ -297,6 +340,49 @@ export const notesController = {
       res.status(201).json(item);
     } catch (err) {
       handleError(res, err, 'Failed to create work description');
+    }
+  },
+
+  syncChildren: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const dailyBlockId = paramStr(req.params.id);
+      await assertEmployeeCanMutateNotesForBlockId(req, dailyBlockId);
+      const userId = req.user?.id || '';
+      const email = req.user?.email;
+      const rawEntries = Array.isArray(req.body?.entries) ? req.body.entries : [];
+      const entries = rawEntries.map((entry: Record<string, unknown>) => ({
+        id: entry?.id != null ? String(entry.id) : undefined,
+        title: String(entry?.title ?? ''),
+        projectId: entry?.projectId != null ? String(entry.projectId) : undefined,
+        employeeIds: Array.isArray(entry?.employeeIds)
+          ? entry.employeeIds.map((id: unknown) => String(id))
+          : undefined,
+        description: entry?.description != null ? String(entry.description) : undefined,
+        includeInEmail: entry?.includeInEmail != null ? Boolean(entry.includeInEmail) : undefined,
+      }));
+      const deleteIds = Array.isArray(req.body?.deleteIds)
+        ? req.body.deleteIds.map((id: unknown) => String(id))
+        : [];
+      const item = await notesService.syncDailyBlockChildren(dailyBlockId, userId, email, {
+        entries,
+        deleteIds,
+      });
+      res.json(item);
+    } catch (err) {
+      handleError(res, err, 'Failed to sync notes');
+    }
+  },
+
+  normalizePerEmployee: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const dailyBlockId = paramStr(req.params.id);
+      await assertEmployeeCanMutateNotesForBlockId(req, dailyBlockId);
+      const userId = req.user?.id || '';
+      const email = req.user?.email;
+      const item = await notesService.normalizeDailyBlockPerEmployee(dailyBlockId, userId, email);
+      res.json(item);
+    } catch (err) {
+      handleError(res, err, 'Failed to normalize notes');
     }
   },
 

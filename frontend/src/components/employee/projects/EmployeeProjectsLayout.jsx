@@ -39,11 +39,16 @@ export function EmployeeProjectsLayout() {
     const loadWorkspaces = async () => {
       setLoadingWorkspaces(true)
       try {
-        const results = await Promise.all(
-          projects.map((project) =>
-            fetchMyProjectWorkspace(project.id).catch(() => null),
-          ),
-        )
+        // Limit concurrency so opening the hub doesn’t stampede the workspace API.
+        const CONCURRENCY = 3
+        const results = []
+        for (let i = 0; i < projects.length; i += CONCURRENCY) {
+          const chunk = projects.slice(i, i + CONCURRENCY)
+          const chunkResults = await Promise.all(
+            chunk.map((project) => fetchMyProjectWorkspace(project.id).catch(() => null)),
+          )
+          results.push(...chunkResults)
+        }
         setWorkspaces(results.filter(Boolean))
       } catch {
         setWorkspaces([])

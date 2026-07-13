@@ -336,6 +336,7 @@ function hoursFromTimesheet(
     logoutTime?: string
     overriddenHours?: number
     totalHours?: number
+    workedMs?: number
     totalPausedMs?: number
     taskStatus?: string
   },
@@ -353,8 +354,13 @@ function hoursFromTimesheet(
     if (elapsedMs > maxOpenMs) {
       end = new Date(login.getTime() + maxOpenMs)
     }
-  } else if (t.totalHours != null && t.totalHours > 0) {
-    return Number(t.totalHours)
+  } else {
+    if (typeof t.workedMs === 'number' && t.workedMs >= 0) {
+      return Math.round((t.workedMs / 3600000) * 10) / 10
+    }
+    if (t.totalHours != null && t.totalHours > 0) {
+      return Number(t.totalHours)
+    }
   }
 
   const paused = t.totalPausedMs ?? 0

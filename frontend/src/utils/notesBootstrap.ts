@@ -5,7 +5,7 @@ import {
   listNoteProjects,
   listProjectEmployees,
   listTimesheetEmployees,
-  updateChildBlock,
+  normalizeDailyBlockPerEmployee,
 } from '@/services/notesService'
 import type {
   DailyNoteBlock,
@@ -206,39 +206,8 @@ export async function loadNotesProjectContext() {
 }
 
 async function migrateCombinedEntries(block: DailyNoteBlock): Promise<DailyNoteBlock> {
-  let current = block
-  const combined = current.childBlocks.filter(
-    (entry) => !entry.archived && entryEmployeeKeys(entry).length > 1,
-  )
-
-  for (const entry of combined) {
-    const employeeIds = entryEmployeeKeys(entry)
-    let first = true
-
-    for (const employeeId of employeeIds) {
-      const hasDedicated = current.childBlocks.some(
-        (child) =>
-          !child.archived &&
-          child.projectId === entry.projectId &&
-          entryEmployeeKeys(child).length === 1 &&
-          entryEmployeeKeys(child)[0] === employeeId,
-      )
-      if (hasDedicated) continue
-
-      current = await createChildBlock(current._id, {
-        title: entry.title,
-        projectId: entry.projectId,
-        employeeIds: [employeeId],
-        description: first ? entry.description : '',
-        includeInEmail: entry.includeInEmail,
-      })
-      first = false
-    }
-
-    current = await updateChildBlock(current._id, entry._id, { archived: true })
-  }
-
-  return current
+  if (!needsPerEmployeeNormalization(block)) return block
+  return normalizeDailyBlockPerEmployee(block._id)
 }
 
 export async function normalizePerEmployeeEntries(block: DailyNoteBlock): Promise<DailyNoteBlock> {

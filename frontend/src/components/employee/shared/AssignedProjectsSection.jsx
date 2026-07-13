@@ -4,8 +4,8 @@ import { FolderKanban, Clock, ArrowRight } from 'lucide-react'
 import { ROUTES } from '@constants/routes'
 import { Badge } from '@components/employee/ui/badge'
 import api from '@services/api'
+import { formatHoursDecimalAsDuration } from '@utils/durationFormat'
 import { cn } from '@pages/employee/lib/utils'
-import { formatHoursAsDuration } from '@/utils/durationFormat'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
 
 function projectStatusLabel(status) {
@@ -38,7 +38,7 @@ function ProjectRow({ project, compact = false }) {
         <p className="truncate text-[11px] text-muted">
           {project.client}
           {project.myHours > 0 ? (
-            <span className="sm:hidden"> · {formatHoursAsDuration(project.myHours)}</span>
+            <span className="sm:hidden"> · {formatHoursDecimalAsDuration(project.myHours)}</span>
           ) : null}
         </p>
       </div>
@@ -47,9 +47,9 @@ function ProjectRow({ project, compact = false }) {
         {projectStatusLabel(project.status)}
       </Badge>
 
-      <span className="hidden text-right font-semibold text-foreground sm:block">
-        {project.myHours > 0 ? formatHoursAsDuration(project.myHours) : '—'}
-      </span>
+              <span className="hidden text-right font-semibold text-foreground sm:block">
+                {project.myHours > 0 ? formatHoursDecimalAsDuration(project.myHours) : '—'}
+              </span>
 
       <span className="truncate text-right text-[10px] font-medium text-muted">
         {project.assignmentRole}
@@ -157,12 +157,16 @@ export function AssignedProjectsSection({
                 <span aria-hidden>·</span>
                 <span className="inline-flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  <span className="font-semibold text-foreground">{summary.totalHours}h</span> logged
+                  <span className="font-semibold text-foreground">
+                  {formatHoursDecimalAsDuration(summary.totalHours)}
+                </span>{' '}
+                logged
                 </span>
               </p>
             ) : !loading && projects.length > 0 && compact ? (
               <p className="mt-0.5 text-[11px] text-muted">
-                {projects.length} project{projects.length === 1 ? '' : 's'} · {summary.totalHours}h logged
+                {projects.length} project{projects.length === 1 ? '' : 's'} ·{' '}
+                {formatHoursDecimalAsDuration(summary.totalHours)} logged
               </p>
             ) : (
               <p className="mt-0.5 text-xs text-muted">Projects you can access</p>

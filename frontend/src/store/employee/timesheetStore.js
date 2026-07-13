@@ -119,6 +119,8 @@ function mapSessionFromApi(entry) {
     loginTime: entry.loginTime,
     logoutTime: entry.logoutTime,
     totalHours: entry.totalHours,
+    workedMs: entry.workedMs,
+    breakMs: entry.breakMs,
     totalPausedMs: entry.totalPausedMs || 0,
     pausedAt: entry.pausedAt,
     autoCheckedOut: entry.autoCheckedOut ?? false,
@@ -141,6 +143,8 @@ export const useTimesheetStore = create((set, get) => ({
   sessions: [],
   loading: false,
   initialized: false,
+  timesheetEligible: true,
+  employeeView: 'Public',
   attendance: null,
   sessionStatus: null,
   autoCheckoutInfo: null,
@@ -326,6 +330,8 @@ export const useTimesheetStore = create((set, get) => ({
 
       set({
         serverTimeSkew,
+        timesheetEligible: data.timesheetEligible !== false,
+        employeeView: data.employeeView || 'Public',
         ...attendanceState,
         attendance: data.attendance ?? null,
         assignedTasks: data.assignedTasks ?? [],
@@ -368,6 +374,8 @@ export const useTimesheetStore = create((set, get) => ({
 
       set({
         serverTimeSkew,
+        timesheetEligible: data.timesheetEligible !== false,
+        employeeView: data.employeeView || 'Public',
         ...attendanceState,
         attendance: data.attendance ?? null,
         assignedTasks: data.assignedTasks ?? [],
@@ -380,17 +388,17 @@ export const useTimesheetStore = create((set, get) => ({
         },
       })
 
-      // Always perform background refreshes of sessions and project hours using the active range filter so they never fluctuate or get overwritten with defaults!
-      await Promise.all([
+      // Background refreshes — do not block sync on secondary data.
+      const refreshes = [
         get().refreshSessionsForRange({ background: true }),
         get().refreshProjectWiseHours(),
         get().refreshAllTimeProjectWiseHours(),
         get().fetchBackendElapsedData(),
-      ])
-
+      ]
       if (wasCheckedIn && !attendanceState.checkedIn) {
-        await get().refreshAttendanceHistory()
+        refreshes.push(get().refreshAttendanceHistory())
       }
+      void Promise.all(refreshes).catch(console.error)
     } catch (err) {
       console.error('Failed to sync timesheet state with backend', err)
     } finally {
@@ -449,13 +457,16 @@ export const useTimesheetStore = create((set, get) => ({
         autoCheckoutEnabled: true,
       },
     })
-    await Promise.all([
+    // Refresh history/hours in the background so the check-in dialog can close immediately.
+    void Promise.all([
       get().refreshAttendanceHistory(),
       get().refreshSessionsForRange(),
       get().refreshProjectWiseHours(),
       get().refreshAllTimeProjectWiseHours(),
       get().fetchBackendElapsedData(),
-    ])
+    ]).catch((err) => {
+      console.error(err)
+    })
     return data
   },
 
@@ -484,13 +495,17 @@ export const useTimesheetStore = create((set, get) => ({
         autoCheckoutInfo: null,
       }))
     }
-    await get().refreshAssignedTasks()
-    await Promise.all([
+    // Refresh history/hours in the background so checkout UI can clear immediately.
+    void Promise.all([
+      get().refreshAssignedTasks(),
       get().refreshAttendanceHistory(),
       get().refreshSessionsForRange(),
       get().refreshProjectWiseHours(),
       get().refreshAllTimeProjectWiseHours(),
-    ])
+    ]).catch((err) => {
+      console.error(err)
+    })
+    return data
   },
 
   startTask: async ({ assignedTaskId, description, cellId }) => {
@@ -513,7 +528,9 @@ export const useTimesheetStore = create((set, get) => ({
       await get().refreshActiveTask()
       await get().refreshAssignedTasks()
     }
-    await get().fetchBackendElapsedData()
+    void get().fetchBackendElapsedData().catch((err) => {
+      console.error(err)
+    })
     return data
   },
 
@@ -531,13 +548,19 @@ export const useTimesheetStore = create((set, get) => ({
           sessions: nextSessions,
         }
       })
-      await get().refreshAssignedTasks()
-      await Promise.all([get().refreshProjectWiseHours(), get().refreshAllTimeProjectWiseHours()])
+      void Promise.all([
+        get().refreshAssignedTasks(),
+        get().refreshProjectWiseHours(),
+        get().refreshAllTimeProjectWiseHours(),
+      ]).catch(console.error)
     } else {
-      await get().refreshActiveTask()
-      await get().refreshSessions()
-      await get().refreshAssignedTasks()
-      await Promise.all([get().refreshProjectWiseHours(), get().refreshAllTimeProjectWiseHours()])
+      void Promise.all([
+        get().refreshActiveTask(),
+        get().refreshSessions(),
+        get().refreshAssignedTasks(),
+        get().refreshProjectWiseHours(),
+        get().refreshAllTimeProjectWiseHours(),
+      ]).catch(console.error)
     }
     return data
   },
@@ -556,12 +579,17 @@ export const useTimesheetStore = create((set, get) => ({
           pausedTasks: nextPaused,
         }
       })
-      await get().refreshAssignedTasks()
+      void Promise.all([
+        get().refreshAssignedTasks(),
+        get().fetchBackendElapsedData(),
+      ]).catch(console.error)
     } else {
-      await get().refreshActiveTask()
-      await get().refreshAssignedTasks()
+      void Promise.all([
+        get().refreshActiveTask(),
+        get().refreshAssignedTasks(),
+        get().fetchBackendElapsedData(),
+      ]).catch(console.error)
     }
-    await get().fetchBackendElapsedData()
     return data
   },
 
@@ -576,12 +604,17 @@ export const useTimesheetStore = create((set, get) => ({
           pausedTasks: nextPaused,
         }
       })
-      await get().refreshAssignedTasks()
+      void Promise.all([
+        get().refreshAssignedTasks(),
+        get().fetchBackendElapsedData(),
+      ]).catch(console.error)
     } else {
-      await get().refreshActiveTask()
-      await get().refreshAssignedTasks()
+      void Promise.all([
+        get().refreshActiveTask(),
+        get().refreshAssignedTasks(),
+        get().fetchBackendElapsedData(),
+      ]).catch(console.error)
     }
-    await get().fetchBackendElapsedData()
     return data
   },
 
@@ -599,13 +632,24 @@ export const useTimesheetStore = create((set, get) => ({
           sessions: nextSessions,
         }
       })
-      await get().refreshAssignedTasks()
-      await Promise.all([get().refreshProjectWiseHours(), get().refreshAllTimeProjectWiseHours()])
+      void Promise.all([
+        get().refreshAssignedTasks(),
+        get().refreshProjectWiseHours(),
+        get().refreshAllTimeProjectWiseHours(),
+      ]).catch((err) => {
+        console.error(err)
+      })
     } else {
-      await get().refreshActiveTask()
-      await get().refreshSessions()
-      await get().refreshAssignedTasks()
-      await Promise.all([get().refreshProjectWiseHours(), get().refreshAllTimeProjectWiseHours()])
+      set({ activeTask: null })
+      void Promise.all([
+        get().refreshActiveTask(),
+        get().refreshSessions(),
+        get().refreshAssignedTasks(),
+        get().refreshProjectWiseHours(),
+        get().refreshAllTimeProjectWiseHours(),
+      ]).catch((err) => {
+        console.error(err)
+      })
     }
     return data
   },
@@ -614,7 +658,7 @@ export const useTimesheetStore = create((set, get) => ({
     const data = await apiStartBreak(breakType)
     applyBreakStateFromApi(data, set)
     applyActiveTaskPayload(data, set)
-    await get().fetchBackendElapsedData()
+    void get().fetchBackendElapsedData().catch(console.error)
     return data
   },
 
@@ -622,7 +666,7 @@ export const useTimesheetStore = create((set, get) => ({
     const data = await apiEndBreak()
     applyBreakStateFromApi(data, set)
     applyActiveTaskPayload(data, set)
-    await get().fetchBackendElapsedData()
+    void get().fetchBackendElapsedData().catch(console.error)
     return data
   },
 

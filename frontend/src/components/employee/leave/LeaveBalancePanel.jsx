@@ -35,6 +35,8 @@ export function LeaveBalancePanel({ balances, selectedLeaveType }) {
             used={balance.used}
             total={balance.total}
             remaining={balance.remaining}
+            pending={balance.pending}
+            approved={balance.approved}
             selected={selectedKey === balance.key}
           />
         ))}

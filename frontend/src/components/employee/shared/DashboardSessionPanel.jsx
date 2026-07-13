@@ -4,8 +4,11 @@ import { LogIn, LogOut, Loader2, Timer } from 'lucide-react'
 import { Button } from '@components/employee/ui/button'
 import { Textarea } from '@components/employee/ui/textarea'
 import { LiveSessionTimer } from '@pages/employee/TimesheetLiveSessionPanel'
+import { EmployeeBreakTimeToday } from '@components/employee/shared/EmployeeBreakTimeToday'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
+import { useAttendanceWeeklyHours } from '@hooks/useAttendanceWeeklyHours'
 import { useToast } from '@components/employee/shared/ToastProvider'
+import { formatWorkedDuration } from '@utils/durationFormat'
 import { cn } from '@pages/employee/lib/utils'
 
 function resolveCheckInTime(value) {
@@ -48,12 +51,17 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
   const serverTimeSkew = useTimesheetStore((s) => s.serverTimeSkew)
   const backendElapsedMs = useTimesheetStore((s) => s.backendElapsedMs)
   const backendElapsedLastFetch = useTimesheetStore((s) => s.backendElapsedLastFetch)
-  const hydrate = useTimesheetStore((s) => s.hydrate)
+  const attendance = useTimesheetStore((s) => s.attendance)
+  const timesheetEligible = useTimesheetStore((s) => s.timesheetEligible)
   const checkOut = useTimesheetStore((s) => s.checkOut)
   const completeTask = useTimesheetStore((s) => s.completeTask)
+  const hydrate = useTimesheetStore((s) => s.hydrate)
+  const { todayMs } = useAttendanceWeeklyHours()
 
   const resolvedCheckIn = useMemo(() => resolveCheckInTime(checkInTime), [checkInTime])
   const currentWorkTask = activeTask || pausedTasks?.[0] || null
+  const showTodayWorked = todayMs > 0
+  const todayWorkedLabel = formatWorkedDuration(todayMs)
 
   useEffect(() => {
     void hydrate()
@@ -91,6 +99,7 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
         await completeTask(currentWorkTask.timesheetId, summary)
       }
       await checkOut()
+      // Clear checkout UI as soon as attendance is closed — don't wait on history refresh.
       setCheckoutReview(false)
       setWorkSummary('')
       toast({
@@ -121,6 +130,20 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
     return (
       <div className={cn(panelClass, 'emp-dash-session-panel--loading')}>
         <div className={cn('animate-pulse rounded-xl bg-slate-100', compact ? 'h-24' : 'h-28')} />
+      </div>
+    )
+  }
+
+  if (!timesheetEligible) {
+    return (
+      <div className={panelClass}>
+        <div className="emp-dash-session-panel__head">
+          <Timer className="h-4 w-4 shrink-0" aria-hidden />
+          <p className="emp-dash-session-panel__title">Timesheet unavailable</p>
+        </div>
+        <p className="emp-dash-session-panel__hint">
+          Private employee records are not included in project timesheets or check-in.
+        </p>
       </div>
     )
   }
@@ -217,7 +240,19 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
               backendElapsedLastFetch={backendElapsedLastFetch}
               inline
             />
+            {showTodayWorked ? (
+              <span className="emp-dash-session-panel__today-worked" title="Total worked today">
+                · Today {todayWorkedLabel}
+              </span>
+            ) : null}
           </p>
+
+          <EmployeeBreakTimeToday
+            breaks={attendance?.breaks}
+            serverTimeSkew={serverTimeSkew}
+            compact
+            className="emp-dash-session-panel__break-today"
+          />
 
           <p className="emp-dash-session-panel__since">
             Since{' '}

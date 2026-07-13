@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { FolderKanban } from 'lucide-react'
-import { formatHoursAsDuration } from '@/utils/durationFormat'
+import { formatHoursDecimalAsDuration } from '@utils/durationFormat'
 
 export function TimesheetProjectWiseChart({ data = [], emptyHint, compact = false, embedded = false }) {
   const maxHours = useMemo(
@@ -44,7 +44,9 @@ export function TimesheetProjectWiseChart({ data = [], emptyHint, compact = fals
             <p className="emp-timesheet-session-project-name" title={item.project}>
               {item.project}
             </p>
-            <span className="emp-timesheet-session-project-hours">{formatHoursAsDuration(item.hours)}</span>
+            <span className="emp-timesheet-session-project-hours">
+              {formatHoursDecimalAsDuration(item.hours)}
+            </span>
           </div>
         ))}
       </div>
@@ -82,7 +84,7 @@ export function TimesheetProjectWiseChart({ data = [], emptyHint, compact = fals
                     : 'shrink-0 text-sm font-bold tabular-nums text-teal-700'
                 }
               >
-                {formatHoursAsDuration(item.hours)}
+                {formatHoursDecimalAsDuration(item.hours)}
               </span>
             </div>
             <div className={compact ? 'mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200/80' : 'mt-2 h-2 overflow-hidden rounded-full bg-slate-200/80'}>

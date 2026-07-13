@@ -1,5 +1,5 @@
 import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
-import { computeNetAttendanceHours } from '../utils/workBreaks';
+import { computeWorkingHours } from '../services/workingTimeService';
 
 export type DashboardChartPeriod = 'This Week' | 'This Month' | 'Last Month' | 'Last 2 Months' | 'Custom';
 
@@ -53,18 +53,49 @@ export function effectiveAttendanceHours(
   attendance: {
     checkInTime: Date;
     checkOutTime?: Date | null;
+    sessionWorkedMs?: number | null;
+    defaultBreakDeductedMs?: number | null;
     morningBreakAt?: Date | null;
     lunchBreakAt?: Date | null;
     eveningBreakAt?: Date | null;
+    morningBreakMs?: number | null;
+    lunchBreakMs?: number | null;
+    eveningBreakMs?: number | null;
+    activeBreakType?: 'morning' | 'lunch' | 'evening' | null;
+    activeBreakStartedAt?: Date | null;
+    activeBreakEndsAt?: Date | null;
+    workDayType?: 'half_day' | 'full_day' | null;
+    autoCheckedOut?: boolean;
   },
   now = new Date(),
 ): number {
   if (!attendance.checkInTime) return 0;
-  return computeNetAttendanceHours(
-    new Date(attendance.checkInTime),
-    attendance.checkOutTime ? new Date(attendance.checkOutTime) : null,
-    attendance,
-    now,
+  if (
+    attendance.checkOutTime &&
+    typeof attendance.sessionWorkedMs === 'number' &&
+    attendance.sessionWorkedMs >= 0
+  ) {
+    return roundHours(attendance.sessionWorkedMs / 3600000);
+  }
+  return computeWorkingHours(
+    {
+      checkInTime: new Date(attendance.checkInTime),
+      checkOutTime: attendance.checkOutTime ? new Date(attendance.checkOutTime) : null,
+      morningBreakAt: attendance.morningBreakAt,
+      lunchBreakAt: attendance.lunchBreakAt,
+      eveningBreakAt: attendance.eveningBreakAt,
+      morningBreakMs: attendance.morningBreakMs,
+      lunchBreakMs: attendance.lunchBreakMs,
+      eveningBreakMs: attendance.eveningBreakMs,
+      activeBreakType: attendance.activeBreakType,
+      activeBreakStartedAt: attendance.activeBreakStartedAt,
+      activeBreakEndsAt: attendance.activeBreakEndsAt,
+      workDayType: attendance.workDayType,
+      sessionWorkedMs: attendance.sessionWorkedMs,
+      defaultBreakDeductedMs: attendance.defaultBreakDeductedMs,
+      autoCheckedOut: attendance.autoCheckedOut,
+    },
+    { now },
   );
 }
 
@@ -74,6 +105,7 @@ export function effectiveTimesheetHours(
     logoutTime?: Date | null;
     overriddenHours?: number | null;
     totalHours?: number | null;
+    workedMs?: number | null;
     totalPausedMs?: number;
     taskStatus?: string;
   },
@@ -81,6 +113,18 @@ export function effectiveTimesheetHours(
 ): number {
   if (t.overriddenHours != null && t.overriddenHours !== undefined) {
     return Math.max(0, Number(t.overriddenHours));
+  }
+
+  if (typeof t.workedMs === 'number' && t.workedMs >= 0 && t.logoutTime) {
+    return roundHours(t.workedMs / 3600000);
+  }
+
+  if (
+    typeof t.totalHours === 'number' &&
+    t.totalHours >= 0 &&
+    t.logoutTime
+  ) {
+    return roundHours(t.totalHours);
   }
 
   if (!t.loginTime) return 0;
@@ -265,7 +309,9 @@ export async function buildDashboardProjectHoursChart(
   const attendances = await EmployeeAttendanceModel.find({
     checkInTime: { $gte: loginFrom, $lte: loginTo },
   })
-    .select('checkInTime checkOutTime morningBreakAt lunchBreakAt eveningBreakAt')
+    .select(
+      'checkInTime checkOutTime sessionWorkedMs defaultBreakDeductedMs morningBreakAt lunchBreakAt eveningBreakAt morningBreakMs lunchBreakMs eveningBreakMs activeBreakType activeBreakStartedAt activeBreakEndsAt workDayType autoCheckedOut',
+    )
     .lean();
 
   const chartData =

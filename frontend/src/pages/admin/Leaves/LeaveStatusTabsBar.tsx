@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { cn } from '@/utils/cn'
 import { useLeaves } from '@hooks/useLeaves'
 import {
   excludeCancelledLeaves,
   filterLeaves,
-  formatMonthLabel,
-  getCurrentMonthDateRange,
-  getCurrentMonthKey,
+  formatYearLabel,
   type LeaveFilters,
 } from '@/utils/leaveFilters'
 
@@ -25,39 +23,21 @@ export function LeaveStatusTabsBar({
 }) {
   const { leaves } = useLeaves()
   const visibleLeaves = useMemo(() => excludeCancelledLeaves(leaves), [leaves])
-  const [monthKey, setMonthKey] = useState(() => getCurrentMonthKey())
 
-  useEffect(() => {
-    const syncMonth = () => {
-      const nextKey = getCurrentMonthKey()
-      if (nextKey !== monthKey) setMonthKey(nextKey)
-    }
-    syncMonth()
-    const id = window.setInterval(syncMonth, 60_000)
-    return () => window.clearInterval(id)
-  }, [monthKey])
-
-  const monthRange = useMemo(() => getCurrentMonthDateRange(), [monthKey])
-  const computedMonthLabel = useMemo(() => formatMonthLabel(monthRange.from), [monthRange.from])
-  const monthLabel = monthLabelProp ?? computedMonthLabel
-
-  const panelFilters = useMemo(
-    () => ({
-      ...filters,
-      dateFrom: monthRange.from,
-      dateTo: monthRange.to,
-    }),
-    [filters, monthRange],
-  )
+  const periodLabel = useMemo(() => {
+    if (monthLabelProp) return monthLabelProp
+    if (filters.dateFrom) return formatYearLabel(filters.dateFrom)
+    return formatYearLabel(String(new Date().getFullYear()))
+  }, [filters.dateFrom, monthLabelProp])
 
   const statusCounts = useMemo(() => {
-    const inMonth = filterLeaves(visibleLeaves, { ...panelFilters, status: 'All' })
+    const inPeriod = filterLeaves(visibleLeaves, { ...filters, status: 'All' })
     return {
-      Pending: inMonth.filter((l) => l.status === 'Pending').length,
-      Approved: inMonth.filter((l) => l.status === 'Approved').length,
-      Rejected: inMonth.filter((l) => l.status === 'Rejected').length,
+      Pending: inPeriod.filter((l) => l.status === 'Pending').length,
+      Approved: inPeriod.filter((l) => l.status === 'Approved').length,
+      Rejected: inPeriod.filter((l) => l.status === 'Rejected').length,
     }
-  }, [visibleLeaves, panelFilters])
+  }, [visibleLeaves, filters])
 
   return (
     <div className={cn('admin-leaves-status-tabs admin-leaves-status-tabs--hub', className)}>
@@ -82,7 +62,7 @@ export function LeaveStatusTabsBar({
           )
         })}
       </nav>
-      <span className="admin-leaves-status-month-label">{monthLabel}</span>
+      <span className="admin-leaves-status-month-label">{periodLabel}</span>
     </div>
   )
 }

@@ -2576,21 +2576,31 @@ body,
   overflow: visible;
 }
 
-/* Employee dashboard, calendar — viewport-fit with internal panel scroll */
+/* Employee dashboard, calendar, leave, tickets — viewport-fit with internal panel scroll */
 .employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-dashboard]),
-.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-calendar]) {
+.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-calendar]),
+.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-leave]),
+.employee-portal [data-employee-page].admin-dashboard-view:has([data-employee-tickets]) {
   flex: 1 1 0;
   max-height: var(--viewport-page-h);
   overflow: hidden;
 }
 
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-dashboard]),
-.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]) {
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-calendar]),
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]),
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-tickets]) {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+}
+
+.employee-portal.cmd-portal .cmd-main:has([data-employee-leave]),
+.employee-portal.cmd-portal .cmd-main:has([data-employee-tickets]) {
+  overflow: hidden;
+  min-height: 0;
 }
 
 /* Timesheet — viewport-fit on desktop; shell scrolls so history is never clipped */

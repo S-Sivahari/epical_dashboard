@@ -1,0 +1,100 @@
+/* Employee tickets — viewport-fit two-column layout */
+
+.emp-tickets-page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-tickets]) {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-tickets]) {
+    padding: 1rem;
+  }
+}
+
+.emp-tickets-layout {
+  display: grid;
+  flex: 1 1 0;
+  gap: 1.25rem;
+  min-height: 0;
+  overflow: hidden;
+  align-items: stretch;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .emp-tickets-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.emp-tickets-panel {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.emp-tickets-history-body {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.emp-tickets-history-body > .emp-tickets-table-wrap {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.emp-tickets-history-body .emp-tickets-empty {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.emp-tickets-history-body .emp-tickets-table-wrap > [data-portal-card] {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+@media (max-width: 1023px) {
+  .emp-tickets-page {
+    height: auto;
+    overflow: visible;
+  }
+
+  .emp-tickets-layout,
+  .emp-tickets-panel,
+  .emp-tickets-history-body {
+    overflow: visible;
+    min-height: min-content;
+  }
+
+  .emp-tickets-history-body .emp-tickets-empty {
+    flex: 0 0 auto;
+    min-height: 14rem;
+  }
+}

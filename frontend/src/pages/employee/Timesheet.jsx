@@ -9,9 +9,13 @@ import { Textarea } from '@components/employee/ui/textarea'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { DateRangePicker } from '@components/employee/shared/DateRangePicker'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
-import { formatSessionDuration, formatDurationFromMs, formatHoursDecimalAsDuration, msToFlooredChartHours } from '@utils/durationFormat'
+import { formatSessionDuration, formatWorkedDuration, formatDurationFromMs, formatBreakDisplayLabel, isDefaultBreakDeduction } from '@utils/durationFormat'
 import { useToast } from '@components/employee/shared/ToastProvider'
-import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
+import { getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
+import {
+  buildWeeklyHoursChartData,
+  todayMsFromChart,
+} from '@utils/attendanceWeeklyHours'
 import { TimesheetCheckInDialog } from '@pages/employee/TimesheetCheckInDialog'
 import {
   Dialog,
@@ -22,16 +26,20 @@ import {
 } from '@components/employee/ui/dialog'
 import {
   WORK_BREAK_OPTIONS,
-  buildGrossAttendanceByDate,
-  computeGrossAttendanceMs,
   formatBreakCountdown,
-  segmentGrossAttendanceMs,
-  segmentNetAttendanceMs,
+  DAILY_STANDARD_BREAK_MINUTES,
 } from '@utils/workBreaks'
 import { EmployeePageLoading } from '@components/employee/layout/EmployeePageLoading'
+import { EmployeeBreakTimeToday } from '@components/employee/shared/EmployeeBreakTimeToday'
 
 const TimesheetWeeklyChart = lazy(() =>
   import('@pages/employee/TimesheetWeeklyChart').then((m) => ({ default: m.TimesheetWeeklyChart })),
+)
+
+const TimesheetProjectWiseChart = lazy(() =>
+  import('@pages/employee/TimesheetProjectWiseChart').then((m) => ({
+    default: m.TimesheetProjectWiseChart,
+  })),
 )
 
 function stripTaskLabelPrefix(taskText, { taskTitle, projectName } = {}) {
@@ -63,26 +71,61 @@ const taskSchema = z.object({
 const historyColumns = [
   { key: 'date', label: 'Date' },
   { key: 'project', label: 'Project' },
-  { key: 'description', label: 'Description' },
-  { key: 'start', label: 'Start' },
-  { key: 'end', label: 'End' },
-  { key: 'duration', label: 'Duration' },
+  { key: 'checkIn', label: 'Check in' },
+  { key: 'checkOut', label: 'Check out' },
+  { key: 'break', label: 'Break' },
+  { key: 'duration', label: 'Worked' },
 ]
 
 const CHART_HEIGHT = 260
 const HISTORY_VISIBLE_ROW_LIMIT = 10
-
-function getDayKey(date) {
-  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]
-}
 
 function formatTimeLabel(iso) {
   if (!iso) return '—'
   return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
-function segmentChartHours(seg, grossByDate, checkedIn, liveNow) {
-  return msToFlooredChartHours(segmentNetAttendanceMs(seg, grossByDate, checkedIn, liveNow))
+function formatBreakMsLabel(ms, { isDefault = false } = {}) {
+  return formatBreakDisplayLabel(ms, { isDefault })
+}
+
+function resolveHistoryBreakDisplay(seg) {
+  const breakMs = resolveHistoryBreakMs(seg)
+  const isDefault = isDefaultBreakDeduction({
+    breakMs: seg.breakMs,
+    defaultBreakDeductedMs: seg.defaultBreakDeductedMs,
+    displayBreakMs: breakMs,
+  })
+  return formatBreakMsLabel(breakMs, { isDefault })
+}
+
+function resolveHistoryWorkedMs(seg) {
+  if (typeof seg.displayWorkedMs === 'number' && seg.displayWorkedMs >= 0) {
+    return seg.displayWorkedMs
+  }
+  if (typeof seg.sessionWorkedMs === 'number' && seg.sessionWorkedMs >= 0) {
+    const grossMs =
+      seg.checkInTime && seg.checkOutTime
+        ? Math.max(0, new Date(seg.checkOutTime).getTime() - new Date(seg.checkInTime).getTime())
+        : null
+    if (grossMs == null || seg.sessionWorkedMs <= grossMs) {
+      return seg.sessionWorkedMs
+    }
+  }
+  return 0
+}
+
+function resolveHistoryBreakMs(seg) {
+  if (typeof seg.displayBreakMs === 'number' && seg.displayBreakMs > 0) {
+    return seg.displayBreakMs
+  }
+  if (typeof seg.breakMs === 'number' && seg.breakMs > 0) {
+    return seg.breakMs
+  }
+  if (typeof seg.defaultBreakDeductedMs === 'number' && seg.defaultBreakDeductedMs > 0) {
+    return DAILY_STANDARD_BREAK_MINUTES * 60 * 1000
+  }
+  return 0
 }
 
 function isSessionApprovedByAdmin(session) {
@@ -111,6 +154,8 @@ export default function Timesheet() {
     serverTimeSkew,
     sessionsLoading,
     projectWiseHours,
+    allTimeProjectWiseHours,
+    timesheetEligible,
   } = useTimesheetStore()
   const { toast } = useToast()
   const defaultHistoryRange = getPresetDateRange('This Month')
@@ -131,11 +176,17 @@ export default function Timesheet() {
   }, [hydrate])
 
   useEffect(() => {
+    if (initialized) {
+      void useTimesheetStore.getState().refreshAllTimeProjectWiseHours()
+    }
+  }, [initialized])
+
+  useEffect(() => {
     let active = true
     if (initialized) {
       setIsInitialLoading(true)
       void Promise.all([
-        useTimesheetStore.getState().refreshSessionsForRange({ from: historyStart, to: historyEnd }),
+        useTimesheetStore.getState().refreshAttendanceHistory({ from: historyStart, to: historyEnd }),
         useTimesheetStore.getState().refreshProjectWiseHours({ from: historyStart, to: historyEnd }),
       ]).finally(() => {
         if (active) setIsInitialLoading(false)
@@ -243,6 +294,7 @@ export default function Timesheet() {
   const activeWorkDescription = workNoteFromTask(currentWorkTask)
   const breakState = attendance?.breaks
   const activeBreak = breakState?.activeBreak ?? null
+  const canRecordBreaks = breakState?.canRecordBreaks !== false
   const activeBreakRemainingMs = activeBreak?.endsAt
     ? Math.max(0, new Date(activeBreak.endsAt).getTime() - liveNow)
     : 0
@@ -287,13 +339,14 @@ export default function Timesheet() {
       setCheckoutReview(false)
       setCheckoutError('')
       await checkIn()
+      // Close as soon as attendance is marked — don't wait on task/cell start or history refresh.
+      setCheckInDialogOpen(false)
       try {
         const result = await startTask({
           assignedTaskId: selectedTaskId,
           description: String(workDescription || '').trim(),
           cellId,
         })
-        setCheckInDialogOpen(false)
         const projectLabel = selectedTask?.projectName || selectedTask?.title || 'your project'
         if (result?.cellWorkStarted) {
           toast({
@@ -365,6 +418,7 @@ export default function Timesheet() {
         await completeTask(currentWorkTask.timesheetId, summary)
       }
       await checkOut()
+      // Clear checkout UI as soon as attendance is closed — don't wait on history refresh.
       setCheckoutReview(false)
       reset({ assignedTaskId: '', description: '' })
       toast({
@@ -435,73 +489,87 @@ export default function Timesheet() {
 
   const weekRange = useMemo(() => getWeekRange(), [liveNow])
 
-  const weeklyHours = useMemo(() => {
-    const byDay = {}
-    const chartDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-    const grossByDate = buildGrossAttendanceByDate(attendanceHistory, checkedIn, liveNow, {
-      inRange: (date) => isDateInRange(date, weekRange.start, weekRange.end),
+  const weeklyHours = useMemo(
+    () =>
+      buildWeeklyHoursChartData(sessions, {
+        weekRange,
+        attendanceHistory,
+        checkedIn,
+        liveNow,
+        activeTask,
+        pausedTasks,
+      }),
+    [sessions, weekRange, attendanceHistory, checkedIn, liveNow, activeTask, pausedTasks],
+  )
+
+  const todayMs = todayMsFromChart(weeklyHours)
+
+  const projectBreakdown = useMemo(() => {
+    const hoursByProjectId = new Map()
+    const hoursByProjectName = new Map()
+    ;(allTimeProjectWiseHours ?? []).forEach((row) => {
+      if (row.projectId) hoursByProjectId.set(String(row.projectId), row)
+      if (row.project) hoursByProjectName.set(String(row.project).trim(), row)
     })
 
-    attendanceHistory.forEach((seg) => {
-      if (!isDateInRange(seg.date, weekRange.start, weekRange.end)) return
-      const key = getDayKey(new Date(`${seg.date}T12:00:00`))
-      byDay[key] = (byDay[key] || 0) + segmentChartHours(seg, grossByDate, checkedIn, liveNow)
-    })
+    const seen = new Set()
+    const rows = []
+    for (const task of startableTasks) {
+      const projectId = task.projectId ? String(task.projectId) : ''
+      const projectName = String(task.projectName || '').trim()
+      const key = projectId || projectName
+      if (!key || seen.has(key)) continue
+      seen.add(key)
 
-    return chartDays.map((day) => ({
-      day,
-      hours: byDay[day] || 0,
-      target: 8,
-    }))
-  }, [attendanceHistory, checkedIn, liveNow, weekRange])
+      const hoursRow =
+        (projectId && hoursByProjectId.get(projectId)) ||
+        (projectName && hoursByProjectName.get(projectName)) ||
+        null
 
-  const totalWeekly = weeklyHours.reduce((a, b) => a + b.hours, 0)
-  const todayKey = formatDateKey(new Date())
+      rows.push({
+        projectId: projectId || hoursRow?.projectId || '',
+        project: projectName || hoursRow?.project || 'Unknown',
+        hours: hoursRow?.hours ?? 0,
+        sessions: hoursRow?.sessions ?? 0,
+      })
+    }
 
-  const todayHoursMs = useMemo(() => {
-    const grossByDate = buildGrossAttendanceByDate(attendanceHistory, checkedIn, liveNow, {
-      inRange: (date) => date === todayKey,
-    })
-    let totalMs = 0
-    attendanceHistory.forEach((seg) => {
-      if (seg.date !== todayKey) return
-      totalMs += segmentNetAttendanceMs(seg, grossByDate, checkedIn, liveNow)
-    })
-    return totalMs
-  }, [attendanceHistory, checkedIn, liveNow, todayKey])
+    return rows.sort((a, b) => b.hours - a.hours || a.project.localeCompare(b.project))
+  }, [startableTasks, allTimeProjectWiseHours])
+
+  const projectWiseTotal = useMemo(
+    () => projectBreakdown.reduce((sum, project) => sum + (project.hours || 0), 0),
+    [projectBreakdown],
+  )
 
   const unifiedHistory = useMemo(() => {
-    const deduped = new Map()
-
-    sessions
-      .filter((s) => isDateInRange(s.date, historyRange.start, historyRange.end))
-      .forEach((s) => {
-        if (!deduped.has(s.id)) {
-          const loginMs = s.loginTime ? new Date(s.loginTime).getTime() : 0
-          deduped.set(s.id, {
-            id: `task-${s.id}`,
-            sortAt: loginMs,
-            date: s.date,
-            project: s.project || '—',
-            description: stripTaskLabelPrefix(s.task, { projectName: s.project }) || '—',
-            start: s.start,
-            end: s.logoutTime ? formatTimeLabel(s.logoutTime) : s.end && s.end !== '—' ? s.end : '—',
-            duration: formatSessionDuration({
-              loginTime: s.loginTime,
-              logoutTime: s.logoutTime,
-              totalHours: s.totalHours,
-              totalPausedMs: s.totalPausedMs,
-              taskStatus: s.taskStatus,
-              autoCheckedOut: s.autoCheckedOut,
-            }),
-            statusNote: s.autoCheckedOut ? 'Auto Checked-Out' : null,
-            hours: s.totalHours ?? 0,
-          })
+    return (attendanceHistory ?? [])
+      .filter((seg) => isDateInRange(seg.date, historyRange.start, historyRange.end))
+      .filter((seg) => seg.checkOutTime)
+      .map((seg) => {
+        const loginMs = seg.checkInTime ? new Date(seg.checkInTime).getTime() : 0
+        const workedMs = resolveHistoryWorkedMs(seg)
+        return {
+          id: seg.id,
+          sortAt: loginMs,
+          date: seg.date,
+          project:
+            seg.project && seg.project !== '—'
+              ? seg.project
+              : Array.isArray(seg.projects) && seg.projects.length === 1
+                ? seg.projects[0]
+                : Array.isArray(seg.projects) && seg.projects.length > 1
+                  ? 'Multiple'
+                  : '—',
+          checkIn: formatTimeLabel(seg.checkInTime),
+          checkOut: formatTimeLabel(seg.checkOutTime),
+          break: resolveHistoryBreakDisplay(seg),
+          duration: workedMs > 0 || seg.checkOutTime ? formatDurationFromMs(workedMs) : '—',
+          statusNote: seg.autoCheckedOut ? 'Auto Checked-Out' : null,
         }
       })
-
-    return Array.from(deduped.values()).sort((a, b) => b.sortAt - a.sortAt)
-  }, [sessions, historyRange])
+      .sort((a, b) => b.sortAt - a.sortAt)
+  }, [attendanceHistory, historyRange])
 
   if (!initialized) {
     return (
@@ -521,7 +589,7 @@ export default function Timesheet() {
         <div className="emp-timesheet-hero-stats">
           <ProjectAnalysisLaunchButton
             audience="employee"
-            className="project-analysis-launch-btn--hero emp-timesheet-hero-stat emp-timesheet-hero-stat--launch"
+            className="projects-hero-tab-btn projects-hero-tab-btn--secondary"
           />
           <div className="emp-timesheet-hero-metrics" aria-label="Assigned project counts">
           <div className="emp-timesheet-hero-stat">
@@ -549,16 +617,33 @@ export default function Timesheet() {
 
       <div className="emp-timesheet-top-grid">
         <section className="emp-timesheet-card emp-timesheet-session-compact emp-timesheet-top-panel" id="work-session">
-          <div className="emp-timesheet-section-head">
+          <div className="emp-timesheet-section-head emp-timesheet-section-head--split">
             <div className="emp-timesheet-section-head__title">
               <span className="emp-timesheet-section-icon" aria-hidden>
                 <LogIn className="h-4 w-4" />
               </span>
               <h3 className="emp-timesheet-card-title">Work Session</h3>
             </div>
+            {timesheetEligible && checkedIn && !checkoutReview ? (
+              <EmployeeBreakTimeToday
+                breaks={attendance?.breaks}
+                serverTimeSkew={serverTimeSkew}
+                compact
+                className="emp-timesheet-session-break-today"
+              />
+            ) : null}
           </div>
           <div className="emp-timesheet-card-body emp-timesheet-session-compact-body">
-            {!checkedIn && attendance?.autoCheckedOut ? (
+            {!timesheetEligible ? (
+              <div className="emp-timesheet-session-main emp-timesheet-session-stack px-2 py-4 text-center">
+                <p className="text-sm font-semibold text-slate-800">Timesheet unavailable</p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Private employee records are not included in project check-in or timesheets.
+                </p>
+              </div>
+            ) : null}
+
+            {timesheetEligible && !checkedIn && attendance?.autoCheckedOut ? (
               <div className="mx-2.5 mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1">
                 <div className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-800">
                   <AlertTriangle className="h-3 w-3 shrink-0" />
@@ -567,7 +652,7 @@ export default function Timesheet() {
               </div>
             ) : null}
 
-            {checkoutReview ? (
+            {timesheetEligible && checkoutReview ? (
               <div className="emp-timesheet-session-main emp-timesheet-checkout-panel">
                 <p className="emp-timesheet-session-note emp-timesheet-session-note--checkout text-amber-800">
                   Update summary before checking out.
@@ -583,7 +668,7 @@ export default function Timesheet() {
                   </p>
                 ) : null}
               </div>
-            ) : checkedIn ? (
+            ) : timesheetEligible && checkedIn ? (
               <div className="emp-timesheet-session-main emp-timesheet-session-stack emp-timesheet-session-stack--checked-in">
                 <div className="emp-timesheet-session-desc-panel">
                   <p className="emp-timesheet-session-desc-label">Work description</p>
@@ -594,7 +679,7 @@ export default function Timesheet() {
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : timesheetEligible ? (
               <div className="emp-timesheet-session-main emp-timesheet-session-stack">
                 <button
                   type="button"
@@ -616,9 +701,9 @@ export default function Timesheet() {
                   Check In
                 </Button>
               </div>
-            )}
+            ) : null}
 
-            {checkedIn && !checkoutReview ? (
+            {timesheetEligible && checkedIn && !checkoutReview ? (
               <div className="emp-timesheet-breaks">
                 <div className="emp-timesheet-breaks-header">
                   <div className="flex items-center gap-1.5">
@@ -626,6 +711,11 @@ export default function Timesheet() {
                     <p className="emp-timesheet-breaks-title">Daily breaks</p>
                   </div>
                 </div>
+                {!canRecordBreaks ? (
+                  <p className="emp-timesheet-session-note text-xs text-muted">
+                    The 60-minute default break has already been applied for today.
+                  </p>
+                ) : null}
 
                 {onBreak ? (
                   <div className="emp-timesheet-break-active">
@@ -658,10 +748,9 @@ export default function Timesheet() {
                           type="button"
                           className={`emp-timesheet-break-btn${used ? ' is-used' : ''}`}
                           onClick={() => void onStartBreak(option.type)}
-                          disabled={submitting || used || onBreak}
+                          disabled={submitting || used || onBreak || !canRecordBreaks}
                         >
                           <span className="emp-timesheet-break-btn-label">{option.label}</span>
-                          <span className="emp-timesheet-break-btn-duration">{option.durationMinutes} min</span>
                         </button>
                       )
                     })}
@@ -670,7 +759,7 @@ export default function Timesheet() {
               </div>
             ) : null}
 
-            {checkoutReview ? (
+            {timesheetEligible && checkoutReview ? (
               <div className="emp-timesheet-session-footer">
                 <Button
                   type="button"
@@ -682,7 +771,7 @@ export default function Timesheet() {
                   Check Out
                 </Button>
               </div>
-            ) : checkedIn ? (
+            ) : timesheetEligible && checkedIn ? (
               <div className="emp-timesheet-session-footer">
                 <Button
                   type="button"
@@ -704,16 +793,14 @@ export default function Timesheet() {
               <span className="emp-timesheet-section-icon" aria-hidden>
                 <BarChart3 className="h-4 w-4" />
               </span>
-              <h3 className="emp-timesheet-card-title">Weekly Hours</h3>
+              <h3 className="emp-timesheet-card-title">Hours this week</h3>
             </div>
             <div className="emp-timesheet-chart-header-stats">
               <div className="emp-timesheet-chart-stat">
                 <span className="emp-timesheet-chart-stat-label">Today</span>
-                <span className="emp-timesheet-chart-stat-value">{formatDurationFromMs(todayHoursMs)}</span>
-              </div>
-              <div className="emp-timesheet-chart-stat">
-                <span className="emp-timesheet-chart-stat-label">Week</span>
-                <span className="emp-timesheet-chart-stat-value">{formatHoursDecimalAsDuration(totalWeekly)}</span>
+                <span className="emp-timesheet-chart-stat-value">
+                  {formatWorkedDuration(todayMs)}
+                </span>
               </div>
             </div>
           </div>
@@ -730,6 +817,38 @@ export default function Timesheet() {
           </div>
         </section>
       </div>
+
+      <section className="emp-timesheet-card emp-timesheet-chart-panel emp-timesheet-chart-panel--breakdown">
+        <div className="emp-timesheet-section-head emp-timesheet-section-head--split">
+          <div className="emp-timesheet-section-head__title">
+            <span className="emp-timesheet-section-icon" aria-hidden>
+              <BarChart3 className="h-4 w-4" />
+            </span>
+            <h3 className="emp-timesheet-card-title">Project breakdown</h3>
+          </div>
+          <span className="emp-timesheet-chart-meta">
+            {formatWorkedDuration(projectWiseTotal * 3600000)} total
+          </span>
+        </div>
+        <div className="emp-timesheet-card-body emp-timesheet-breakdown-body">
+          <Suspense
+            fallback={
+              <div className="flex min-h-[12rem] items-center justify-center text-xs text-muted">
+                Loading chart…
+              </div>
+            }
+          >
+            <TimesheetProjectWiseChart
+              data={projectBreakdown}
+              emptyHint={
+                startableTasks.length === 0
+                  ? 'No projects assigned yet — contact your admin.'
+                  : 'Hours appear after you log time on assigned projects.'
+              }
+            />
+          </Suspense>
+        </div>
+      </section>
 
       <section className="emp-timesheet-card emp-timesheet-history-panel">
         <div className="emp-timesheet-section-head emp-timesheet-section-head--split emp-timesheet-history-header">
@@ -749,7 +868,7 @@ export default function Timesheet() {
                 setHistoryEnd(end)
                 setHistoryPreset(preset)
                 void Promise.all([
-                  useTimesheetStore.getState().refreshSessionsForRange({ from: start, to: end }),
+                  useTimesheetStore.getState().refreshAttendanceHistory({ from: start, to: end }),
                   useTimesheetStore.getState().refreshProjectWiseHours({ from: start, to: end }),
                 ])
               }}

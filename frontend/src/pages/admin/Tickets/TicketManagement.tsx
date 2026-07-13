@@ -187,10 +187,11 @@ export function TicketManagement() {
       setMoving({ id, dir: direction })
       try {
         await updateStatus(id, next)
-        await fetchTickets({
+        // Store already upserts; refresh list in background for active filters.
+        void fetchTickets({
           q: q.trim() || undefined,
           priority: priority === 'all' ? undefined : priority,
-        })
+        }).catch(() => {})
       } catch (error: unknown) {
         const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error
         toast.error(message || 'Failed to update ticket')
@@ -217,12 +218,13 @@ export function TicketManagement() {
       setMoving({ id, dir: 'forward' })
       try {
         await updateStatus(id, status, remark)
+        // Detail may need full ticket (comments/attachments); list already upserted.
         const full = await fetchTicketById(id)
         setDetailTicket(full)
-        await fetchTickets({
+        void fetchTickets({
           q: q.trim() || undefined,
           priority: priority === 'all' ? undefined : priority,
-        })
+        }).catch(() => {})
       } finally {
         setMoving(null)
       }
@@ -258,10 +260,10 @@ export function TicketManagement() {
       setDeleteConfirmOpen(false)
       setTicketToDelete(null)
       toast.success('Ticket deleted')
-      await fetchTickets({
+      void fetchTickets({
         q: q.trim() || undefined,
         priority: priority === 'all' ? undefined : priority,
-      })
+      }).catch(() => {})
     } catch (error: unknown) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error
       toast.error(message || 'Failed to delete ticket')

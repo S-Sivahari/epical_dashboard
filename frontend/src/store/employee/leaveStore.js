@@ -30,7 +30,9 @@ export const useLeaveStore = create((set) => ({
 
     const globalFetch = useGlobalLeaveStore.getState().fetchLeaves
     if (typeof globalFetch === 'function') {
-      await globalFetch()
+      void globalFetch().catch((err) => {
+        console.error(err)
+      })
     }
 
     return res

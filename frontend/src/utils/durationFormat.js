@@ -6,7 +6,62 @@ export function computeWorkedMs(loginTime, logoutTime, totalPausedMs = 0) {
   const start = loginTime instanceof Date ? loginTime.getTime() : new Date(loginTime).getTime()
   const end = logoutTime instanceof Date ? logoutTime.getTime() : new Date(logoutTime).getTime()
   const paused = totalPausedMs || 0
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return 0
   return Math.max(0, end - start - paused)
+}
+
+/** Canonical worked ms for display (prefer persisted checkout values). */
+export function resolveDisplayWorkedMs(entry = {}) {
+  const {
+    workedMs,
+    overriddenHours,
+    totalHours,
+    loginTime,
+    logoutTime,
+    checkOutTime,
+    totalPausedMs,
+    sessionWorkedMs,
+    hours,
+  } = entry
+
+  const completed = Boolean(logoutTime || checkOutTime)
+
+  if (overriddenHours != null && Number.isFinite(Number(overriddenHours))) {
+    return Math.max(0, Math.round(Number(overriddenHours) * 3600000))
+  }
+
+  if (completed) {
+    if (typeof sessionWorkedMs === 'number' && sessionWorkedMs >= 0) {
+      return sessionWorkedMs
+    }
+    if (typeof workedMs === 'number' && workedMs >= 0) {
+      return workedMs
+    }
+    if (totalHours != null && Number.isFinite(Number(totalHours))) {
+      return Math.max(0, Math.round(Number(totalHours) * 3600000))
+    }
+    if (hours != null && Number.isFinite(Number(hours))) {
+      return Math.max(0, Math.round(Number(hours) * 3600000))
+    }
+    return 0
+  }
+
+  if (typeof sessionWorkedMs === 'number' && sessionWorkedMs > 0) {
+    return sessionWorkedMs
+  }
+  if (typeof workedMs === 'number' && workedMs > 0) {
+    return workedMs
+  }
+  if (loginTime && logoutTime) {
+    return computeWorkedMs(loginTime, logoutTime, totalPausedMs || 0)
+  }
+  if (totalHours != null && Number.isFinite(Number(totalHours)) && logoutTime) {
+    return Math.max(0, Math.round(Number(totalHours) * 3600000))
+  }
+  if (hours != null && Number.isFinite(Number(hours)) && logoutTime) {
+    return Math.max(0, Math.round(Number(hours) * 3600000))
+  }
+  return 0
 }
 
 export function formatDurationFromMs(ms) {
@@ -21,32 +76,46 @@ export function formatDurationFromMs(ms) {
   return `${hours}h ${minPart}m`
 }
 
-/** Decimal hours (e.g. 9.2) → "9h 12m" using completed minutes only. */
+/** Format any worked-ms value as a duration label. */
+export function formatWorkedDuration(input) {
+  const ms = typeof input === 'number' ? input : resolveDisplayWorkedMs(input)
+  return formatDurationFromMs(ms)
+}
+
+/** Decimal hours → duration label (rounds to nearest minute). */
 export function formatHoursDecimalAsDuration(hours) {
   const safeHours = Math.max(0, Number(hours) || 0)
-  return formatDurationFromMs(Math.floor(safeHours * 3600000 + 1e-9))
+  return formatDurationFromMs(Math.round(safeHours * 3600000))
 }
 
-/** Whole completed minutes from decimal hours (never rounds up partial minutes). */
-export function hoursToMinutes(hours) {
-  const n = Number(hours)
-  if (!Number.isFinite(n) || n <= 0) return 0
-  return Math.floor(n * 60 + 1e-9)
-}
+/** Alias used by dashboard/analytics charts (decimal hours → "Xh YYm"). */
+export const formatHoursAsDuration = formatHoursDecimalAsDuration
 
-/** Alias used across dashboard charts and KPI tiles. */
-export function formatHoursAsDuration(hours) {
-  return formatHoursDecimalAsDuration(hours)
-}
-
-/** Chart Y-axis tick from hour-scale values. */
+/**
+ * Compact Y-axis tick label from decimal hours.
+ * e.g. 0 → "0", 0.5 → "30m", 2 → "2h", 2.25 → "2h 15m"
+ */
 export function formatChartAxisMinutesFromHours(hours) {
-  return `${hoursToMinutes(hours)}m`
+  const totalMinutes = Math.round(Math.max(0, Number(hours) || 0) * 60)
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+
+  if (h === 0 && m === 0) return '0'
+  if (h === 0) return `${m}m`
+  if (m === 0) return `${h}h`
+  return `${h}h ${m}m`
 }
 
-/** Chart value from ms — only full elapsed minutes count. */
-export function msToFlooredChartHours(ms) {
-  return Math.floor(Math.max(0, ms) / 60000) / 60
+/** Decimal hours → "6hrs, 48 minutes" (admin dashboard chart labels). */
+export function formatHoursDecimalAsLongDuration(hours) {
+  const totalMinutes = Math.round(Math.max(0, Number(hours) || 0) * 60)
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+
+  if (h === 0 && m === 0) return '0 minutes'
+  if (h === 0) return `${m} minute${m === 1 ? '' : 's'}`
+  if (m === 0) return `${h}hr${h === 1 ? '' : 's'}`
+  return `${h}hr${h === 1 ? '' : 's'}, ${m} minute${m === 1 ? '' : 's'}`
 }
 
 /** Workflow duration with optional days: "45m", "3h", "8h 25m", "1d 4h", "2d 6h 30m". */
@@ -68,6 +137,17 @@ export function formatWorkflowDurationFromMs(ms) {
   return '0m'
 }
 
+/** Break duration for timesheets; append "(default)" for the daily 1h policy slice. */
+export function formatBreakDisplayLabel(ms, { isDefault = false } = {}) {
+  if (!ms || ms <= 0) return '—'
+  const duration = formatDurationFromMs(ms)
+  return isDefault ? `${duration} (default)` : duration
+}
+
+export function isDefaultBreakDeduction({ breakMs = 0, defaultBreakDeductedMs = 0, displayBreakMs = 0 } = {}) {
+  return defaultBreakDeductedMs > 0 && breakMs <= 0 && defaultBreakMs > 0
+}
+
 /** Live header timer with days, hours, minutes, and seconds. e.g. "0d 0h 8m 45s". */
 export function formatLiveWorkflowDurationFromMs(ms) {
   const totalSeconds = Math.floor(Math.max(0, ms) / 1000)
@@ -81,42 +161,25 @@ export function formatLiveWorkflowDurationFromMs(ms) {
 
 export function formatSessionDuration(session) {
   if (!session) return '—'
-  const {
-    loginTime,
-    logoutTime,
-    totalHours,
-    totalPausedMs,
-    taskStatus,
-    autoCheckedOut,
-    pausedAt,
-  } = session
-  if (totalHours != null && totalHours > 0 && (logoutTime || autoCheckedOut)) {
-    return formatDurationFromMs(Math.round(totalHours * 3600000))
+
+  const { logoutTime, taskStatus, autoCheckedOut, pausedAt, totalPausedMs } = session
+  const completed = Boolean(logoutTime || autoCheckedOut)
+
+  if (completed) {
+    return formatWorkedDuration(session)
   }
-  const loginMs = loginTime ? new Date(loginTime).getTime() : 0
+
+  const loginMs = session.loginTime ? new Date(session.loginTime).getTime() : 0
   if (!loginMs) return '—'
 
-  const isFinalized =
-    logoutTime ||
-    autoCheckedOut === true ||
-    ['Completed', 'Pending', 'Session Incomplete', 'Session Finished', 'Rejected'].includes(
-      taskStatus,
-    )
-  const isLive = !isFinalized && (taskStatus === 'In Progress' || taskStatus === 'Paused')
-
-  const endMs = isFinalized
-    ? logoutTime
-      ? new Date(logoutTime).getTime()
-      : loginMs
-    : isLive
-      ? Date.now()
-      : 0
-  if (!endMs) return '—'
-
-  let paused = totalPausedMs || 0
-  if (isLive && taskStatus === 'Paused' && pausedAt) {
-    paused += Math.max(0, Date.now() - new Date(pausedAt).getTime())
+  const isLive = !logoutTime && (taskStatus === 'In Progress' || taskStatus === 'Paused')
+  if (isLive) {
+    let paused = totalPausedMs || 0
+    if (taskStatus === 'Paused' && pausedAt) {
+      paused += Math.max(0, Date.now() - new Date(pausedAt).getTime())
+    }
+    return formatDurationFromMs(computeWorkedMs(loginMs, Date.now(), paused))
   }
 
-  return formatDurationFromMs(computeWorkedMs(loginMs, endMs, paused))
+  return '—'
 }

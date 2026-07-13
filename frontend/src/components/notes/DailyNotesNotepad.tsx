@@ -47,7 +47,7 @@ type Props = {
   onDelete?: () => void
   autoOpenAddNote?: boolean
   onAutoOpenAddNoteHandled?: () => void
-  onCopyLatest?: () => void
+  onCopyFromDay?: () => void
   onError: (message: string) => void
 }
 
@@ -67,7 +67,7 @@ export function DailyNotesNotepad({
   onDelete,
   autoOpenAddNote = false,
   onAutoOpenAddNoteHandled,
-  onCopyLatest,
+  onCopyFromDay,
   onError,
 }: Props) {
   const title = useMemo(() => formatDailyBlockTitle(date), [date])
@@ -99,10 +99,11 @@ export function DailyNotesNotepad({
   const hasBlock = Boolean(block)
   const status = block?.status ?? 'draft'
   const isPastDay = isPastNotesDay(dateKey)
+  const isEmailSent = status === 'email_sent'
   const canEditNotes =
-    hasBlock && block && !block.archived && !isPastDay && canEdit
+    hasBlock && block && !block.archived && !isPastDay && canEdit && !isEmailSent
   const canSendEmail =
-    hasBlock && block && !block.archived && !isPastDay && canEdit
+    hasBlock && block && !block.archived && !isPastDay && canEdit && !isEmailSent
   const emailIncludeCount = entries.filter((entry) => entry.includeInEmail).length
   const hasNotes = entries.length > 0
 
@@ -200,16 +201,16 @@ export function DailyNotesNotepad({
                   >
                     Add note
                   </Button>
-                  {onCopyLatest ? (
+                  {onCopyFromDay ? (
                     <Button
                       type="button"
                       size="sm"
                       variant="secondary"
                       icon={<Copy className="h-3.5 w-3.5" />}
                       disabled={busy}
-                      onClick={onCopyLatest}
+                      onClick={onCopyFromDay}
                     >
-                      Copy latest
+                      Copy from day
                     </Button>
                   ) : null}
                   <Button
@@ -238,7 +239,13 @@ export function DailyNotesNotepad({
                 </div>
               ) : null}
 
-              {hasBlock && !canEdit && !isEditing ? (
+              {hasBlock && isEmailSent && !isEditing ? (
+                <p className="notes-notepad-pad__read-only-hint notes-notepad-pad__read-only-hint--sent">
+                  Email sent — this day&apos;s notes are locked and can no longer be changed.
+                </p>
+              ) : null}
+
+              {hasBlock && !canEdit && !isEmailSent && !isEditing ? (
                 <p className="notes-notepad-pad__read-only-hint">
                   View only — you are not assigned to manage notes for this date.
                 </p>

@@ -22,6 +22,7 @@ import {
   resolveLeaveBalanceKey,
   sumPendingLeaveDays,
   assertLeaveBalanceStep,
+  withPendingLeaveReservations,
 } from '../utils/leaveCalculator';
 import type { Employee } from '../models/Employee';
 import * as notificationService from './notificationService';
@@ -49,41 +50,70 @@ export async function resolveLeaveEmployeeIds(employeeId: string): Promise<strin
   if (trimmed) ids.add(trimmed);
 
   const employeeCol = getDB().collection('employees');
+  const userCol = getDB().collection('users');
   const NO_BLOBS_PROJECTION = { projection: { documents: 0, 'photo.data': 0 } };
-  const emp =
-    (await employeeCol.findOne({ id: trimmed }, NO_BLOBS_PROJECTION)) ||
-    (await employeeCol.findOne({ employeeId: trimmed }, NO_BLOBS_PROJECTION)) ||
-    (await employeeCol.findOne({ employeeId: trimmed.toUpperCase() }, NO_BLOBS_PROJECTION));
+
+  const [emp, user] = await Promise.all([
+    employeeCol.findOne(
+      {
+        $or: [
+          { id: trimmed },
+          { employeeId: trimmed },
+          { employeeId: trimmed.toUpperCase() },
+        ],
+      },
+      NO_BLOBS_PROJECTION,
+    ),
+    userCol.findOne({
+      $or: [{ id: trimmed }, { email: trimmed.toLowerCase() }],
+    }),
+  ]);
 
   if (emp?.id) ids.add(String(emp.id));
   if (emp?.employeeId) {
     ids.add(String(emp.employeeId));
     ids.add(String(emp.employeeId).toUpperCase());
   }
-  if (emp) {
-    const linkedUser = await findUserForEmployee(emp as any);
-    if (linkedUser?.id) ids.add(String(linkedUser.id));
 
-    const userCol = getDB().collection('users');
-    for (const email of getEmployeeLoginEmails(emp as { email?: string; personalEmail?: string })) {
-      const byEmail = await userCol.findOne({ email });
-      if (byEmail?.id) ids.add(String(byEmail.id));
+  const emailLookups: Promise<void>[] = [];
+  if (emp) {
+    emailLookups.push(
+      (async () => {
+        const linkedUser = await findUserForEmployee(emp as any);
+        if (linkedUser?.id) ids.add(String(linkedUser.id));
+      })(),
+    );
+    const emails = getEmployeeLoginEmails(emp as { email?: string; personalEmail?: string });
+    if (emails.length > 0) {
+      emailLookups.push(
+        (async () => {
+          const byEmails = await userCol
+            .find({ email: { $in: emails } })
+            .project({ id: 1 })
+            .toArray();
+          for (const row of byEmails) {
+            if (row?.id) ids.add(String(row.id));
+          }
+        })(),
+      );
     }
   }
 
-  const userCol = getDB().collection('users');
-  const user =
-    (await userCol.findOne({ id: trimmed })) ||
-    (await userCol.findOne({ email: trimmed.toLowerCase() }));
   if (user?.id) ids.add(String(user.id));
   if (user?.email) {
-    const empByEmail = await findEmployeeByLoginEmail(String(user.email));
-    if (empByEmail?.id) ids.add(String(empByEmail.id));
-    if (empByEmail?.employeeId) {
-      ids.add(String(empByEmail.employeeId));
-      ids.add(String(empByEmail.employeeId).toUpperCase());
-    }
+    emailLookups.push(
+      (async () => {
+        const empByEmail = await findEmployeeByLoginEmail(String(user.email));
+        if (empByEmail?.id) ids.add(String(empByEmail.id));
+        if (empByEmail?.employeeId) {
+          ids.add(String(empByEmail.employeeId));
+          ids.add(String(empByEmail.employeeId).toUpperCase());
+        }
+      })(),
+    );
   }
+
+  if (emailLookups.length > 0) await Promise.all(emailLookups);
 
   return Array.from(ids);
 }
@@ -224,9 +254,11 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
   const balanceKey = resolveLeaveBalanceKey(payload.type);
   const leaveBalance = balances[balanceKey];
   let lopDays = 0;
+  let paidDebitDays = requestedDays;
 
   if (payload.type === LOP_LEAVE_TYPE) {
     lopDays = requestedDays;
+    paidDebitDays = 0;
   } else if (payload.type === 'Sick Leave') {
     const split = computeSickLeaveLopForRequest(
       requestedDays,
@@ -235,6 +267,7 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
       balanceOptions,
     );
     lopDays = split.lopDays;
+    paidDebitDays = Math.max(0, requestedDays - lopDays);
   } else if (payload.type === 'Casual Leave') {
     const split = computeCasualLeaveLopForRequest(
       requestedDays,
@@ -246,17 +279,15 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
       new Date(),
     );
     lopDays = split.lopDays;
-  } else if (leaveBalance && leaveBalance.remaining < requestedDays) {
-    const pendingSameType = sumPendingLeaveDays(
-      employeeLeaves,
-      payload.type,
-      undefined,
-      undefined,
-    );
-    const available = leaveBalance.remaining - pendingSameType;
-    if (available < requestedDays) {
+    paidDebitDays = Math.max(0, requestedDays - lopDays);
+  }
+
+  if (payload.type !== LOP_LEAVE_TYPE && paidDebitDays > 0 && leaveBalance) {
+    const reserved = withPendingLeaveReservations(balances, employeeLeaves);
+    const available = reserved[balanceKey]?.remaining ?? leaveBalance.remaining;
+    if (available < paidDebitDays) {
       throw new Error(
-        `Insufficient ${payload.type} balance. Remaining: ${Math.max(0, available)}, Requested: ${requestedDays}`,
+        `Insufficient ${payload.type} balance. Remaining: ${Math.max(0, available)}, Requested: ${paidDebitDays}`,
       );
     }
   }
@@ -327,14 +358,20 @@ export type LeaveBalanceRecord = {
 export async function getLeaveBalances(
   employeeId: string,
   refDate = new Date(),
+  preloadedLeaves?: Awaited<ReturnType<typeof getAllLeaves>>,
 ): Promise<Record<string, LeaveBalanceRecord>> {
-  const leaves = await getAllLeaves(employeeId);
+  const leaves = preloadedLeaves ?? (await getAllLeaves(employeeId));
   const archivedEarned = await getArchivedEarnedLeavesForBalance(employeeId, refDate);
   const employee = await findEmployeeDoc(employeeId);
   const canonicalId = employee?.id ? String(employee.id) : employeeId;
   const compCredits = await getCompensationLeaveCreditsForYear(canonicalId, refDate.getFullYear());
   const balanceOptions = leaveBalanceOptions(employee, compCredits, refDate);
-  const balances = calculateBalances([...leaves, ...archivedEarned], employee?.joinedAt as string | undefined, balanceOptions);
+  const approvedBalances = calculateBalances(
+    [...leaves, ...archivedEarned],
+    employee?.joinedAt as string | undefined,
+    balanceOptions,
+  );
+  const balances = withPendingLeaveReservations(approvedBalances, leaves, refDate);
   const lop = calculateMonthlyLopSummary(
     leaves,
     employee?.joinedAt as string | undefined,
@@ -412,27 +449,20 @@ export async function getEmployeeLeaveSummary(employeeId: string): Promise<Emplo
   const canonicalId = employee?.id ? String(employee.id) : employeeId;
   const compCredits = await getCompensationLeaveCreditsForYear(canonicalId);
   const balances = calculateBalances([...leaves, ...archivedEarned], employee?.joinedAt as string | undefined, leaveBalanceOptions(employee, compCredits));
+  const reservedBalances = withPendingLeaveReservations(balances, leaves);
   const allocationDisplay: Record<string, number> = {
-    'Casual Leave': balances['Casual Leave']?.total ?? LEAVE_ALLOCATIONS['Casual Leave'],
-    'Sick Leave': balances['Sick Leave']?.total ?? LEAVE_ALLOCATIONS['Sick Leave'],
-    'Earned Leave': balances['Earned Leave']?.total ?? 0,
-    'Compensation Leave': balances['Compensation Leave']?.total ?? 0,
+    'Casual Leave': reservedBalances['Casual Leave']?.total ?? LEAVE_ALLOCATIONS['Casual Leave'],
+    'Sick Leave': reservedBalances['Sick Leave']?.total ?? LEAVE_ALLOCATIONS['Sick Leave'],
+    'Earned Leave': reservedBalances['Earned Leave']?.total ?? 0,
+    'Compensation Leave': reservedBalances['Compensation Leave']?.total ?? 0,
   };
-  const currentYear = new Date().getFullYear().toString();
   const todayStr = getTodayDateString();
 
-  const pendingByType: Record<string, number> = {};
-  leaves.forEach((leave) => {
-    if (leave.status === 'Pending' && leaveFromYearKey(leave) === currentYear) {
-      pendingByType[leave.type] = (pendingByType[leave.type] || 0) + leave.days;
-    }
-  });
-
-  const balanceList: LeaveTypeBalanceSummary[] = Object.entries(balances).map(([type, b]) => ({
+  const balanceList: LeaveTypeBalanceSummary[] = Object.entries(reservedBalances).map(([type, b]) => ({
     type,
     total: b.total,
     used: b.used,
-    pending: pendingByType[type] || 0,
+    pending: b.pending,
     remaining: b.remaining,
   }));
 
@@ -517,6 +547,167 @@ const BALANCE_ADJUSTMENT_TYPES = [
 ] as const;
 
 type BalanceAdjustmentType = (typeof BALANCE_ADJUSTMENT_TYPES)[number];
+
+const POST_ARCHIVE_REPAIR_TYPES = ['Casual Leave', 'Sick Leave'] as const;
+type PostArchiveRepairType = (typeof POST_ARCHIVE_REPAIR_TYPES)[number];
+
+export type LeaveBalanceRepairChange = {
+  employeeId: string;
+  employeeName: string;
+  type: PostArchiveRepairType;
+  before: { total: number; used: number; remaining: number };
+  after: { total: number; used: number; remaining: number };
+  allocationSetTo: number;
+  usedAdjustmentSetTo: number;
+};
+
+export type LeaveBalanceRepairResult = {
+  year: number;
+  dryRun: boolean;
+  scanned: number;
+  changed: number;
+  changes: LeaveBalanceRepairChange[];
+};
+
+/**
+ * Restore Casual/Sick year used after past leave rows were deleted but remaining stayed low.
+ * Keeps remaining fixed; sets allotment to default; sets used = default − remaining via adjustments.
+ * Does not modify leave request history or usedThisMonth (payslip month usage).
+ */
+export async function repairPostArchiveLeaveBalances(options?: {
+  dryRun?: boolean;
+  year?: number;
+}): Promise<LeaveBalanceRepairResult> {
+  const dryRun = options?.dryRun !== false;
+  const year = options?.year ?? new Date().getFullYear();
+  const yearStr = String(year);
+  const refDate = resolveRefDateForCalendarYear(year);
+  const employees = await getActiveEmployeesForBalanceReport();
+  const changes: LeaveBalanceRepairChange[] = [];
+
+  for (const employee of employees) {
+    if (!employee.id) continue;
+    const internalId = String(employee.id);
+    try {
+    const employeeName = employeeDisplayName(employee);
+    const leaves = await getAllLeaves(internalId);
+    const archivedEarned = await getArchivedEarnedLeavesForBalance(internalId, refDate);
+    const compCredits = await getCompensationLeaveCreditsForYear(internalId, year);
+
+    const currentBalances = calculateBalances(
+      [...leaves, ...archivedEarned],
+      employee.joinedAt as string | undefined,
+      leaveBalanceOptions(employee, compCredits, refDate),
+    );
+
+    const rawBalances = calculateBalances(
+      [...leaves, ...archivedEarned],
+      employee.joinedAt as string | undefined,
+      {
+        ...leaveBalanceOptions(employee, compCredits, refDate),
+        balanceUsedAdjustments: {},
+      },
+    );
+
+    const nextAllocations: Record<string, number> = { ...(employee.leaveAllocations ?? {}) };
+    const adjustmentsByYear: Record<string, Record<string, number>> = {
+      ...(employee.leaveBalanceAdjustments ?? {}),
+    };
+    const yearAdjustments: Record<string, number> = { ...(adjustmentsByYear[yearStr] ?? {}) };
+    let employeeChanged = false;
+
+    for (const type of POST_ARCHIVE_REPAIR_TYPES) {
+      const defaultTotal = LEAVE_ALLOCATIONS[type];
+      const before = currentBalances[type] ?? { total: 0, used: 0, remaining: 0 };
+      const remaining = Math.max(0, Number(before.remaining) || 0);
+      const desiredUsed = Math.max(0, defaultTotal - remaining);
+      const rawUsed = Math.max(0, Number(rawBalances[type]?.used) || 0);
+      const desiredAdjustment = desiredUsed - rawUsed;
+
+      const alreadyOk =
+        Math.abs(Number(before.total) - defaultTotal) < 1e-9 &&
+        Math.abs(Number(before.used) - desiredUsed) < 1e-9 &&
+        Math.abs(Number(before.remaining) - remaining) < 1e-9;
+
+      if (alreadyOk) continue;
+      // Only repair when remaining is below default (shrunk allotment / lost used history).
+      if (remaining >= defaultTotal && Math.abs(Number(before.total) - defaultTotal) < 1e-9) {
+        continue;
+      }
+
+      nextAllocations[type] = defaultTotal;
+      if (Math.abs(desiredAdjustment) < 1e-9) {
+        delete yearAdjustments[type];
+      } else {
+        yearAdjustments[type] = desiredAdjustment;
+      }
+      employeeChanged = true;
+
+      changes.push({
+        employeeId: employee.employeeId ? String(employee.employeeId) : internalId,
+        employeeName,
+        type,
+        before: {
+          total: Number(before.total) || 0,
+          used: Number(before.used) || 0,
+          remaining,
+        },
+        after: {
+          total: defaultTotal,
+          used: desiredUsed,
+          remaining,
+        },
+        allocationSetTo: defaultTotal,
+        usedAdjustmentSetTo: desiredAdjustment,
+      });
+    }
+
+    if (!employeeChanged || dryRun) continue;
+
+    if (Object.keys(yearAdjustments).length === 0) {
+      delete adjustmentsByYear[yearStr];
+    } else {
+      adjustmentsByYear[yearStr] = yearAdjustments;
+    }
+
+    const update: Record<string, unknown> = {
+      leaveAllocations: nextAllocations,
+      updatedAt: new Date(),
+    };
+    const unset: Record<string, ''> = {};
+    if (Object.keys(adjustmentsByYear).length === 0) {
+      unset.leaveBalanceAdjustments = '';
+    } else {
+      update.leaveBalanceAdjustments = adjustmentsByYear;
+    }
+
+    const payload =
+      Object.keys(unset).length > 0
+        ? { $set: update, $unset: unset }
+        : { $set: update };
+
+    await getDB().collection('employees').updateOne({ id: internalId }, payload);
+    employee.leaveAllocations = nextAllocations as Employee['leaveAllocations'];
+    employee.leaveBalanceAdjustments =
+      Object.keys(adjustmentsByYear).length === 0
+        ? undefined
+        : adjustmentsByYear;
+    } catch (error) {
+      console.error(
+        `[leave] repair skipped for employee ${internalId}:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
+  return {
+    year,
+    dryRun,
+    scanned: employees.length,
+    changed: changes.length,
+    changes,
+  };
+}
 
 export async function adjustEmployeeLeaveBalance(
   employeeId: string,
@@ -967,10 +1158,24 @@ async function getActiveEmployeesForBalanceReport(): Promise<Employee[]> {
   const NO_BLOBS = { projection: { documents: 0, 'photo.data': 0 } };
   const docs = await getDB()
     .collection('employees')
-    .find({ status: { $ne: 'Archived' } }, NO_BLOBS)
+    .find(
+      {
+        $or: [{ status: { $exists: false } }, { status: { $nin: ['Archived'] } }],
+      },
+      NO_BLOBS,
+    )
     .sort({ firstName: 1, lastName: 1 })
     .toArray();
-  return docs as Employee[];
+
+  return docs
+    .map((doc) => {
+      const employee = doc as Employee & { _id?: { toString(): string } };
+      if (!employee.id && employee._id) {
+        employee.id = String(employee._id);
+      }
+      return employee;
+    })
+    .filter((employee) => Boolean(employee.id));
 }
 
 async function computeEmployeeYearBalances(
@@ -1106,6 +1311,32 @@ export async function getAllEmployeesYearLeaveBalances(
       console.error(
         `[leave] year balance row failed for employee ${employee.id}:`,
         error instanceof Error ? error.message : error,
+      );
+      // Still surface the employee so the year-balances list is complete.
+      rows.push(
+        buildYearLeaveBalanceRow(
+          employee,
+          calendarYear,
+          YEAR_BALANCE_TYPES.map((type) => ({
+            type,
+            total:
+              type === 'Casual Leave'
+                ? LEAVE_ALLOCATIONS['Casual Leave']
+                : type === 'Sick Leave'
+                  ? LEAVE_ALLOCATIONS['Sick Leave']
+                  : 0,
+            used: 0,
+            pending: 0,
+            remaining:
+              type === 'Casual Leave'
+                ? LEAVE_ALLOCATIONS['Casual Leave']
+                : type === 'Sick Leave'
+                  ? LEAVE_ALLOCATIONS['Sick Leave']
+                  : 0,
+            usedThisMonth: 0,
+          })),
+          { lopDays: 0, lopThisMonth: 0, lopApproved: 0, lopPending: 0 },
+        ),
       );
     }
   }
@@ -1626,107 +1857,39 @@ export async function deleteAllLeaves(): Promise<{ deletedCount: number }> {
   return { deletedCount: result.deletedCount };
 }
 
-const LEAVE_RESET_SETTINGS_KEY = 'leaveMonthlyResetMonth';
-
-function currentLeaveResetMonthKey(refDate = new Date()): string {
-  return `${refDate.getFullYear()}-${String(refDate.getMonth() + 1).padStart(2, '0')}`;
-}
-
-async function getLastLeaveMonthlyResetMonth(): Promise<string | null> {
-  const doc = await getDB().collection('app_settings').findOne({ key: LEAVE_RESET_SETTINGS_KEY });
-  return doc?.value ? String(doc.value) : null;
-}
-
-async function setLastLeaveMonthlyResetMonth(monthKey: string): Promise<void> {
-  await getDB()
-    .collection('app_settings')
-    .updateOne(
-      { key: LEAVE_RESET_SETTINGS_KEY },
-      { $set: { key: LEAVE_RESET_SETTINGS_KEY, value: monthKey, updatedAt: new Date() } },
-      { upsert: true },
-    );
-}
-
-/** True when leave starts before the given yyyy-MM month (May and earlier when cutoff is June). */
-function isLeaveBeforeMonth(leave: { from?: string }, cutoffMonthKey: string): boolean {
-  const startMonth = leaveMonth(String(leave.from ?? ''));
-  if (!startMonth || !cutoffMonthKey) return false;
-  return startMonth < cutoffMonthKey;
-}
+const LEAVE_ANNUAL_RESET_SETTINGS_KEY = 'leaveAnnualResetYear';
 
 /**
- * Archive and remove leave requests that start before the current month.
- * Example: on 1 June, removes May and earlier; keeps June and future months.
+ * DISABLED — leave request history must never be deleted.
+ * Kept only so older call sites fail safely / no-op.
  */
-export async function archiveAndDeleteLeavesBeforeMonth(cutoffMonthKey: string): Promise<{
+export async function archiveAndDeleteLeavesBeforeMonth(_cutoffMonthKey: string): Promise<{
   archivedCount: number;
   deletedCount: number;
 }> {
-  const col = getLeaveCol();
-  const archiveCol = getDB().collection('leave_archives');
-  const allLeaves = (await col.find({}).toArray()) as LeaveRequest[];
-  const toArchive = allLeaves.filter((l) => isLeaveBeforeMonth(l, cutoffMonthKey));
-
-  if (!toArchive.length) {
-    return { archivedCount: 0, deletedCount: 0 };
-  }
-
-  const archivedAt = new Date();
-  const archiveMonth = cutoffMonthKey;
-  const docs = toArchive.map((doc) => {
-    const { _id, ...rest } = doc as LeaveRequest & { _id?: unknown };
-    return { ...rest, archiveMonth, archivedAt };
-  });
-  await archiveCol.insertMany(docs);
-
-  const ids = toArchive.map((l) => l.id).filter(Boolean);
-  const deleteResult = await col.deleteMany({ id: { $in: ids } });
-
-  if (ids.length) {
-    await getDB().collection('notifications').deleteMany({
-      type: { $in: ['LeaveSubmitted', 'LeaveApproved', 'LeaveRejected', 'LeaveCancelled'] },
-      'relatedData.leaveId': { $in: ids },
-    });
-  }
-
-  return { archivedCount: docs.length, deletedCount: deleteResult.deletedCount };
+  console.warn(
+    '[LeaveReset] archiveAndDeleteLeavesBeforeMonth blocked — leave history is retained permanently.',
+  );
+  return { archivedCount: 0, deletedCount: 0 };
 }
 
-/** Archives then clears leave requests for prior months only (keeps current + future). */
+/** DISABLED — leave history is retained; only annual allotment/adjustments reset at year change. */
 export async function runMonthlyLeaveHistoryReset(): Promise<{
   deletedCount: number;
   archivedCount: number;
   monthKey: string;
 }> {
-  const monthKey = currentLeaveResetMonthKey();
-  const { archivedCount, deletedCount } = await archiveAndDeleteLeavesBeforeMonth(monthKey);
-  await setLastLeaveMonthlyResetMonth(monthKey);
-  return { deletedCount, archivedCount, monthKey };
-}
-
-/** Runs on the 1st (or first server start in a new month if the 1st was missed). */
-export async function ensureMonthlyLeaveHistoryReset(): Promise<{ ran: boolean; deletedCount?: number }> {
-  const monthKey = currentLeaveResetMonthKey();
-  const last = await getLastLeaveMonthlyResetMonth();
-
-  if (last === monthKey) {
-    return { ran: false };
-  }
-
-  // First run: anchor current month without deleting existing history.
-  if (last === null) {
-    await setLastLeaveMonthlyResetMonth(monthKey);
-    return { ran: false };
-  }
-
-  const { deletedCount, archivedCount } = await runMonthlyLeaveHistoryReset();
-  console.log(
-    `[LeaveReset] Monthly reset for ${monthKey}: archived ${archivedCount}, removed ${deletedCount} leave(s) from prior months (current/future kept)`,
+  const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  console.warn(
+    `[LeaveReset] runMonthlyLeaveHistoryReset blocked for ${monthKey} — leave history is retained permanently.`,
   );
-  return { ran: true, deletedCount };
+  return { deletedCount: 0, archivedCount: 0, monthKey };
 }
 
-const LEAVE_ANNUAL_RESET_SETTINGS_KEY = 'leaveAnnualResetYear';
+/** Disabled — leave request logs are kept permanently; balances reset yearly only. */
+export async function ensureMonthlyLeaveHistoryReset(): Promise<{ ran: boolean; deletedCount?: number }> {
+  return { ran: false };
+}
 
 async function getLastLeaveAnnualResetYear(): Promise<number | null> {
   const doc = await getDB().collection('app_settings').findOne({ key: LEAVE_ANNUAL_RESET_SETTINGS_KEY });
@@ -1834,6 +1997,38 @@ export async function createHoliday(payload: { title: string; date: string; desc
   return holiday as Holiday;
 }
 
+/** Create many holidays in one duplicate check + insertMany. */
+export async function createHolidaysBulk(
+  payload: { title: string; type: HolidayType; description?: string },
+  dates: string[],
+): Promise<{ created: Holiday[]; skippedDates: string[] }> {
+  const uniqueDates = Array.from(new Set(dates.map((d) => String(d).trim()).filter(Boolean)));
+  if (uniqueDates.length === 0) return { created: [], skippedDates: [] };
+
+  const col = getHolidayCol();
+  const existing = await col
+    .find({ date: { $in: uniqueDates } })
+    .project({ date: 1 })
+    .toArray();
+  const existingDates = new Set(existing.map((row) => String(row.date)));
+  const skippedDates = uniqueDates.filter((date) => existingDates.has(date));
+  const toCreate = uniqueDates.filter((date) => !existingDates.has(date));
+  if (toCreate.length === 0) return { created: [], skippedDates };
+
+  const now = new Date();
+  const created: Holiday[] = toCreate.map((date, index) => ({
+    id: `H-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+    title: payload.title,
+    date,
+    type: payload.type,
+    description: payload.description,
+    createdAt: now,
+    updatedAt: now,
+  }));
+  await col.insertMany(created as any[]);
+  return { created, skippedDates };
+}
+
 export type BulkHolidayImportSkipped = {
   rowNumber: number;
   date: string;
@@ -1855,7 +2050,6 @@ export async function bulkImportHolidays(
   skipped: BulkHolidayImportSkipped[];
   summary: Array<{ title: string; type: HolidayType; fromDate: string; toDate: string | null }>;
 }> {
-  const col = getHolidayCol();
   const created: Holiday[] = [];
   const skipped: BulkHolidayImportSkipped[] = [];
   const summary: Array<{ title: string; type: HolidayType; fromDate: string; toDate: string | null }> = [];
@@ -1863,32 +2057,20 @@ export async function bulkImportHolidays(
   for (const row of rows) {
     const dates = expandDates(row.fromDate, row.toDate);
     let rowCreated = 0;
-
-    for (const date of dates) {
-      const isDuplicate = await checkDuplicateHoliday(date);
-      if (isDuplicate) {
-        skipped.push({
-          rowNumber: row.rowNumber,
-          date,
-          title: row.title,
-          reason: 'Holiday already exists on this date',
-        });
-        continue;
-      }
-
-      const id = `H-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const holiday: Holiday = {
-        id,
-        title: row.title,
+    const { created: batchCreated, skippedDates } = await createHolidaysBulk(
+      { title: row.title, type: row.type },
+      dates,
+    );
+    for (const date of skippedDates) {
+      skipped.push({
+        rowNumber: row.rowNumber,
         date,
-        type: row.type,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      await col.insertOne(holiday);
-      created.push(holiday);
-      rowCreated += 1;
+        title: row.title,
+        reason: 'Holiday already exists on this date',
+      });
     }
+    created.push(...batchCreated);
+    rowCreated = batchCreated.length;
 
     if (rowCreated > 0) {
       summary.push({
@@ -2031,19 +2213,22 @@ export async function notifyAdminsAboutLeaveRequest(leave: LeaveRequest): Promis
   try {
     const admins = await notificationService.listAdminNotificationRecipients();
 
-    for (const admin of admins) {
-      if (!admin.recipientEmail) continue;
-      await emailService.sendLeaveSubmittedEmail({
-        recipientEmail: admin.recipientEmail,
-        recipientName: admin.recipientName || 'Admin',
-        employeeName: leave.employeeName,
-        type: leave.type,
-        from: leave.from,
-        to: leave.to,
-        days: leave.days,
-        reason: leave.reason,
-      }, `${env.FRONTEND_URL}/admin/leaves`);
-    }
+    await Promise.all(
+      admins
+        .filter((admin) => Boolean(admin.recipientEmail))
+        .map((admin) =>
+          emailService.sendLeaveSubmittedEmail({
+            recipientEmail: admin.recipientEmail!,
+            recipientName: admin.recipientName || 'Admin',
+            employeeName: leave.employeeName,
+            type: leave.type,
+            from: leave.from,
+            to: leave.to,
+            days: leave.days,
+            reason: leave.reason,
+          }, `${env.FRONTEND_URL}/admin/leaves`),
+        ),
+    );
   } catch (error) {
     console.error('[Leave Email] Error sending admin notification:', error);
   }

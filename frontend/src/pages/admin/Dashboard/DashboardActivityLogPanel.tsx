@@ -12,6 +12,7 @@ export type DailyActivitySession = {
   checkInTime: string
   checkOutTime: string | null
   worked: string | null
+  break: string | null
   checkOutType: 'manual' | 'auto' | null
 }
 
@@ -66,8 +67,8 @@ export function DashboardActivityLogPanel({ className }: DashboardActivityLogPan
 
   useEffect(() => {
     let cancelled = false
-    const load = async () => {
-      setLoading(true)
+    const load = async (options?: { soft?: boolean }) => {
+      if (!options?.soft) setLoading(true)
       try {
         const { data } = await api.get<{ date: string; entries: DailyActivitySession[] }>(
           '/employees/daily-activity',
@@ -77,7 +78,7 @@ export function DashboardActivityLogPanel({ className }: DashboardActivityLogPan
           setEntries(Array.isArray(data.entries) ? data.entries : [])
         }
       } catch {
-        if (!cancelled) setEntries([])
+        if (!cancelled && !options?.soft) setEntries([])
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -87,6 +88,33 @@ export function DashboardActivityLogPanel({ className }: DashboardActivityLogPan
       cancelled = true
     }
   }, [selectedDate])
+
+  useEffect(() => {
+    if (!isToday) return undefined
+
+    const refresh = () => {
+      if (document.visibilityState !== 'visible') return
+      void (async () => {
+        try {
+          const { data } = await api.get<{ date: string; entries: DailyActivitySession[] }>(
+            '/employees/daily-activity',
+            { params: { date: selectedDate } },
+          )
+          setEntries(Array.isArray(data.entries) ? data.entries : [])
+        } catch {
+          /* keep stale entries */
+        }
+      })()
+    }
+
+    const intervalId = window.setInterval(refresh, 60_000)
+    const onVisible = () => refresh()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [isToday, selectedDate])
 
   const dateLabel = (() => {
     try {
@@ -200,6 +228,10 @@ export function DashboardActivityLogPanel({ className }: DashboardActivityLogPan
                         >
                           {formatCheckOutLabel(entry.checkOutTime, entry.checkOutType)}
                         </dd>
+                      </div>
+                      <div className="dashboard-activity-session-row">
+                        <dt>Break</dt>
+                        <dd>{entry.break ?? '—'}</dd>
                       </div>
                       <div className="dashboard-activity-session-row">
                         <dt>Worked</dt>

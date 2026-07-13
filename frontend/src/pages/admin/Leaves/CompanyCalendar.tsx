@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, type CSSProperties } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useLeaves } from '@hooks/useLeaves'
 import {
   format,
@@ -92,6 +92,7 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
   const useAdminLayout = variant === 'admin' || isEmployeeCal
   const canManage = isAdminCal
   const showLeaveEmployeeNames = isEmployeeCal
+  const showLeaveEmployeeNamesOnHover = isEmployeeCal || isAdminCal
   const { holidays, leaves, loading, companyCalendarEvents } = useLeaves()
   const [teamLeaves, setTeamLeaves] = useState<TeamLeaveEntry[]>([])
   const [ownApprovedLeaves, setOwnApprovedLeaves] = useState<LeaveRequest[]>([])
@@ -362,20 +363,10 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
         })
       } else {
         const existingDates = new Set(holidays.map((h) => h.date))
-        let created = 0
-        let skipped = 0
+        const datesToCreate = datesToSave.filter((isoDate) => !existingDates.has(isoDate))
+        const skipped = datesToSave.length - datesToCreate.length
 
-        for (const isoDate of datesToSave) {
-          if (existingDates.has(isoDate)) {
-            skipped += 1
-            continue
-          }
-          await leaveService.addHoliday({ title, date: isoDate, type })
-          existingDates.add(isoDate)
-          created += 1
-        }
-
-        if (created === 0) {
+        if (datesToCreate.length === 0) {
           toast.error(
             skipped > 0
               ? 'No new holidays added — selected date(s) already exist on the calendar'
@@ -384,8 +375,25 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
           return
         }
 
-        if (skipped > 0) {
-          toast.message(`${skipped} date(s) skipped (already on calendar)`)
+        const result = await leaveService.addHolidaysBulk({
+          title,
+          type,
+          dates: datesToCreate,
+        })
+        const created = result.created.length
+
+        if (created === 0) {
+          toast.error(
+            skipped > 0 || result.skippedDates.length > 0
+              ? 'No new holidays added — selected date(s) already exist on the calendar'
+              : 'No holidays were added',
+          )
+          return
+        }
+
+        const totalSkipped = skipped + result.skippedDates.length
+        if (totalSkipped > 0) {
+          toast.message(`${totalSkipped} date(s) skipped (already on calendar)`)
         }
       }
 
@@ -804,17 +812,19 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                                 {dayLeaves.length > 0 && (
                                   <div>
                                     <p className="text-[11px] uppercase tracking-wider text-muted font-bold mb-1.5">
-                                      {showLeaveEmployeeNames ? 'Employees on Leave' : 'Approved Leaves'}
+                                      {showLeaveEmployeeNamesOnHover ? 'Employees on Leave' : 'Approved Leaves'}
                                     </p>
                                     <div className="space-y-1">
                                       {dayLeaves.map((l) => (
                                         <div key={l.id} className="flex items-center gap-2">
                                           <div className="h-1.5 w-1.5 rounded-full bg-lime-500" />
                                           <span className="text-ink text-xs font-medium">
-                                            {formatLeavePrimaryLabel(l, showLeaveEmployeeNames)}
+                                            {formatLeavePrimaryLabel(l, showLeaveEmployeeNamesOnHover)}
                                           </span>
-                                          {showLeaveEmployeeNames ? (
-                                            <span className="text-muted text-[10px]">({l.type})</span>
+                                          {showLeaveEmployeeNamesOnHover ? (
+                                            <span className="text-muted text-[10px]">
+                                              ({l.type}{isAdminCal ? ` • ${l.days}d` : ''})
+                                            </span>
                                           ) : (
                                             <span className="text-muted text-[10px]">• {l.days}d</span>
                                           )}
@@ -897,10 +907,11 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
               {/* Holidays */}
               <section
                 className={cn(
-                  'flex flex-col rounded-lg',
+                  'flex min-h-0 flex-1 flex-col rounded-lg',
+                  useAdminLayout && 'admin-cal-side-section--scroll',
                   sidebarHolidays.length > 0 &&
                     (useAdminLayout
-                      ? 'admin-cal-side-section--active admin-cal-side-section--active-holidays admin-cal-side-section--scroll'
+                      ? 'admin-cal-side-section--active admin-cal-side-section--active-holidays'
                       : 'border border-emerald-100/90 bg-emerald-50/50 px-2 py-1.5'),
                 )}
               >
@@ -955,7 +966,9 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                   <div
                     className={cn(
                       'space-y-1 overflow-y-auto pr-1 custom-scrollbar',
-                      useAdminLayout ? 'admin-cal-side-section-list' : 'admin-cal-side-section-list max-h-[6.75rem]',
+                      useAdminLayout
+                        ? 'admin-cal-side-section-list admin-cal-side-section-list--fills'
+                        : 'admin-cal-side-section-list max-h-[6.75rem]',
                     )}
                   >
                     {[...sidebarHolidays]
@@ -1054,10 +1067,11 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
               {/* Company Events */}
               <section
                 className={cn(
-                  'flex flex-col rounded-lg',
+                  'flex min-h-0 flex-1 flex-col rounded-lg',
+                  useAdminLayout && 'admin-cal-side-section--scroll',
                   sidebarEvents.length > 0 &&
                     (useAdminLayout
-                      ? 'admin-cal-side-section--active admin-cal-side-section--active-events admin-cal-side-section--scroll'
+                      ? 'admin-cal-side-section--active admin-cal-side-section--active-events'
                       : 'border border-amber-100/90 bg-amber-50/50 px-2 py-1.5'),
                 )}
               >
@@ -1096,7 +1110,9 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                   <div
                     className={cn(
                       'space-y-1 overflow-y-auto pr-1 custom-scrollbar',
-                      useAdminLayout ? 'admin-cal-side-section-list' : 'admin-cal-side-section-list max-h-[6.75rem]',
+                      useAdminLayout
+                        ? 'admin-cal-side-section-list admin-cal-side-section-list--fills'
+                        : 'admin-cal-side-section-list max-h-[6.75rem]',
                     )}
                   >
                     {[...sidebarEvents]
@@ -1185,10 +1201,11 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
               {/* Approved Leaves */}
               <section
                 className={cn(
-                  'flex flex-col rounded-lg',
+                  'flex min-h-0 flex-1 flex-col rounded-lg',
+                  useAdminLayout && 'admin-cal-side-section--scroll',
                   sidebarLeaves.length > 0 &&
                     (useAdminLayout
-                      ? 'admin-cal-side-section--active admin-cal-side-section--active-leaves admin-cal-side-section--scroll'
+                      ? 'admin-cal-side-section--active admin-cal-side-section--active-leaves'
                       : 'border border-lime-100/90 bg-lime-50/50 px-2 py-1.5'),
                 )}
               >
@@ -1218,19 +1235,9 @@ export function CompanyCalendar({ variant = 'default' }: CompanyCalendarProps) {
                     className={cn(
                       'space-y-1 overflow-y-auto pr-1 custom-scrollbar',
                       useAdminLayout
-                        ? 'admin-cal-side-section-list'
+                        ? 'admin-cal-side-section-list admin-cal-side-section-list--fills'
                         : 'admin-cal-side-section-list max-h-[6.75rem]',
                     )}
-                    style={
-                      useAdminLayout
-                        ? ({
-                            '--admin-cal-side-visible-rows': Math.min(
-                              Math.max(sidebarLeaves.length, 1),
-                              4,
-                            ),
-                          } as CSSProperties)
-                        : undefined
-                    }
                   >
                     {sidebarLeaves.map((leave) => {
                       const pastLeave = isLeaveEnded(leave)

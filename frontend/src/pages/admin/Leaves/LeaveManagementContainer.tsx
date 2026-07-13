@@ -25,10 +25,10 @@ import {
   excludeCancelledLeaves,
   canCancelLeave,
   isRevokedApprovedLeave,
-  formatMonthLabel,
+  formatYearLabel,
   formatLeaveDayCount,
-  getCurrentMonthDateRange,
-  getCurrentMonthKey,
+  getCurrentYearDateRange,
+  getCurrentYearKey,
   isDateKeyInRange,
   type LeaveFilters,
 } from '@/utils/leaveFilters'
@@ -193,16 +193,16 @@ function LeaveFeedRow({
 // ── Main component ───────────────────────────────────────────────────────────
 export function LeaveManagementContainer() {
   const [activeTab, setActiveTab] = useState<TabType>('requests')
-  const [monthKey, setMonthKey] = useState(() => getCurrentMonthKey())
-  const initialMonthRange = getCurrentMonthDateRange()
+  const [yearKey, setYearKey] = useState(() => getCurrentYearKey())
+  const initialYearRange = getCurrentYearDateRange()
 
   // Leave Requests filters – these are passed directly into <LeaveRequests>
   const [leaveFilters, setLeaveFilters] = useState<LeaveFilters>({
     selectedEmployees: [],
     status: 'Pending',
     leaveType: '',
-    dateFrom: initialMonthRange.from,
-    dateTo: initialMonthRange.to,
+    dateFrom: initialYearRange.from,
+    dateTo: initialYearRange.to,
   })
 
   // Top-bar quick filters (drive leaveFilters + data-tools table)
@@ -212,8 +212,8 @@ export function LeaveManagementContainer() {
   const empFilterDropRef = useRef<HTMLDivElement>(null)
   const [employeeFilterOptions, setEmployeeFilterOptions] = useState<{ id: string; name: string }[]>([])
   const [filterType, setFilterType] = useState('')
-  const [filterFrom, setFilterFrom] = useState(initialMonthRange.from)
-  const [filterTo, setFilterTo] = useState(initialMonthRange.to)
+  const [filterFrom, setFilterFrom] = useState(initialYearRange.from)
+  const [filterTo, setFilterTo] = useState(initialYearRange.to)
   const [searched, setSearched] = useState(false)
 
   // Compensation export
@@ -227,11 +227,11 @@ export function LeaveManagementContainer() {
   const fetchAllocationActivitiesSilent = useLeaveStore((s) => s.fetchAllocationActivitiesSilent)
 
   useEffect(() => {
-    const syncMonth = () => {
-      const nextKey = getCurrentMonthKey()
-      if (nextKey === monthKey) return
-      const { from, to } = getCurrentMonthDateRange()
-      setMonthKey(nextKey)
+    const syncYear = () => {
+      const nextKey = getCurrentYearKey()
+      if (nextKey === yearKey) return
+      const { from, to } = getCurrentYearDateRange()
+      setYearKey(nextKey)
       setFilterFrom(from)
       setFilterTo(to)
       setLeaveFilters((prev) => ({
@@ -246,10 +246,10 @@ export function LeaveManagementContainer() {
       setSearched(false)
     }
 
-    syncMonth()
-    const id = window.setInterval(syncMonth, 60_000)
+    syncYear()
+    const id = window.setInterval(syncYear, 60_000)
     return () => window.clearInterval(id)
-  }, [monthKey])
+  }, [yearKey])
 
   useEffect(() => {
     api
@@ -324,35 +324,35 @@ export function LeaveManagementContainer() {
     setIsProfileModalOpen(true)
   }
 
-  // ── Derived data (scoped to current calendar month) ─────────────────────────
-  const monthRange = useMemo(() => getCurrentMonthDateRange(), [monthKey])
-  const monthLabel = useMemo(() => formatMonthLabel(monthRange.from), [monthRange.from])
+  // ── Derived data (scoped to current calendar year) ─────────────────────────
+  const yearRange = useMemo(() => getCurrentYearDateRange(), [yearKey])
+  const periodLabel = useMemo(() => formatYearLabel(yearRange.from), [yearRange.from])
 
   useEffect(() => {
-    void fetchAllocationActivities(monthRange.from, monthRange.to)
+    void fetchAllocationActivities(yearRange.from, yearRange.to)
     const id = window.setInterval(() => {
-      void fetchAllocationActivitiesSilent(monthRange.from, monthRange.to)
+      void fetchAllocationActivitiesSilent(yearRange.from, yearRange.to)
     }, 60_000)
     return () => window.clearInterval(id)
-  }, [monthRange.from, monthRange.to, fetchAllocationActivities, fetchAllocationActivitiesSilent])
+  }, [yearRange.from, yearRange.to, fetchAllocationActivities, fetchAllocationActivitiesSilent])
 
   const visibleLeaves = useMemo(() => excludeCancelledLeaves(leaves), [leaves])
 
-  const monthlyLeaves = useMemo(
+  const periodLeaves = useMemo(
     () =>
       filterLeaves(visibleLeaves, {
         selectedEmployees: [],
         status: 'All',
         leaveType: '',
-        dateFrom: monthRange.from,
-        dateTo: monthRange.to,
+        dateFrom: yearRange.from,
+        dateTo: yearRange.to,
       }),
-    [visibleLeaves, monthRange],
+    [visibleLeaves, yearRange],
   )
 
   const pendingLeaves = useMemo(
-    () => monthlyLeaves.filter((l) => l.status === 'Pending'),
-    [monthlyLeaves],
+    () => periodLeaves.filter((l) => l.status === 'Pending'),
+    [periodLeaves],
   )
 
   type ActivityFeedItem =
@@ -364,7 +364,7 @@ export function LeaveManagementContainer() {
       .filter((l) => ['Approved', 'Rejected', 'Pending', 'Cancelled'].includes(l.status))
       .filter((l) => {
         const activityDate = getActivityDateKey(l)
-        return activityDate != null && isDateKeyInRange(activityDate, monthRange.from, monthRange.to)
+        return activityDate != null && isDateKeyInRange(activityDate, yearRange.from, yearRange.to)
       })
       .map((leave) => ({
         kind: 'leave' as const,
@@ -376,7 +376,7 @@ export function LeaveManagementContainer() {
     const allocationItems: ActivityFeedItem[] = allocationActivities
       .filter((activity) => {
         const activityDate = activity.createdAt.slice(0, 10)
-        return isDateKeyInRange(activityDate, monthRange.from, monthRange.to)
+        return isDateKeyInRange(activityDate, yearRange.from, yearRange.to)
       })
       .map((activity) => ({
         kind: 'allocation' as const,
@@ -386,7 +386,7 @@ export function LeaveManagementContainer() {
       }))
 
     return [...leaveItems, ...allocationItems].sort((a, b) => b.at - a.at)
-  }, [leaves, allocationActivities, monthRange])
+  }, [leaves, allocationActivities, yearRange])
 
   // Export helpers
   const filteredLeaveRequests = useMemo(() => {
@@ -444,7 +444,7 @@ export function LeaveManagementContainer() {
   }
 
   const resetSearch = () => {
-    const { from, to } = getCurrentMonthDateRange()
+    const { from, to } = getCurrentYearDateRange()
     setFilterEmployees([])
     setFilterType('')
     setFilterFrom(from)
@@ -728,7 +728,7 @@ export function LeaveManagementContainer() {
               <LeaveStatusTabsBar
                 filters={leaveFilters}
                 onFiltersChange={setLeaveFilters}
-                monthLabel={monthLabel}
+                monthLabel={periodLabel}
                 className="admin-leaves-requests-header-left"
               />
               <div className="admin-leaves-status-tabs admin-leaves-status-tabs--hub admin-leaves-requests-header-right">
@@ -755,7 +755,7 @@ export function LeaveManagementContainer() {
               <LeaveRequests
                 filters={leaveFilters}
                 onFiltersChange={setLeaveFilters}
-                monthLabel={monthLabel}
+                monthLabel={periodLabel}
                 hideStatusBar
               />
             </div>
@@ -767,7 +767,7 @@ export function LeaveManagementContainer() {
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
                   </div>
                 ) : activityFeed.length === 0 ? (
-                  <div className="admin-leaves-feed-empty">No leave activity in {monthLabel}.</div>
+                  <div className="admin-leaves-feed-empty">No leave activity in {periodLabel}.</div>
                 ) : (
                   activityFeed.map((item) => {
                     if (item.kind === 'allocation') {
@@ -929,7 +929,7 @@ export function LeaveManagementContainer() {
                 openProfile(employeeId, employeeName, 'history')
               }
               onAllocationUpdated={() =>
-                void fetchAllocationActivities(monthRange.from, monthRange.to)
+                void fetchAllocationActivities(yearRange.from, yearRange.to)
               }
             />
           </div>

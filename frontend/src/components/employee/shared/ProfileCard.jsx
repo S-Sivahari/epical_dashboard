@@ -215,9 +215,6 @@ export function ProfileCard({
           <div className="emp-dashboard-hero__decor-grid emp-dashboard-hero__decor-grid--soft" />
           <div className="emp-dashboard-hero__decor-grid emp-dashboard-hero__decor-grid--sharp" />
           <div className="emp-dashboard-hero__decor-circuit" />
-          <span className="emp-dashboard-hero__decor-vline emp-dashboard-hero__decor-vline--1" />
-          <span className="emp-dashboard-hero__decor-vline emp-dashboard-hero__decor-vline--2" />
-          <span className="emp-dashboard-hero__decor-vline emp-dashboard-hero__decor-vline--3" />
           <span className="emp-dashboard-hero__decor-shard" />
           <span className="emp-dashboard-hero__decor-dot emp-dashboard-hero__decor-dot--1" />
           <span className="emp-dashboard-hero__decor-dot emp-dashboard-hero__decor-dot--2" />

@@ -51,7 +51,7 @@ async function syncDailyBreakFromAttendances(employeeId: string, date: string) {
   if (attendances.length === 0) return null;
 
   const merged: DailyBreakFields = { projectBreakDeductedMs: 0 };
-  let deductedEstimate = 0;
+  let defaultDeducted = 0;
 
   for (const row of attendances) {
     for (const type of ['morning', 'lunch', 'evening'] as WorkBreakType[]) {
@@ -65,15 +65,18 @@ async function syncDailyBreakFromAttendances(employeeId: string, date: string) {
       const storedMs = row[msField as 'morningBreakMs'];
       if (typeof storedMs === 'number' && storedMs >= 0) {
         merged[msField] = storedMs;
-        deductedEstimate += storedMs;
       } else if (!merged[msField]) {
         merged[msField] = WORK_BREAKS[type].durationMs;
-        deductedEstimate += WORK_BREAKS[type].durationMs;
       }
+    }
+    if (typeof row.defaultBreakDeductedMs === 'number' && row.defaultBreakDeductedMs > 0) {
+      defaultDeducted = Math.max(defaultDeducted, row.defaultBreakDeductedMs);
     }
   }
 
-  merged.projectBreakDeductedMs = Math.min(DAILY_STANDARD_BREAK_MS, deductedEstimate);
+  merged.projectBreakDeductedMs = anyScheduledBreakUsed(merged)
+    ? 0
+    : Math.min(DAILY_STANDARD_BREAK_MS, defaultDeducted);
   return merged;
 }
 
@@ -165,13 +168,4 @@ export async function applyDailyCappedBreakDeduction(
   );
   await daily.save();
   return applied;
-}
-
-export async function resolveDefaultCheckoutBreakDeduction(
-  employeeId: string,
-  date: string,
-): Promise<number> {
-  const daily = await getOrCreateDailyBreakState(employeeId, date);
-  if (anyScheduledBreakUsed(daily)) return 0;
-  return remainingDailyBreakBudgetMs(daily);
 }

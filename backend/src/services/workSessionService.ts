@@ -1,0 +1,590 @@
+import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
+import { TimesheetModel } from '../models/Timesheet';
+import { getDB } from '../config/db';
+import { buildAssignmentIdentityTokens } from '../utils/assignedTaskSync';
+import { computeUsedBreakMs, computeGrossAttendanceMs, DAILY_STANDARD_BREAK_MS } from '../utils/workBreaks';
+import { computeSessionWorkedMs, resolveSessionWorkedMs, formatWorkedMsLabel, type WorkDayType } from './workingTimeService';
+
+export type WorkSessionRow = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  project: string;
+  projectId?: string;
+  projects: string[];
+  date: string;
+  loginTime: string;
+  logoutTime?: string;
+  breakMs: number;
+  displayBreakMs: number;
+  displayWorkedMs: number;
+  defaultBreakDeductedMs?: number;
+  workDayType: 'half_day' | 'full_day' | null;
+  sessionStatus: string;
+  autoCheckedOut: boolean;
+};
+
+type SessionQuery = {
+  from?: string;
+  to?: string;
+  employee?: string;
+  search?: string;
+};
+
+type EmployeeSessionContext = {
+  identityTokens: string[];
+  officialEmployeeId: string;
+  displayName: string;
+};
+
+function employeeDisplayNameFromRecord(employee: {
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+}): string {
+  return [employee.firstName, employee.middleName, employee.lastName].filter(Boolean).join(' ').trim();
+}
+
+async function buildEmployeeContextMap(
+  attendances: Array<{ employeeId: string; employeeName: string }>,
+): Promise<Map<string, EmployeeSessionContext>> {
+  const uniqueKeys = new Map<string, { employeeId: string; employeeName: string }>();
+  for (const attendance of attendances) {
+    uniqueKeys.set(attendance.employeeId, attendance);
+  }
+
+  const ids = [...uniqueKeys.keys()];
+  const contextMap = new Map<string, EmployeeSessionContext>();
+
+  if (ids.length === 0) return contextMap;
+
+  try {
+    const employees = await getDB()
+      .collection('employees')
+      .find({ $or: [{ id: { $in: ids } }, { employeeId: { $in: ids } }] })
+      .toArray();
+
+    for (const [authUserId, attendance] of uniqueKeys) {
+      const employee = employees.find(
+        (row) => row.id === authUserId || row.employeeId === authUserId,
+      );
+      const displayName = employee
+        ? employeeDisplayNameFromRecord(employee as any) || attendance.employeeName
+        : attendance.employeeName;
+      const officialEmployeeId = employee?.employeeId
+        ? String(employee.employeeId)
+        : authUserId;
+
+      contextMap.set(authUserId, {
+        officialEmployeeId,
+        displayName,
+        identityTokens: employee
+          ? buildAssignmentIdentityTokens(
+              {
+                id: authUserId,
+                name: displayName,
+                employeeId: officialEmployeeId,
+                email: typeof employee.email === 'string' ? employee.email : undefined,
+              },
+              employee as any,
+            )
+          : [authUserId, attendance.employeeName].filter(Boolean),
+      });
+    }
+  } catch {
+    for (const [authUserId, attendance] of uniqueKeys) {
+      contextMap.set(authUserId, {
+        officialEmployeeId: authUserId,
+        displayName: attendance.employeeName,
+        identityTokens: [authUserId, attendance.employeeName].filter(Boolean),
+      });
+    }
+  }
+
+  return contextMap;
+}
+
+function sessionBreakMs(attendance: {
+  checkOutTime?: Date | null;
+  morningBreakAt?: Date | null;
+  lunchBreakAt?: Date | null;
+  eveningBreakAt?: Date | null;
+  morningBreakMs?: number | null;
+  lunchBreakMs?: number | null;
+  eveningBreakMs?: number | null;
+  activeBreakType?: 'morning' | 'lunch' | 'evening' | null;
+  activeBreakStartedAt?: Date | null;
+  activeBreakEndsAt?: Date | null;
+}): number {
+  const end = attendance.checkOutTime ? new Date(attendance.checkOutTime) : new Date();
+  return computeUsedBreakMs(attendance, end);
+}
+
+function sessionDisplayBreakMs(attendance: {
+  checkOutTime?: Date | null;
+  defaultBreakDeductedMs?: number | null;
+  morningBreakAt?: Date | null;
+  lunchBreakAt?: Date | null;
+  eveningBreakAt?: Date | null;
+  morningBreakMs?: number | null;
+  lunchBreakMs?: number | null;
+  eveningBreakMs?: number | null;
+  activeBreakType?: 'morning' | 'lunch' | 'evening' | null;
+  activeBreakStartedAt?: Date | null;
+  activeBreakEndsAt?: Date | null;
+}): number {
+  const actualMs = sessionBreakMs(attendance);
+  if (actualMs > 0) return actualMs;
+
+  if (typeof attendance.defaultBreakDeductedMs === 'number' && attendance.defaultBreakDeductedMs > 0) {
+    return DAILY_STANDARD_BREAK_MS;
+  }
+
+  return 0;
+}
+
+/** Same worked ms shown in employee work history for a completed session. */
+export function getAttendanceSessionWorkedMs(attendance: {
+  checkInTime: Date;
+  checkOutTime?: Date | null;
+  workDayType?: WorkDayType | null;
+  sessionWorkedMs?: number | null;
+  defaultBreakDeductedMs?: number | null;
+  morningBreakAt?: Date | null;
+  lunchBreakAt?: Date | null;
+  eveningBreakAt?: Date | null;
+  morningBreakMs?: number | null;
+  lunchBreakMs?: number | null;
+  eveningBreakMs?: number | null;
+  activeBreakType?: 'morning' | 'lunch' | 'evening' | null;
+  activeBreakStartedAt?: Date | null;
+  activeBreakEndsAt?: Date | null;
+}): number {
+  return resolveAttendanceHistoryMetrics(attendance).displayWorkedMs;
+}
+
+function resolveAttendanceHistoryMetrics(attendance: {
+  checkInTime: Date;
+  checkOutTime?: Date | null;
+  workDayType?: WorkDayType | null;
+  sessionWorkedMs?: number | null;
+  defaultBreakDeductedMs?: number | null;
+  morningBreakAt?: Date | null;
+  lunchBreakAt?: Date | null;
+  eveningBreakAt?: Date | null;
+  morningBreakMs?: number | null;
+  lunchBreakMs?: number | null;
+  eveningBreakMs?: number | null;
+  activeBreakType?: 'morning' | 'lunch' | 'evening' | null;
+  activeBreakStartedAt?: Date | null;
+  activeBreakEndsAt?: Date | null;
+}): { displayWorkedMs: number; displayBreakMs: number } {
+  if (!attendance.checkOutTime) {
+    return { displayWorkedMs: 0, displayBreakMs: 0 };
+  }
+
+  const checkOut = new Date(attendance.checkOutTime);
+  const workDayType: WorkDayType = attendance.workDayType === 'half_day' ? 'half_day' : 'full_day';
+  const defaultMs =
+    typeof attendance.defaultBreakDeductedMs === 'number' && attendance.defaultBreakDeductedMs > 0
+      ? DAILY_STANDARD_BREAK_MS
+      : 0;
+
+  const preview = computeSessionWorkedMs(
+    attendance.checkInTime,
+    checkOut,
+    attendance,
+    workDayType,
+    defaultMs,
+  );
+
+  return {
+    displayWorkedMs: preview.workedMs,
+    displayBreakMs: sessionDisplayBreakMs(attendance),
+  };
+}
+
+/** Human-readable break label for admin/activity views. */
+export function formatAttendanceBreakLabel(attendance: {
+  checkOutTime?: Date | null;
+  defaultBreakDeductedMs?: number | null;
+  morningBreakAt?: Date | null;
+  lunchBreakAt?: Date | null;
+  eveningBreakAt?: Date | null;
+  morningBreakMs?: number | null;
+  lunchBreakMs?: number | null;
+  eveningBreakMs?: number | null;
+  activeBreakType?: 'morning' | 'lunch' | 'evening' | null;
+  activeBreakStartedAt?: Date | null;
+  activeBreakEndsAt?: Date | null;
+}): string | null {
+  if (!attendance.checkOutTime) return null;
+
+  const actualMs = sessionBreakMs(attendance);
+  if (actualMs > 0) {
+    return formatWorkedMsLabel(actualMs);
+  }
+
+  if (typeof attendance.defaultBreakDeductedMs === 'number' && attendance.defaultBreakDeductedMs > 0) {
+    return `${formatWorkedMsLabel(DAILY_STANDARD_BREAK_MS)} (default)`;
+  }
+
+  return null;
+}
+
+async function projectsForAttendanceWindow(
+  attendance: {
+    employeeId: string;
+    employeeName: string;
+    checkInTime: Date;
+    checkOutTime?: Date | null;
+  },
+  identityTokens: string[],
+): Promise<string[]> {
+  const tokens = Array.from(
+    new Set(
+      [...identityTokens, attendance.employeeId, attendance.employeeName]
+        .map((value) => String(value || '').trim())
+        .filter(Boolean),
+    ),
+  );
+  if (tokens.length === 0) return [];
+
+  const checkInTime = new Date(attendance.checkInTime);
+  const windowEnd = attendance.checkOutTime ? new Date(attendance.checkOutTime) : new Date();
+
+  const tasks = await TimesheetModel.find({
+    $and: [
+      {
+        $or: [{ employeeId: { $in: tokens } }, { employee: { $in: tokens } }],
+      },
+      { loginTime: { $gte: checkInTime, $lte: windowEnd } },
+      {
+        $or: [
+          { logoutTime: { $gte: checkInTime } },
+          { logoutTime: { $exists: false } },
+          { logoutTime: null },
+        ],
+      },
+    ],
+  })
+    .select({ project: 1 })
+    .sort({ loginTime: 1 })
+    .lean();
+
+  return projectsFromTasksForWindow(tasks, checkInTime, windowEnd);
+}
+
+function projectsFromTasksForWindow(
+  tasks: Array<{ project?: string | null; loginTime?: Date | string; logoutTime?: Date | string | null }>,
+  checkInTime: Date,
+  windowEnd: Date,
+): string[] {
+  const checkInMs = checkInTime.getTime();
+  const endMs = windowEnd.getTime();
+  const names: string[] = [];
+  const seen = new Set<string>();
+
+  for (const task of tasks) {
+    const loginMs = new Date(task.loginTime as Date).getTime();
+    if (!Number.isFinite(loginMs) || loginMs < checkInMs || loginMs > endMs) continue;
+    const logout = task.logoutTime ? new Date(task.logoutTime).getTime() : null;
+    if (logout != null && Number.isFinite(logout) && logout < checkInMs) continue;
+    const project = String(task.project || '').trim();
+    if (!project || seen.has(project)) continue;
+    seen.add(project);
+    names.push(project);
+  }
+  return names;
+}
+
+/** Batch-load timesheets once, then enrich many attendance rows in memory. */
+export async function enrichAttendanceHistoryRows(
+  records: Array<{
+    _id: { toString(): string };
+    employeeId: string;
+    employeeName: string;
+    date: string;
+    checkInTime: Date;
+    checkOutTime?: Date | null;
+    sessionStatus?: string;
+    autoCheckedOut?: boolean;
+    workDayType?: 'half_day' | 'full_day' | null;
+    sessionWorkedMs?: number | null;
+    defaultBreakDeductedMs?: number | null;
+    morningBreakAt?: Date | null;
+    lunchBreakAt?: Date | null;
+    eveningBreakAt?: Date | null;
+    morningBreakMs?: number | null;
+    lunchBreakMs?: number | null;
+    eveningBreakMs?: number | null;
+    activeBreakType?: 'morning' | 'lunch' | 'evening' | null;
+    activeBreakStartedAt?: Date | null;
+    activeBreakEndsAt?: Date | null;
+  }>,
+  identityTokens: string[] = [],
+): Promise<WorkSessionRow[]> {
+  if (records.length === 0) return [];
+
+  const tokens = Array.from(
+    new Set(
+      [
+        ...identityTokens,
+        ...records.flatMap((r) => [r.employeeId, r.employeeName]),
+      ]
+        .map((value) => String(value || '').trim())
+        .filter(Boolean),
+    ),
+  );
+
+  let tasks: Array<{ project?: string | null; loginTime?: Date | string; logoutTime?: Date | string | null }> = [];
+  if (tokens.length > 0) {
+    const minCheckIn = Math.min(...records.map((r) => new Date(r.checkInTime).getTime()));
+    const maxEnd = Math.max(
+      ...records.map((r) =>
+        r.checkOutTime ? new Date(r.checkOutTime).getTime() : Date.now(),
+      ),
+    );
+    tasks = await TimesheetModel.find({
+      $and: [
+        { $or: [{ employeeId: { $in: tokens } }, { employee: { $in: tokens } }] },
+        { loginTime: { $gte: new Date(minCheckIn), $lte: new Date(maxEnd) } },
+      ],
+    })
+      .select({ project: 1, loginTime: 1, logoutTime: 1 })
+      .sort({ loginTime: 1 })
+      .lean();
+  }
+
+  return records.map((attendance) => {
+    const checkInTime = new Date(attendance.checkInTime);
+    const windowEnd = attendance.checkOutTime ? new Date(attendance.checkOutTime) : new Date();
+    const projectNames = projectsFromTasksForWindow(tasks, checkInTime, windowEnd);
+    const { displayWorkedMs, displayBreakMs } = resolveAttendanceHistoryMetrics(attendance);
+    const breakMs = sessionBreakMs(attendance);
+
+    return {
+      id: String(attendance._id),
+      employeeId: attendance.employeeId,
+      employeeName: attendance.employeeName,
+      project: projectNames.length === 1 ? projectNames[0] : projectNames.length > 1 ? 'Multiple' : '—',
+      projects: projectNames,
+      date: attendance.date,
+      loginTime: checkInTime.toISOString(),
+      logoutTime: attendance.checkOutTime ? new Date(attendance.checkOutTime).toISOString() : undefined,
+      breakMs,
+      displayBreakMs,
+      displayWorkedMs,
+      defaultBreakDeductedMs: attendance.defaultBreakDeductedMs ?? 0,
+      workDayType: attendance.workDayType ?? (attendance.autoCheckedOut ? 'full_day' : null),
+      sessionStatus: attendance.checkOutTime
+        ? (attendance.sessionStatus ?? 'Completed')
+        : (attendance.sessionStatus ?? 'Active'),
+      autoCheckedOut: attendance.autoCheckedOut ?? false,
+    };
+  });
+}
+
+function workedMsFromTimesheetRow(task: {
+  workedMs?: number | null;
+  totalHours?: number | null;
+  overriddenHours?: number | null;
+}): number | null {
+  if (typeof task.workedMs === 'number' && task.workedMs >= 0) {
+    return task.workedMs;
+  }
+  if (task.overriddenHours != null && Number.isFinite(Number(task.overriddenHours))) {
+    return Math.max(0, Math.round(Number(task.overriddenHours) * 3600000));
+  }
+  if (task.totalHours != null && Number(task.totalHours) > 0) {
+    return Math.max(0, Math.round(Number(task.totalHours) * 3600000));
+  }
+  return null;
+}
+
+/**
+ * Display worked ms for a completed session. Prefers values frozen at checkout:
+ * sessionWorkedMs → legacy timesheet workedMs/totalHours → recompute (no new 50m on read).
+ */
+export async function resolveStoredSessionWorkedMs(
+  attendance: {
+    employeeId: string;
+    employeeName: string;
+    checkInTime: Date;
+    checkOutTime?: Date | null;
+    sessionWorkedMs?: number | null;
+    defaultBreakDeductedMs?: number | null;
+    autoCheckedOut?: boolean;
+    workDayType?: 'half_day' | 'full_day' | null;
+    morningBreakAt?: Date | null;
+    lunchBreakAt?: Date | null;
+    eveningBreakAt?: Date | null;
+    morningBreakMs?: number | null;
+    lunchBreakMs?: number | null;
+    eveningBreakMs?: number | null;
+    activeBreakType?: 'morning' | 'lunch' | 'evening' | null;
+    activeBreakStartedAt?: Date | null;
+    activeBreakEndsAt?: Date | null;
+  },
+  identityTokens: string[] = [],
+): Promise<number> {
+  if (typeof attendance.sessionWorkedMs === 'number' && attendance.sessionWorkedMs >= 0) {
+    if (attendance.checkOutTime) {
+      const grossMs = computeGrossAttendanceMs(
+        attendance.checkInTime,
+        new Date(attendance.checkOutTime),
+      );
+      if (attendance.sessionWorkedMs <= grossMs) {
+        return attendance.sessionWorkedMs;
+      }
+    } else {
+      return attendance.sessionWorkedMs;
+    }
+  }
+
+  if (!attendance.checkOutTime) {
+    return resolveSessionWorkedMs(attendance as any);
+  }
+
+  const workDayType: WorkDayType = attendance.workDayType === 'half_day' ? 'half_day' : 'full_day';
+  const defaultMs =
+    typeof attendance.defaultBreakDeductedMs === 'number' && attendance.defaultBreakDeductedMs > 0
+      ? DAILY_STANDARD_BREAK_MS
+      : 0;
+
+  return computeSessionWorkedMs(
+    attendance.checkInTime,
+    new Date(attendance.checkOutTime),
+    attendance,
+    workDayType,
+    defaultMs,
+  ).workedMs;
+}
+
+export async function enrichAttendanceSessionRow(
+  attendance: {
+    _id: { toString(): string };
+    employeeId: string;
+    employeeName: string;
+    date: string;
+    checkInTime: Date;
+    checkOutTime?: Date | null;
+    sessionStatus?: string;
+    autoCheckedOut?: boolean;
+    workDayType?: 'half_day' | 'full_day' | null;
+    sessionWorkedMs?: number | null;
+    defaultBreakDeductedMs?: number | null;
+    morningBreakAt?: Date | null;
+    lunchBreakAt?: Date | null;
+    eveningBreakAt?: Date | null;
+    morningBreakMs?: number | null;
+    lunchBreakMs?: number | null;
+    eveningBreakMs?: number | null;
+    activeBreakType?: 'morning' | 'lunch' | 'evening' | null;
+    activeBreakStartedAt?: Date | null;
+    activeBreakEndsAt?: Date | null;
+  },
+  identityTokens: string[] = [],
+): Promise<WorkSessionRow> {
+  const projectNames = await projectsForAttendanceWindow(attendance, identityTokens);
+  const { displayWorkedMs, displayBreakMs } = resolveAttendanceHistoryMetrics(attendance);
+  const breakMs = sessionBreakMs(attendance);
+
+  return {
+    id: String(attendance._id),
+    employeeId: attendance.employeeId,
+    employeeName: attendance.employeeName,
+    project: projectNames.length === 1 ? projectNames[0] : projectNames.length > 1 ? 'Multiple' : '—',
+    projects: projectNames,
+    date: attendance.date,
+    loginTime: new Date(attendance.checkInTime).toISOString(),
+    logoutTime: attendance.checkOutTime ? new Date(attendance.checkOutTime).toISOString() : undefined,
+    breakMs,
+    displayBreakMs,
+    displayWorkedMs,
+    defaultBreakDeductedMs: attendance.defaultBreakDeductedMs ?? 0,
+    workDayType: attendance.workDayType ?? (attendance.autoCheckedOut ? 'full_day' : null),
+    sessionStatus: attendance.checkOutTime
+      ? (attendance.sessionStatus ?? 'Completed')
+      : (attendance.sessionStatus ?? 'Active'),
+    autoCheckedOut: attendance.autoCheckedOut ?? false,
+  };
+}
+
+export async function listWorkSessionsForAdmin(query: SessionQuery): Promise<WorkSessionRow[]> {
+  const match: Record<string, unknown> = {};
+
+  if (query.from || query.to) {
+    const checkInTime: Record<string, Date> = {};
+    if (query.from) checkInTime.$gte = new Date(`${query.from}T00:00:00.000Z`);
+    if (query.to) checkInTime.$lte = new Date(`${query.to}T23:59:59.999Z`);
+    match.checkInTime = checkInTime;
+  }
+
+  if (query.employee && query.employee !== 'all') {
+    match.employeeName = query.employee;
+  }
+
+  if (query.search?.trim()) {
+    const searchRegex = new RegExp(query.search.trim(), 'i');
+    match.$or = [{ employeeName: searchRegex }];
+  }
+
+  const attendances = await EmployeeAttendanceModel.find(match)
+    .select({
+      employeeId: 1,
+      employeeName: 1,
+      date: 1,
+      checkInTime: 1,
+      checkOutTime: 1,
+      sessionStatus: 1,
+      autoCheckedOut: 1,
+      workDayType: 1,
+      sessionWorkedMs: 1,
+      defaultBreakDeductedMs: 1,
+      morningBreakAt: 1,
+      lunchBreakAt: 1,
+      eveningBreakAt: 1,
+      morningBreakMs: 1,
+      lunchBreakMs: 1,
+      eveningBreakMs: 1,
+      activeBreakType: 1,
+      activeBreakStartedAt: 1,
+      activeBreakEndsAt: 1,
+    })
+    .sort({ checkInTime: -1 })
+    .limit(5000)
+    .lean();
+
+  const rows: WorkSessionRow[] = [];
+  const employeeContextMap = await buildEmployeeContextMap(attendances);
+
+  for (const attendance of attendances) {
+    const context = employeeContextMap.get(attendance.employeeId);
+    const identityTokens = context?.identityTokens ?? [
+      attendance.employeeId,
+      attendance.employeeName,
+    ];
+    const row = await enrichAttendanceSessionRow(attendance, identityTokens);
+    row.employeeId = context?.officialEmployeeId ?? attendance.employeeId;
+    row.employeeName = context?.displayName ?? attendance.employeeName;
+    const loginWindow: Record<string, Date> = { $gte: attendance.checkInTime };
+    if (attendance.checkOutTime) {
+      loginWindow.$lte = attendance.checkOutTime;
+    }
+    const tasks = await TimesheetModel.find({
+      loginTime: loginWindow,
+      $or: [{ employeeId: { $in: identityTokens } }, { employee: { $in: identityTokens } }],
+    })
+      .select({ projectId: 1 })
+      .sort({ loginTime: 1 })
+      .limit(1)
+      .lean();
+    if (tasks[0]?.projectId) {
+      row.projectId = String(tasks[0].projectId);
+    }
+    rows.push(row);
+  }
+
+  return rows;
+}

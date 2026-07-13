@@ -1,10 +1,7 @@
 import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
 import { openAttendanceFilter, resolveIdentityTokensForAttendance } from '../utils/attendanceQueries';
 import { activeBreakExpired, recordCompletedBreakDuration, type WorkBreakType } from '../utils/workBreaks';
-import {
-  applyDailyCappedBreakDeduction,
-  markDailyBreakSlotCompleted,
-} from './dailyBreakStateService';
+import { markDailyBreakSlotCompleted } from './dailyBreakStateService';
 import { resumeBreakPausedTask } from './timesheetBreakService';
 import { resumeProductiveSessionsForEmployee } from './productiveTimeService';
 
@@ -36,11 +33,7 @@ export async function finalizeBreakEnd(
     endedAt,
     breakMs,
   );
-  const appliedMs = await applyDailyCappedBreakDeduction(
-    attendance.employeeId,
-    attendance.date,
-    breakMs,
-  );
+  const appliedMs = breakMs;
   await resumeBreakPausedTask(timesheetId, identityTokens, appliedMs);
 
   void resumeProductiveSessionsForEmployee(identityTokens, undefined, endedAt).catch((err) =>
@@ -101,8 +94,7 @@ export async function expireBreakForAttendanceRecord(
     breakMs,
   );
   const identityTokens = await resolveTokensForAttendance(claimed);
-  const appliedMs = await applyDailyCappedBreakDeduction(claimed.employeeId, claimed.date, breakMs);
-  await resumeBreakPausedTask(timesheetId ?? undefined, identityTokens, appliedMs);
+  await resumeBreakPausedTask(timesheetId ?? undefined, identityTokens, breakMs);
 
   void resumeProductiveSessionsForEmployee(identityTokens, undefined, endedAt).catch((err) =>
     console.error('[break-auto-resume] cell resume sync failed:', err),

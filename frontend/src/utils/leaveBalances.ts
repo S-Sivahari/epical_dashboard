@@ -12,6 +12,8 @@ export type FormattedLeaveBalance = {
   used: number
   total: number
   remaining: number
+  pending?: number
+  approved?: number
   color: string
   isLop?: boolean
 }
@@ -61,7 +63,7 @@ function toNumber(value: unknown, fallback = 0): number {
 function readBucket(
   data: Record<string, LeaveBalanceBucket | undefined>,
   type: string,
-): { total: number; used: number; remaining: number } {
+): { total: number; used: number; remaining: number; pending?: number; approved?: number } {
   const bucket = data[type]
   const defaultTotal = DEFAULT_TOTALS[type] ?? 0
   const total = bucket?.total !== undefined ? toNumber(bucket.total, defaultTotal) : defaultTotal
@@ -70,8 +72,10 @@ function readBucket(
     bucket?.remaining !== undefined
       ? toNumber(bucket.remaining, Math.max(0, total - used))
       : Math.max(0, total - used)
+  const pending = bucket?.pending !== undefined ? toNumber(bucket.pending, 0) : undefined
+  const approved = bucket?.approved !== undefined ? toNumber(bucket.approved, 0) : undefined
 
-  return { total, used, remaining }
+  return { total, used, remaining, pending, approved }
 }
 
 /** Normalize API balance payload for UI tiles/cards. Compensation always defaults to 0 until admin credits. */
@@ -109,13 +113,18 @@ export function formatLeaveBalances(
   ]
 
   if (includeLop) {
-    const lopUsed = toNumber(data['LOP Days']?.used, 0)
+    const lopBucket = data['LOP Days']
+    const lopUsed = toNumber(lopBucket?.used, 0)
+    const lopApproved = toNumber(lopBucket?.approved, 0)
+    const lopPending = toNumber(lopBucket?.pending, 0)
     items.push({
       key: 'lop',
       type: 'LOP Days',
       used: lopUsed,
       total: Math.max(lopUsed, 1),
       remaining: 0,
+      approved: lopApproved,
+      pending: lopPending,
       color: LEAVE_BALANCE_COLORS['LOP Days'],
       isLop: true,
     })

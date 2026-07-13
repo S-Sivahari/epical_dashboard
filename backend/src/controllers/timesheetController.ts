@@ -4,9 +4,17 @@ import { TimesheetModel } from '../models/Timesheet';
 import { ProjectModel } from '../models/Project';
 import { syncProjectForTimesheet, getTimesheetWorkflowStatus } from '../utils/syncProject';
 import {
+  buildEmployeeTokenMap,
+  fetchAttendanceSessionsForTimesheets,
+  resolveAdminTimesheetWorkedMs,
+  resolveTimesheetBreakMs,
+} from '../utils/timesheetAttendanceEnrichment';
+import {
   buildDashboardProjectHoursChart,
   type DashboardChartPeriod,
 } from '../services/dashboardProjectHoursService';
+import { buildTimesheetEffectiveHoursExpr } from '../utils/timesheetHoursAggregation';
+import { listWorkSessionsForAdmin } from '../services/workSessionService';
 
 const MOCK_EMPLOYEES = [
   { id: 'E-1001', name: 'Asha Menon', team: 'Design', hue: 155 },
@@ -61,6 +69,8 @@ function toFrontendTimesheet(t: any) {
     adminNotes: t.adminNotes,
     overriddenHours: t.overriddenHours,
     totalHours,
+    workedMs: typeof t.workedMs === 'number' && t.workedMs >= 0 ? t.workedMs : undefined,
+    breakMs: typeof t.breakMs === 'number' && t.breakMs >= 0 ? t.breakMs : undefined,
     totalPausedMs: t.totalPausedMs || 0,
     autoCheckedOut: t.autoCheckedOut ?? false,
     taskStatus: t.taskStatus || (t.logoutTime ? 'Pending' : 'Session Incomplete'),
@@ -186,12 +196,88 @@ async function buildMatchStage(req: Request) {
 }
 
 export const timesheetController = {
+  // GET /api/timesheets/work-sessions — one row per check-in/check-out session
+  getWorkSessions: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { from, to, employee, search } = req.query;
+      const rows = await listWorkSessionsForAdmin({
+        from: typeof from === 'string' ? from : undefined,
+        to: typeof to === 'string' ? to : undefined,
+        employee: typeof employee === 'string' ? employee : undefined,
+        search: typeof search === 'string' ? search : undefined,
+      });
+      res.json(rows);
+    } catch (error) {
+      console.error('Error fetching work sessions:', error);
+      res.status(500).json({ error: 'Failed to fetch work sessions' });
+    }
+  },
+
   // GET /api/timesheets
   getAll: async (req: Request, res: Response): Promise<void> => {
     try {
+      const idsParam = typeof req.query.ids === 'string' ? req.query.ids : '';
+      if (idsParam.trim()) {
+        const ids = idsParam
+          .split(',')
+          .map((id) => id.trim())
+          .filter((id) => Types.ObjectId.isValid(id))
+          .map((id) => new Types.ObjectId(id));
+        const entries = await TimesheetModel.find({ _id: { $in: ids } }).lean();
+        res.json(entries.map((t) => toFrontendTimesheet(t)));
+        return;
+      }
+
       const match = await buildMatchStage(req);
-      const entries = await TimesheetModel.find(match).sort({ loginTime: -1 });
-      res.json(entries.map(toFrontendTimesheet));
+      const entries = await TimesheetModel.find(match)
+        .select({
+          employee: 1,
+          employeeId: 1,
+          projectId: 1,
+          project: 1,
+          client: 1,
+          technologyNode: 1,
+          loginTime: 1,
+          logoutTime: 1,
+          correctionRequest: 1,
+          requestStatus: 1,
+          status: 1,
+          approvalStatus: 1,
+          billable: 1,
+          task: 1,
+          adminNotes: 1,
+          overriddenHours: 1,
+          totalHours: 1,
+          workedMs: 1,
+          breakMs: 1,
+          totalPausedMs: 1,
+          autoCheckedOut: 1,
+          taskStatus: 1,
+          pausedAt: 1,
+        })
+        .sort({ loginTime: -1 })
+        .limit(5000)
+        .lean();
+      const employeeTokenMap = await buildEmployeeTokenMap(entries);
+      const attendanceSessions = await fetchAttendanceSessionsForTimesheets(
+        entries,
+        employeeTokenMap,
+      );
+      res.json(
+        entries.map((t) => {
+          const row = toFrontendTimesheet(t);
+          const displayWorkedMs = resolveAdminTimesheetWorkedMs(
+            t,
+            attendanceSessions,
+            employeeTokenMap,
+          );
+          return {
+            ...row,
+            breakMs: resolveTimesheetBreakMs(t, attendanceSessions, employeeTokenMap),
+            displayWorkedMs,
+          };
+        }),
+      );
     } catch (error) {
       console.error('Error fetching timesheets:', error);
       res.status(500).json({ error: 'Failed to fetch timesheets' });
@@ -210,47 +296,7 @@ export const timesheetController = {
           $project: {
             project: 1,
             projectId: 1,
-            hours: {
-              $cond: {
-                // If overriddenHours is set, use it
-                if: {
-                  $and: [
-                    { $ne: [{ $type: "$overriddenHours" }, "missing"] },
-                    { $ne: ["$overriddenHours", null] }
-                  ]
-                },
-                then: "$overriddenHours",
-                else: {
-                  $cond: {
-                    // If there's a logout time, calculate completed session hours
-                    if: { $and: ["$logoutTime", { $gt: ["$logoutTime", "$loginTime"] }] },
-                    then: {
-                      $divide: [
-                        {
-                          $subtract: [
-                            { $subtract: ["$logoutTime", "$loginTime"] },
-                            { $ifNull: ["$totalPausedMs", 0] }
-                          ]
-                        },
-                        3600000
-                      ]
-                    },
-                    // For active sessions (no logout), calculate current duration
-                    else: {
-                      $divide: [
-                        {
-                          $subtract: [
-                            { $subtract: [new Date(), "$loginTime"] },
-                            { $ifNull: ["$totalPausedMs", 0] }
-                          ]
-                        },
-                        3600000
-                      ]
-                    }
-                  }
-                }
-              }
-            }
+            hours: buildTimesheetEffectiveHoursExpr(),
           }
         },
         {
@@ -291,47 +337,7 @@ export const timesheetController = {
           $project: {
             employee: 1,
             employeeId: 1,
-            hours: {
-              $cond: {
-                // If overriddenHours is set, use it
-                if: {
-                  $and: [
-                    { $ne: [{ $type: "$overriddenHours" }, "missing"] },
-                    { $ne: ["$overriddenHours", null] }
-                  ]
-                },
-                then: "$overriddenHours",
-                else: {
-                  $cond: {
-                    // If there's a logout time, calculate completed session hours
-                    if: { $and: ["$logoutTime", { $gt: ["$logoutTime", "$loginTime"] }] },
-                    then: {
-                      $divide: [
-                        {
-                          $subtract: [
-                            { $subtract: ["$logoutTime", "$loginTime"] },
-                            { $ifNull: ["$totalPausedMs", 0] }
-                          ]
-                        },
-                        3600000
-                      ]
-                    },
-                    // For active sessions (no logout), calculate current duration
-                    else: {
-                      $divide: [
-                        {
-                          $subtract: [
-                            { $subtract: [new Date(), "$loginTime"] },
-                            { $ifNull: ["$totalPausedMs", 0] }
-                          ]
-                        },
-                        3600000
-                      ]
-                    }
-                  }
-                }
-              }
-            }
+            hours: buildTimesheetEffectiveHoursExpr(),
           }
         },
         {

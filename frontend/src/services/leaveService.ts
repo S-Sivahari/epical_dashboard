@@ -104,19 +104,23 @@ export async function createLeave(payload: {
 }
 
 export async function approveLeave(id: string) {
-  await api.patch(`/leaves/${id}/approve`)
+  const response = await api.patch(`/leaves/${id}/approve`)
+  return response.data as LeaveRequest
 }
 
 export async function rejectLeave(id: string, reason: string) {
-  await api.patch(`/leaves/${id}/reject`, { reason })
+  const response = await api.patch(`/leaves/${id}/reject`, { reason })
+  return response.data as LeaveRequest
 }
 
 export async function cancelLeave(id: string) {
-  await api.patch(`/leaves/${id}/cancel`, {})
+  const response = await api.patch(`/leaves/${id}/cancel`, {})
+  return response.data as LeaveRequest
 }
 
 export async function revokeApprovedLeave(id: string, reason: string) {
-  await api.patch(`/leaves/${id}/revoke`, { reason })
+  const response = await api.patch(`/leaves/${id}/revoke`, { reason })
+  return response.data as LeaveRequest
 }
 
 export async function deleteLeave(id: string) {
@@ -131,6 +135,19 @@ export async function deleteAllLeaves(): Promise<{ deletedCount: number }> {
 export async function addHoliday(payload: Omit<Holiday, 'id'>) {
   const response = await api.post('/holidays', payload)
   return response.data as Holiday
+}
+
+export async function addHolidaysBulk(payload: {
+  title: string
+  type: Holiday['type']
+  description?: string
+  dates: string[]
+}) {
+  const response = await api.post<{ created: Holiday[]; skippedDates: string[] }>(
+    '/holidays/bulk',
+    payload,
+  )
+  return response.data
 }
 
 export async function updateHoliday(id: string, payload: Partial<Omit<Holiday, 'id'>>) {

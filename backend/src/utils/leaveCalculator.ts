@@ -237,6 +237,10 @@ function paidCasualDays(
   joinedAt?: string,
   options?: LeaveBalanceOptions,
 ): number {
+  // Prefer persisted lopDays to avoid recursive recompute across the leave list.
+  if (leave.lopDays != null && Number.isFinite(Number(leave.lopDays))) {
+    return Math.max(0, leave.days - (Number(leave.lopDays) || 0));
+  }
   const lop =
     leave.type === 'Casual Leave' && employeeLeaves
       ? resolveCasualLeaveLopDays(leave, employeeLeaves, joinedAt, options)
@@ -256,6 +260,9 @@ export function resolveCasualLeaveLopDays(
   options?: LeaveBalanceOptions,
 ): number {
   if (leave.type !== 'Casual Leave') return Number(leave.lopDays ?? 0) || 0;
+  if (leave.lopDays != null && Number.isFinite(Number(leave.lopDays))) {
+    return Math.max(0, Number(leave.lopDays) || 0);
+  }
   const appliedAt = leave.createdAt ?? leave.updatedAt;
   if (!leave.from || !appliedAt) return Number(leave.lopDays ?? 0) || 0;
   return computeCasualLeaveLopForRequest(
@@ -297,13 +304,68 @@ export function sumPendingLeaveDays(
   }, 0);
 }
 
+/** Paid days a pending leave would debit from its balance bucket (excludes LOP portion). */
+export function pendingLeaveBalanceDebitDays(leave: LeaveRequest): number {
+  const days = Math.max(0, Number(leave.days) || 0);
+  if (leave.type === 'Casual Leave' || leave.type === 'Sick Leave') {
+    const lop = Math.max(0, Number((leave as { lopDays?: number }).lopDays ?? 0) || 0);
+    return Math.max(0, days - lop);
+  }
+  return days;
+}
+
+/**
+ * Reserve pending leave against remaining so UI boxes update on apply and restore on reject/cancel.
+ * Approved used stays in `approved`; pending reservation is included in `used` / `remaining`.
+ */
+export function withPendingLeaveReservations(
+  balances: Record<string, { total: number; used: number; remaining: number }>,
+  employeeLeaves: LeaveRequest[],
+  refDate = new Date(),
+): Record<
+  string,
+  { total: number; used: number; remaining: number; approved: number; pending: number }
+> {
+  const calendarYear = String(refDate.getFullYear());
+  const pendingByType: Record<string, number> = {};
+
+  for (const leave of employeeLeaves) {
+    if (leave.status !== 'Pending') continue;
+    if (typeof leave.from !== 'string' || leave.from.length < 4) continue;
+    if (leaveYear(leave.from) !== calendarYear) continue;
+    const type = resolveLeaveBalanceKey(leave.type);
+    if (type === LOP_LEAVE_TYPE) continue;
+    pendingByType[type] = (pendingByType[type] || 0) + pendingLeaveBalanceDebitDays(leave);
+  }
+
+  const result: Record<
+    string,
+    { total: number; used: number; remaining: number; approved: number; pending: number }
+  > = {};
+
+  for (const [type, bucket] of Object.entries(balances)) {
+    const pending = Math.max(0, pendingByType[type] || 0);
+    const approved = Math.max(0, bucket.used);
+    const used = approved + pending;
+    result[type] = {
+      total: bucket.total,
+      approved,
+      pending,
+      used,
+      remaining: Math.max(0, bucket.total - used),
+    };
+  }
+
+  return result;
+}
+
 /** How much casual credit is already consumed this calendar year (paid days only). */
 export function casualCreditUsedThisMonth(
   employeeLeaves: LeaveRequest[],
   refDate = new Date(),
   excludeLeaveId?: string,
-  joinedAt?: string,
-  options?: LeaveBalanceOptions,
+  _joinedAt?: string,
+  _options?: LeaveBalanceOptions,
 ): number {
   const calendarYear = String(refDate.getFullYear());
   return employeeLeaves.reduce((sum, leave) => {
@@ -312,10 +374,11 @@ export function casualCreditUsedThisMonth(
     if (excludeLeaveId && leave.id === excludeLeaveId) return sum;
     if (typeof leave.from !== 'string' || leave.from.length < 4) return sum;
     if (leaveYear(leave.from) !== calendarYear) return sum;
-    if (leave.status === 'Approved' || leave.status === 'Pending') {
-      return sum + paidCasualDays(leave, employeeLeaves, joinedAt, options);
+    const lop = Number(leave.lopDays ?? NaN);
+    if (!Number.isNaN(lop)) {
+      return sum + Math.max(0, leave.days - lop);
     }
-    return sum;
+    return sum + Math.max(0, leave.days);
   }, 0);
 }
 

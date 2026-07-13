@@ -1,6 +1,7 @@
 import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { createPortal } from 'react-dom'
+import { useDebounce } from '@/hooks/useDebounce'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Avatar } from '@components/ui/Avatar'
 import { Badge } from '@components/ui/Badge'
@@ -57,7 +58,7 @@ import { filterAllocatableEmployees } from '@/utils/employeeView'
 import { useEmployeeStore } from '@store/employeeStore'
 import type { Employee } from '@/types'
 import { cn } from '@/utils/cn'
-import { formatDurationFromMs } from '@/utils/durationFormat'
+import { formatDurationFromMs, formatWorkedDuration, resolveDisplayWorkedMs, formatBreakDisplayLabel, isDefaultBreakDeduction } from '@/utils/durationFormat'
 import { getVisiblePageNumbers } from '@hooks/usePagination'
 import {
   ProjectHoursHoverCard,
@@ -127,8 +128,30 @@ interface TimesheetLog {
   overriddenHours?: number
   taskStatus?: 'Pending' | 'In Progress' | 'Completed' | 'Session Incomplete'
   totalHours?: number
+  workedMs?: number
+  displayWorkedMs?: number
+  breakMs?: number
   totalPausedMs?: number
   autoCheckedOut?: boolean
+}
+
+interface WorkSessionLog {
+  id: string
+  employeeId: string
+  employeeName: string
+  projectId?: string
+  project: string
+  projects: string[]
+  date: string
+  loginTime: string
+  logoutTime?: string
+  breakMs: number
+  displayBreakMs: number
+  displayWorkedMs: number
+  defaultBreakDeductedMs?: number
+  workDayType: 'half_day' | 'full_day' | null
+  sessionStatus: string
+  autoCheckedOut: boolean
 }
 
 
@@ -141,34 +164,61 @@ const calculateHours = (
   logout?: string,
   overriddenHours?: number,
   totalHours?: number,
-  totalPausedMs?: number
+  totalPausedMs?: number,
+  workedMs?: number,
+  displayWorkedMs?: number,
 ): number | null => {
-  if (overriddenHours !== undefined && overriddenHours !== null) return overriddenHours
-  if (totalHours !== undefined && totalHours !== null && totalHours > 0) return totalHours
   if (!logout) return null
-  const loginDate = new Date(login)
-  const logoutDate = new Date(logout)
-  if (isNaN(loginDate.getTime()) || isNaN(logoutDate.getTime())) return 0
-  const diffMs = logoutDate.getTime() - loginDate.getTime() - (totalPausedMs || 0)
-  if (diffMs <= 0) return 0
-  return Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10
+  const ms =
+    typeof displayWorkedMs === 'number' && displayWorkedMs >= 0
+      ? displayWorkedMs
+      : resolveDisplayWorkedMs({
+          workedMs,
+          overriddenHours,
+          totalHours,
+          loginTime: login,
+          logoutTime: logout,
+          totalPausedMs,
+        })
+  return ms / (1000 * 60 * 60)
 }
 
-function formatAdminDuration(hours: number | null): string {
-  if (hours === null) return '—'
-  const totalMinutes = Math.round(hours * 60)
-  const hrs = Math.floor(totalMinutes / 60)
-  const mins = totalMinutes % 60
-  if (hrs === 0 && mins === 0) return '0m'
-  if (hrs === 0) return `${mins}m`
-  if (mins === 0) return `${hrs}h`
-  return `${hrs}h ${String(mins).padStart(2, '0')}m`
+function formatAdminWorkedDuration(t: TimesheetLog): string {
+  if (!t.logoutTime) return '—'
+  if (typeof t.displayWorkedMs === 'number' && t.displayWorkedMs >= 0) {
+    return formatDurationFromMs(t.displayWorkedMs)
+  }
+  return formatWorkedDuration({
+    workedMs: t.workedMs,
+    overriddenHours: t.overriddenHours,
+    totalHours: t.totalHours,
+    loginTime: t.loginTime,
+    logoutTime: t.logoutTime,
+    totalPausedMs: t.totalPausedMs,
+    autoCheckedOut: t.autoCheckedOut,
+  })
 }
 
-function formatBreakTime(totalPausedMs?: number): string {
-  const ms = totalPausedMs ?? 0
-  if (ms <= 0) return '—'
-  return formatDurationFromMs(ms)
+function formatBreakTime(session: Pick<WorkSessionLog, 'breakMs' | 'displayBreakMs' | 'defaultBreakDeductedMs'>): string {
+  const actualMs = session.breakMs ?? 0
+  const displayMs =
+    typeof session.displayBreakMs === 'number' && session.displayBreakMs > 0
+      ? session.displayBreakMs
+      : actualMs
+  const isDefault = isDefaultBreakDeduction({
+    breakMs: actualMs,
+    defaultBreakDeductedMs: session.defaultBreakDeductedMs,
+    displayBreakMs: displayMs,
+  })
+  return formatBreakDisplayLabel(displayMs, { isDefault })
+}
+
+function formatWorkSessionDuration(session: Pick<WorkSessionLog, 'displayWorkedMs' | 'logoutTime'>): string {
+  if (typeof session.displayWorkedMs === 'number' && session.displayWorkedMs >= 0) {
+    return formatDurationFromMs(session.displayWorkedMs)
+  }
+  if (!session.logoutTime) return 'In progress'
+  return '—'
 }
 
 function employeeDisplayName(e: Employee): string {
@@ -209,7 +259,9 @@ function buildTimesheetExportAnalytics(logs: TimesheetLog[], employees: Employee
       t.logoutTime,
       t.overriddenHours,
       t.totalHours,
-      t.totalPausedMs
+      t.totalPausedMs,
+      t.workedMs,
+      t.displayWorkedMs
     ) || 0
     byProject[t.project] = (byProject[t.project] || 0) + hours
 
@@ -1663,7 +1715,9 @@ export function ProjectManagement() {
   }, [searchParams])
   const [allProjects, setAllProjects] = useState<Project[]>([])
   const [timesheets, setTimesheets] = useState<TimesheetLog[]>([])
+  const [workSessions, setWorkSessions] = useState<WorkSessionLog[]>([])
   const [loading, setLoading] = useState(false)
+  const [timesheetsLoading, setTimesheetsLoading] = useState(false)
 
   const projects = allProjects
 
@@ -1744,6 +1798,7 @@ export function ProjectManagement() {
 
   // ── Timesheets Filters States ───────────────────────────────
   const [tsSearch, setTsSearch] = useState('')
+  const debouncedTsSearch = useDebounce(tsSearch, 350)
   const [tsEmployeeFilters, setTsEmployeeFilters] = useState<string[]>([])
   const [tsProjectFilters, setTsProjectFilters] = useState<string[]>([])
   const [tsStatusFilters, setTsStatusFilters] = useState<string[]>([])
@@ -1787,16 +1842,23 @@ export function ProjectManagement() {
       from: tsStartDate,
       to: tsEndDate,
     }
-    if (tsSearch.trim()) params.search = tsSearch.trim()
+    if (debouncedTsSearch.trim()) params.search = debouncedTsSearch.trim()
 
+    setTimesheetsLoading(true)
     try {
-      const logsRes = await api.get('/timesheets', { params })
+      const [logsRes, sessionsRes] = await Promise.all([
+        api.get('/timesheets', { params }),
+        api.get('/timesheets/work-sessions', { params }),
+      ])
       setTimesheets(logsRes.data)
+      setWorkSessions(sessionsRes.data)
     } catch (err) {
       console.error(err)
       toast.error('Failed to load timesheet data.')
+    } finally {
+      setTimesheetsLoading(false)
     }
-  }, [tsStartDate, tsEndDate, tsSearch])
+  }, [tsStartDate, tsEndDate, debouncedTsSearch])
 
   const refreshAllData = useCallback(async () => {
     await Promise.all([fetchProjects(), fetchTimesheetsData(), fetchArchivedProjects()])
@@ -1843,8 +1905,20 @@ export function ProjectManagement() {
   }, [activeTab, fetchArchivedProjects])
 
   useEffect(() => {
-    fetchTimesheetsData()
-  }, [fetchTimesheetsData])
+    if (activeTab !== 'timesheets' && activeTab !== 'analytics') return
+    void fetchTimesheetsData()
+  }, [activeTab, fetchTimesheetsData])
+
+  useEffect(() => {
+    if (activeTab !== 'timesheets' && activeTab !== 'analytics') return undefined
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchTimesheetsData()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [activeTab, fetchTimesheetsData])
 
   // ── Derived Client / Project Lists for Filter Options ──────────
   const uniqueClients = useMemo(() => {
@@ -2111,7 +2185,41 @@ export function ProjectManagement() {
     return `${emp.department} Team`
   }, [employees])
 
-  // ── Timesheets Filtering Implementation ──────────────────────
+  // ── Work sessions filtering (one row per check-in / check-out) ──
+  const filteredWorkSessions = useMemo(() => {
+    return workSessions.filter((s) => {
+      const logDate = new Date(s.date)
+      const startDate = new Date(tsStartDate)
+      startDate.setHours(0, 0, 0, 0)
+      const endDate = new Date(tsEndDate)
+      endDate.setHours(23, 59, 59, 999)
+
+      if (logDate < startDate || logDate > endDate) return false
+
+      const query = tsSearch.toLowerCase()
+      const matchSearch =
+        !query ||
+        s.employeeName.toLowerCase().includes(query) ||
+        s.project.toLowerCase().includes(query) ||
+        s.projects.some((p) => p.toLowerCase().includes(query))
+
+      const matchEmployee = matchesMultiFilter(tsEmployeeFilters, s.employeeName)
+      const matchProject =
+        matchesMultiFilter(tsProjectFilters, s.project) ||
+        s.projects.some((p) => matchesMultiFilter(tsProjectFilters, p))
+
+      return matchSearch && matchEmployee && matchProject
+    })
+  }, [
+    workSessions,
+    tsStartDate,
+    tsEndDate,
+    tsSearch,
+    tsEmployeeFilters,
+    tsProjectFilters,
+  ])
+
+  // ── Timesheets Filtering Implementation (task logs for analytics) ──
   const filteredTimesheets = useMemo(() => {
     return timesheets.filter((t) => {
       const logDate = new Date(t.date)
@@ -2158,7 +2266,9 @@ export function ProjectManagement() {
         t.logoutTime,
         t.overriddenHours,
         t.totalHours,
-        t.totalPausedMs
+        t.totalPausedMs,
+      t.workedMs,
+      t.displayWorkedMs
       ) || 0
       if (projectMap[t.project]) {
         projectMap[t.project].hours += hours
@@ -2184,7 +2294,9 @@ export function ProjectManagement() {
         t.logoutTime,
         t.overriddenHours,
         t.totalHours,
-        t.totalPausedMs
+        t.totalPausedMs,
+      t.workedMs,
+      t.displayWorkedMs
       ) || 0
       const { key, name, dept } = resolveTimesheetEmployeeKey(t, employees)
       const empInfo = employees.find(
@@ -2206,11 +2318,11 @@ export function ProjectManagement() {
       .map(e => ({ ...e, hours: Math.round(e.hours * 10) / 10 }))
   }, [filteredTimesheets, employees])
 
-  // ── Timesheets Pagination derived values ────────────────────
-  const totalTimesheetsPages = Math.ceil(filteredTimesheets.length / timesheetsPerPage)
+  // ── Work sessions pagination ─────────────────────────────────
+  const totalTimesheetsPages = Math.ceil(filteredWorkSessions.length / timesheetsPerPage)
   const indexOfLastTimesheet = timesheetsCurrentPage * timesheetsPerPage
   const indexOfFirstTimesheet = indexOfLastTimesheet - timesheetsPerPage
-  const currentTimesheets = filteredTimesheets.slice(indexOfFirstTimesheet, indexOfLastTimesheet)
+  const currentTimesheets = filteredWorkSessions.slice(indexOfFirstTimesheet, indexOfLastTimesheet)
 
   // Track previous timesheets filters to only reset page when they actually change
   const prevTsFiltersRef = useRef({
@@ -2345,7 +2457,7 @@ export function ProjectManagement() {
     // Calculate total hours across filtered timesheets
     let totalSecHours = 0
     filteredTimesheets.forEach((t) => {
-      const h = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours, t.totalHours, t.totalPausedMs) || 0
+      const h = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours, t.totalHours, t.totalPausedMs, t.workedMs, t.displayWorkedMs) || 0
       totalSecHours += h
     })
     const totalHoursFormatted = formatExcelDuration(totalSecHours)
@@ -2469,27 +2581,22 @@ export function ProjectManagement() {
     sheet.getCell(currentRow, 3).value = 'Project'
     sheet.getCell(currentRow, 4).value = 'Login Time'
     sheet.getCell(currentRow, 5).value = 'Logout Time'
-    sheet.getCell(currentRow, 6).value = 'Total Hours'
-    styleTableHeader(currentRow, 6, 'FF0284C7') // Sky-600
+    sheet.getCell(currentRow, 6).value = 'Break'
+    sheet.getCell(currentRow, 7).value = 'Worked'
+    styleTableHeader(currentRow, 7, 'FF0284C7') // Sky-600
     currentRow++
 
-    filteredTimesheets.forEach((t, idx) => {
-      const hours = calculateHours(
-        t.loginTime,
-        t.logoutTime,
-        t.overriddenHours,
-        t.totalHours,
-        t.totalPausedMs
-      )
-      const { key, name } = resolveTimesheetEmployeeKey(t, employees)
+    filteredWorkSessions.forEach((s, idx) => {
+      const { key, name } = resolveTimesheetEmployeeKey(s, employees)
       sheet.getCell(currentRow, 1).value = name
       sheet.getCell(currentRow, 2).value = key
-      sheet.getCell(currentRow, 3).value = t.project
-      sheet.getCell(currentRow, 4).value = formatDateTime(t.loginTime)
-      sheet.getCell(currentRow, 5).value = t.logoutTime ? formatDateTime(t.logoutTime) : '—'
-      sheet.getCell(currentRow, 6).value = formatExcelDuration(hours)
+      sheet.getCell(currentRow, 3).value = s.project
+      sheet.getCell(currentRow, 4).value = formatDateTime(s.loginTime)
+      sheet.getCell(currentRow, 5).value = s.logoutTime ? formatDateTime(s.logoutTime) : '—'
+      sheet.getCell(currentRow, 6).value = formatBreakTime(s)
+      sheet.getCell(currentRow, 7).value = formatWorkSessionDuration(s)
 
-      styleDataRow(currentRow, 6, idx % 2 === 0, ['left', 'center', 'left', 'center', 'center', 'center'])
+      styleDataRow(currentRow, 7, idx % 2 === 0, ['left', 'center', 'left', 'center', 'center', 'center', 'center'])
       currentRow++
     })
 
@@ -2721,31 +2828,17 @@ export function ProjectManagement() {
     // ── Detailed time logs ──
     cursorY = addSectionTitle('Detailed Time Logs', cursorY)
 
-    const tableHeaders = ['Employee', 'Project', 'Login Time', 'Logout Time', 'Duration']
+    const tableHeaders = ['Employee', 'Project', 'Login Time', 'Logout Time', 'Break', 'Duration']
 
-    const tableRows = filteredTimesheets.map((t) => {
-      const hours = calculateHours(
-        t.loginTime,
-        t.logoutTime,
-        t.overriddenHours,
-        t.totalHours,
-        t.totalPausedMs
-      )
-      const { key, name } = resolveTimesheetEmployeeKey(t, employees)
-      const durationStr = (() => {
-        if (hours === null) return '—'
-        const totalMinutes = Math.round(hours * 60)
-        const hrs = Math.floor(totalMinutes / 60)
-        const mins = totalMinutes % 60
-        return `${hrs}hr ${mins}min`
-      })()
-      
+    const tableRows = filteredWorkSessions.map((s) => {
+      const { key, name } = resolveTimesheetEmployeeKey(s, employees)
       return [
         `${name} (${key})`,
-        t.project,
-        formatDateTime(t.loginTime),
-        t.logoutTime ? formatDateTime(t.logoutTime) : '—',
-        durationStr,
+        s.project,
+        formatDateTime(s.loginTime),
+        s.logoutTime ? formatDateTime(s.logoutTime) : '—',
+        formatBreakTime(s),
+        formatWorkSessionDuration(s),
       ]
     })
 
@@ -2756,11 +2849,13 @@ export function ProjectManagement() {
       startY: cursorY,
       styles: { ...tableTheme.styles, cellPadding: 4 },
       columnStyles: {
-        0: { cellWidth: contentWidth * 0.24 },
-        1: { cellWidth: contentWidth * 0.22 },
-        2: { cellWidth: contentWidth * 0.22 },
-        3: { cellWidth: contentWidth * 0.22 },
-        4: { cellWidth: contentWidth * 0.10, halign: 'right' },
+        0: { cellWidth: contentWidth * 0.20 },
+        1: { cellWidth: contentWidth * 0.18 },
+        2: { cellWidth: contentWidth * 0.18 },
+        3: { cellWidth: contentWidth * 0.18 },
+        4: { cellWidth: contentWidth * 0.08, halign: 'right' },
+        5: { cellWidth: contentWidth * 0.08, halign: 'right' },
+        6: { cellWidth: contentWidth * 0.10, halign: 'center' },
       },
     })
 
@@ -2797,8 +2892,11 @@ export function ProjectManagement() {
     timesheets.forEach((t) => {
       if (t.employeeName) names.add(t.employeeName)
     })
+    workSessions.forEach((s) => {
+      if (s.employeeName) names.add(s.employeeName)
+    })
     return [...names].sort().map((name) => ({ value: name, label: name }))
-  }, [timesheets, employees])
+  }, [timesheets, workSessions, employees])
 
   const tsProjectFilterOptions = useMemo(
     () =>
@@ -3408,17 +3506,26 @@ export function ProjectManagement() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70 text-base">
+                  {timesheetsLoading && currentTimesheets.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-12 text-center text-slate-600">
+                        <Spinner className="mx-auto text-[var(--emerald-dark)]" />
+                        <p className="mt-3 text-sm font-medium">Loading timesheet logs…</p>
+                      </td>
+                    </tr>
+                  ) : null}
                   {currentTimesheets.map((t) => {
-                    const empInfo = employees.find((e) => e.id === t.employeeId || e.employeeId === t.employeeId)
-                    const employeeColorKey =
-                      empInfo?.id || empInfo?.employeeId || t.employeeId || t.employeeName
-                    const hours = calculateHours(
-                      t.loginTime,
-                      t.logoutTime,
-                      t.overriddenHours,
-                      t.totalHours,
-                      t.totalPausedMs
+                    const { key: displayEmployeeId, name: displayEmployeeName } =
+                      resolveTimesheetEmployeeKey(t, employees)
+                    const empInfo = employees.find(
+                      (e) =>
+                        e.id === t.employeeId ||
+                        e.employeeId === t.employeeId ||
+                        e.employeeId === displayEmployeeId ||
+                        employeeDisplayName(e) === displayEmployeeName,
                     )
+                    const employeeColorKey =
+                      empInfo?.id || empInfo?.employeeId || displayEmployeeId || displayEmployeeName
 
                     return (
                       <tr
@@ -3428,16 +3535,16 @@ export function ProjectManagement() {
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
                             <Avatar
-                              name={t.employeeName}
+                              name={displayEmployeeName}
                               size="md"
                               color={stringToHueColor(employeeColorKey)}
                             />
                             <div className="min-w-0">
                               <p className="truncate text-base font-bold text-ink leading-tight">
-                                {t.employeeName}
+                                {displayEmployeeName}
                               </p>
                               <p className="text-xs font-semibold text-slate-600 font-mono">
-                                {t.employeeId}
+                                {displayEmployeeId}
                               </p>
                             </div>
                           </div>
@@ -3472,20 +3579,25 @@ export function ProjectManagement() {
                         </td>
 
                         <td className="whitespace-nowrap px-5 py-4">
-                          <p className="text-base font-semibold text-slate-800">
-                            {t.logoutTime ? formatDateTime(t.logoutTime) : '—'}
+                          <p
+                            className={cn(
+                              'text-base font-semibold',
+                              t.logoutTime ? 'text-slate-800' : 'text-emerald-700',
+                            )}
+                          >
+                            {t.logoutTime ? formatDateTime(t.logoutTime) : 'In progress'}
                           </p>
                         </td>
 
                         <td className="whitespace-nowrap px-5 py-4">
                           <span className="inline-flex rounded-lg border border-border bg-[var(--bg-input)] px-3 py-1.5 font-mono text-sm font-bold text-slate-800">
-                            {formatBreakTime(t.totalPausedMs)}
+                            {formatBreakTime(t)}
                           </span>
                         </td>
 
                         <td className="px-5 py-4">
                           <span className="inline-flex rounded-lg border border-border bg-[var(--bg-input)] px-3 py-1.5 text-ink font-mono text-sm font-bold">
-                            {formatAdminDuration(hours)}
+                            {formatWorkSessionDuration(t)}
                           </span>
                           {t.autoCheckedOut && (
                             <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-amber-500">
@@ -3496,10 +3608,10 @@ export function ProjectManagement() {
                       </tr>
                     )
                   })}
-                  {filteredTimesheets.length === 0 && (
+                  {filteredWorkSessions.length === 0 && (
                     <tr>
                       <td colSpan={6} className="py-12 text-center text-sm font-semibold text-slate-600">
-                        No individual logs correspond to selected range and filters.
+                        No work sessions correspond to selected range and filters.
                       </td>
                     </tr>
                   )}
@@ -3513,9 +3625,9 @@ export function ProjectManagement() {
               currentPage={timesheetsCurrentPage}
               totalPages={totalTimesheetsPages}
               rangeStart={indexOfFirstTimesheet + 1}
-              rangeEnd={Math.min(indexOfLastTimesheet, filteredTimesheets.length)}
-              totalItems={filteredTimesheets.length}
-              itemLabel="logs"
+              rangeEnd={Math.min(indexOfLastTimesheet, filteredWorkSessions.length)}
+              totalItems={filteredWorkSessions.length}
+              itemLabel="sessions"
               onPageChange={setTimesheetsCurrentPage}
             />
           )}

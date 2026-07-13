@@ -9,9 +9,9 @@
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
-  height: auto;
+  height: 100%;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
   font-size: calc(1rem * var(--els));
 }
 
@@ -80,10 +80,10 @@
 .employee-portal [data-employee-page] > .emp-portal-page__content:has([data-employee-leave]) {
   --els: 0.9;
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
-  min-height: auto;
-  overflow: visible;
+  min-height: 0;
+  overflow: hidden;
   padding: calc(0.75rem * var(--els));
 }
 
@@ -93,14 +93,14 @@
   }
 }
 
-/* White shell — grows with content; cmd-main scrolls the full page */
+/* White shell — fills available page height; pending/history scroll inside */
 .emp-leave-top {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
   gap: calc(0.75rem * var(--els));
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
   border-radius: calc(1rem * var(--els));
   padding: calc(0.75rem * var(--els));
   background: #ffffff;
@@ -125,10 +125,10 @@
 /* Two-column layout: left = apply + pending, right = balance + history */
 .emp-leave-layout {
   display: grid;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   gap: calc(0.75rem * var(--els));
-  min-height: min-content;
-  overflow: visible;
+  min-height: 0;
+  overflow: hidden;
   align-items: stretch;
   grid-template-columns: 1fr;
 }
@@ -144,9 +144,9 @@
   display: flex;
   flex-direction: column;
   gap: calc(0.75rem * var(--els));
-  min-height: min-content;
+  min-height: 0;
   min-width: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .emp-leave-column--left > .emp-leave-apply-card {
@@ -169,8 +169,8 @@
 }
 
 .emp-leave-column--right > .emp-leave-history-card {
-  flex: 0 0 auto;
-  min-height: 0;
+  flex: 1 1 0;
+  min-height: calc(10rem * var(--els));
 }
 
 .emp-leave-column > .emp-leave-apply-card,
@@ -186,7 +186,7 @@
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .emp-leave-pending-body {
@@ -827,6 +827,7 @@
     0 4px 14px rgba(26, 67, 41, 0.08) !important;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
@@ -837,25 +838,29 @@
 }
 
 .emp-leave-history-scroll {
-  display: block;
-  flex: 0 0 auto;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
   min-height: 0;
   min-width: 0;
   max-width: 100%;
-  overflow-x: auto;
-  overflow-y: visible;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
   border-radius: calc(0.75rem * var(--els));
   font-size: calc(0.875rem * var(--els));
 }
 
 .emp-leave-history-scroll > [data-portal-card],
 .emp-leave-history-scroll > .rounded-lg {
-  display: block;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  min-height: 100%;
   overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: #ffffff !important;
 }
 
@@ -1192,5 +1197,32 @@
 @media (min-width: 1024px) {
   .emp-leave-apply-card {
     max-width: 100%;
+  }
+}
+
+/* Stacked layout: allow the white shell to scroll so panels aren’t clipped */
+@media (max-width: 1023px) {
+  .emp-leave-top {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .emp-leave-layout,
+  .emp-leave-column {
+    overflow: visible;
+    min-height: min-content;
+  }
+
+  .emp-leave-column--left > .emp-leave-pending-card,
+  .emp-leave-column--right > .emp-leave-history-card {
+    flex: 0 0 auto;
+    min-height: calc(14rem * var(--els));
+  }
+
+  .emp-leave-history-scroll {
+    flex: 0 0 auto;
+    max-height: min(28rem, 55vh);
+    overflow: hidden;
   }
 }

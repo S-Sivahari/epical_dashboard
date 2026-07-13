@@ -1335,9 +1335,26 @@
 
 .admin-leaves-view .admin-leaves-year-balances-search-wrap {
   position: relative;
+  display: flex;
   flex-shrink: 0;
-  max-width: 22rem;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 36rem;
   margin: 0.75rem 1rem 0;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-search-field {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.admin-leaves-view .admin-leaves-year-balances-count {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  white-space: nowrap;
 }
 
 .admin-leaves-view .admin-leaves-year-balances-search-icon {
@@ -1370,10 +1387,12 @@
 }
 
 .admin-leaves-view .admin-leaves-year-balances-list {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
   margin-top: 0.75rem;
   padding: 0 0.75rem 0.75rem;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .admin-leaves-view .admin-leaves-year-balances-empty {

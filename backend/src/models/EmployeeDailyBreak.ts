@@ -9,7 +9,7 @@ export interface EmployeeDailyBreak extends Document {
   morningBreakMs?: number;
   lunchBreakMs?: number;
   eveningBreakMs?: number;
-  /** Total break time already deducted from project hours today (max 50 min). */
+  /** Total break time already deducted from project hours today (max 60 min). */
   projectBreakDeductedMs: number;
   createdAt: Date;
   updatedAt: Date;
@@ -31,6 +31,7 @@ const EmployeeDailyBreakSchema = new Schema<EmployeeDailyBreak>(
 );
 
 EmployeeDailyBreakSchema.index({ employeeId: 1, date: 1 }, { unique: true });
+EmployeeDailyBreakSchema.index({ date: 1 });
 
 export const EmployeeDailyBreakModel = model<EmployeeDailyBreak>(
   'EmployeeDailyBreak',

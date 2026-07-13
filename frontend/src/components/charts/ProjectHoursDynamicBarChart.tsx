@@ -5,7 +5,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  LabelList,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -16,7 +15,7 @@ import { easeOut } from '@/utils/motionPresets'
 import { cn } from '@/utils/cn'
 import {
   formatChartAxisMinutesFromHours,
-  formatHoursAsDuration,
+  formatHoursDecimalAsLongDuration,
 } from '@/utils/durationFormat'
 
 type ChartPoint = { name: string; hours: number }
@@ -45,11 +44,6 @@ function computeNiceYAxis(maxValue: number): { yMax: number; ticks: number[] } {
   return { yMax, ticks }
 }
 
-function formatBarLabel(v: unknown) {
-  if (typeof v !== 'number' || Number.isNaN(v) || v === 0) return ''
-  return formatChartAxisMinutesFromHours(v)
-}
-
 function DynamicBarTooltip({
   active,
   payload,
@@ -67,7 +61,7 @@ function DynamicBarTooltip({
     >
       <p className="project-hours-bar-tooltip__label">{label}</p>
       <p className="project-hours-bar-tooltip__value">
-        {formatHoursAsDuration(hours)}
+        {formatHoursDecimalAsLongDuration(hours)}
       </p>
     </motion.div>
   )
@@ -204,14 +198,6 @@ export function ProjectHoursDynamicBarChart({
                     fillOpacity={entry.hours > 0 ? 1 : 0.4}
                   />
                 ))}
-                <LabelList
-                  dataKey="hours"
-                  position="top"
-                  formatter={formatBarLabel}
-                  fill="#1f5516"
-                  fontSize={11}
-                  fontWeight={700}
-                />
               </Bar>
             </BarChart>
         </ResponsiveContainer>

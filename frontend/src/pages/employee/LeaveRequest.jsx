@@ -166,10 +166,6 @@ const leaveTypes = ['Casual Leave', 'Sick Leave', 'Earned Leave', 'Compensation 
 const leaveDurations = ['Full Day', 'Half Day']
 const halfDaySessions = ['First Half', 'Second Half']
 
-function currentMonthPrefix() {
-  return new Date().toISOString().slice(0, 7)
-}
-
 const historyColumns = [
   { key: 'type', label: 'Leave Type' },
   { key: 'from', label: 'Start Date' },
@@ -237,8 +233,6 @@ export default function LeaveRequest() {
   const halfDaySession = watch('halfDaySession')
   const selectedLeaveType = watch('type')
 
-  const monthPrefix = currentMonthPrefix()
-
   const leaveOwnerIds = useMemo(() => {
     const ids = new Set()
     if (user?.id) ids.add(String(user.id))
@@ -262,72 +256,23 @@ export default function LeaveRequest() {
     return user?.name || 'Unknown'
   }, [employeeProfile, user?.name])
 
-  const pendingSickDays = useMemo(
-    () =>
-      requests
-        .filter(
-          (r) =>
-            r.status === 'Pending' &&
-            r.type === 'Sick Leave' &&
-            typeof r.from === 'string' &&
-            r.from.startsWith(monthPrefix),
-        )
-        .reduce((sum, r) => {
-          const lop = Number(r.lopDays ?? 0) || 0
-          return sum + Math.max(0, (Number(r.days) || 0) - lop)
-        }, 0),
-    [requests, monthPrefix],
-  )
-
   const sickBalanceRemaining = useMemo(() => {
     const sick = leaveBalances.find((lb) => lb.key === 'sick')
     if (!sick) return 0
-    const remaining = sick.remaining ?? Math.max(0, sick.total - sick.used)
-    return Math.max(0, remaining - pendingSickDays)
-  }, [leaveBalances, pendingSickDays])
-
-  const pendingEarnedDays = useMemo(() => {
-    const yearPrefix = String(new Date().getFullYear())
-    return requests
-      .filter(
-        (r) =>
-          r.status === 'Pending' &&
-          r.type === 'Earned Leave' &&
-          typeof r.from === 'string' &&
-          r.from.startsWith(yearPrefix),
-      )
-      .reduce((sum, r) => sum + (Number(r.days) || 0), 0)
-  }, [requests])
+    return Math.max(0, sick.remaining ?? Math.max(0, sick.total - sick.used))
+  }, [leaveBalances])
 
   const earnedBalanceRemaining = useMemo(() => {
     const earned = leaveBalances.find((lb) => lb.key === 'earned')
     if (!earned) return 0
-    const remaining = earned.remaining ?? Math.max(0, earned.total - earned.used)
-    return Math.max(0, remaining - pendingEarnedDays)
-  }, [leaveBalances, pendingEarnedDays])
-
-  const pendingCompensationDays = useMemo(
-    () => {
-      const yearPrefix = String(new Date().getFullYear())
-      return requests
-        .filter(
-          (r) =>
-            r.status === 'Pending' &&
-            r.type === 'Compensation Leave' &&
-            typeof r.from === 'string' &&
-            r.from.startsWith(yearPrefix),
-        )
-        .reduce((sum, r) => sum + (Number(r.days) || 0), 0)
-    },
-    [requests],
-  )
+    return Math.max(0, earned.remaining ?? Math.max(0, earned.total - earned.used))
+  }, [leaveBalances])
 
   const compensationBalanceRemaining = useMemo(() => {
     const comp = leaveBalances.find((lb) => lb.key === 'compensation')
     if (!comp) return 0
-    const remaining = comp.remaining ?? Math.max(0, comp.total - comp.used)
-    return Math.max(0, remaining - pendingCompensationDays)
-  }, [leaveBalances, pendingCompensationDays])
+    return Math.max(0, comp.remaining ?? Math.max(0, comp.total - comp.used))
+  }, [leaveBalances])
 
   const availableLeaveTypes = useMemo(
     () =>
@@ -341,21 +286,8 @@ export default function LeaveRequest() {
   const casualBalanceRemaining = useMemo(() => {
     const casual = leaveBalances.find((lb) => lb.key === 'casual')
     if (!casual) return 0
-    const pendingCasual = requests
-      .filter(
-        (r) =>
-          r.status === 'Pending' &&
-          r.type === 'Casual Leave' &&
-          typeof r.from === 'string' &&
-          r.from.startsWith(monthPrefix),
-      )
-      .reduce((sum, r) => {
-        const lop = Number(r.lopDays ?? 0) || 0
-        return sum + Math.max(0, (Number(r.days) || 0) - lop)
-      }, 0)
-    const remaining = casual.remaining ?? Math.max(0, casual.total - casual.used)
-    return Math.max(0, remaining - pendingCasual)
-  }, [leaveBalances, requests, monthPrefix])
+    return Math.max(0, casual.remaining ?? Math.max(0, casual.total - casual.used))
+  }, [leaveBalances])
 
   const isCasualSameDay =
     selectedLeaveType === 'Casual Leave' && fromDate && isCasualSameDayLeave(fromDate)
@@ -585,6 +517,8 @@ export default function LeaveRequest() {
       setCancelConfirmOpen(false)
       setLeaveToCancel(null)
       fetchRequests()
+      const newBalances = await leaveService.getBalances()
+      setLeaveBalances(formatLeaveBalances(newBalances, { includeLop: true }))
     } catch (err) {
       toast({ title: 'Error', description: err?.response?.data?.error || 'Failed to cancel leave request' })
     } finally {
@@ -732,11 +666,10 @@ export default function LeaveRequest() {
 
   return (
     <div
-      className="emp-leave-page flex w-full flex-col pb-8"
+      className="emp-leave-page flex min-h-0 w-full flex-1 flex-col overflow-hidden"
       data-employee-leave
-      data-page-scrollable
     >
-      <div className="emp-leave-top flex flex-col">
+      <div className="emp-leave-top flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="emp-leave-layout">
           <div className="emp-leave-column emp-leave-column--left">
             <LeaveApplyForm

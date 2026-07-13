@@ -24,12 +24,14 @@ import {
 import {
   recordCompletedBreakDuration,
   activeBreakExpired,
+  computeUsedBreakMs,
 } from '../utils/workBreaks';
 import {
   applyDailyCappedBreakDeduction,
   markDailyBreakSlotCompleted,
-  resolveDefaultCheckoutBreakDeduction,
 } from './dailyBreakStateService';
+import { resolveDefaultCheckoutBreakDeduction } from './checkoutBreakPolicy';
+import { computeSessionWorkedMs } from './workingTimeService';
 import { finalizeOpenTimesheetsForCheckout } from './projectBreakDeductionService';
 import { resumeBreakPausedTask } from './timesheetBreakService';
 import {
@@ -254,15 +256,6 @@ async function performAutoCheckoutForAttendance(
   const checkInTime = claimed.checkInTime;
   const { openLogs, identityTokens } = await findOpenTimesheetsForAutoCheckout(claimed, session);
 
-  const defaultBreakDeductionMs = await resolveDefaultCheckoutBreakDeduction(
-    claimed.employeeId,
-    claimed.date,
-  );
-
-  console.log(
-    `[Auto-Checkout Job] Found ${openLogs.length} open timesheet log(s) for ${claimed.employeeName} (tokens=${identityTokens.join(',')}).`
-  );
-
   if (claimed.activeBreakType) {
     const breakType = claimed.activeBreakType;
     const timesheetId = claimed.breakPausedTimesheetId;
@@ -272,18 +265,51 @@ async function performAutoCheckoutForAttendance(
         : checkoutTimestamp;
     const breakMs = recordCompletedBreakDuration(claimed, breakType, endedAt);
     await markDailyBreakSlotCompleted(claimed.employeeId, claimed.date, breakType, endedAt, breakMs);
-    const appliedMs = await applyDailyCappedBreakDeduction(claimed.employeeId, claimed.date, breakMs);
-    await resumeBreakPausedTask(timesheetId, identityTokens, appliedMs);
+    await resumeBreakPausedTask(timesheetId, identityTokens, breakMs);
     claimed.activeBreakType = undefined;
     claimed.activeBreakStartedAt = undefined;
     claimed.activeBreakEndsAt = undefined;
     claimed.breakPausedTimesheetId = undefined;
   }
 
-  const updatedLogs = finalizeOpenTimesheetsForCheckout(claimed, openLogs, checkoutTimestamp, {
-    incompleteTaskStatus: true,
+  const sessionBreakMs = computeUsedBreakMs(claimed, checkoutTimestamp);
+  const defaultBreakDeductionMs = await resolveDefaultCheckoutBreakDeduction(
+    claimed.employeeId,
+    claimed.date,
+    claimed.checkInTime,
+    checkoutTimestamp,
+  );
+
+  const sessionPreview = computeSessionWorkedMs(
+    claimed.checkInTime,
+    checkoutTimestamp,
+    claimed,
+    'full_day',
     defaultBreakDeductionMs,
-  });
+  );
+
+  const updatedLogs = await finalizeOpenTimesheetsForCheckout(
+    claimed,
+    openLogs,
+    checkoutTimestamp,
+    identityTokens,
+    {
+      incompleteTaskStatus: true,
+      workDayType: 'full_day',
+      defaultBreakDeductionMs,
+    },
+  );
+
+  claimed.workDayType = 'full_day';
+  claimed.sessionWorkedMs =
+    typeof sessionPreview.workedMs === 'number' && sessionPreview.workedMs >= 0
+      ? sessionPreview.workedMs
+      : undefined;
+  claimed.defaultBreakDeductedMs = sessionPreview.defaultDeductedMs;
+
+  console.log(
+    `[Auto-Checkout Job] Found ${openLogs.length} open timesheet log(s) for ${claimed.employeeName} (tokens=${identityTokens.join(',')}).`
+  );
 
   const openLogIds = new Set(openLogs.map((log) => log._id.toString()));
   for (const log of updatedLogs) {
