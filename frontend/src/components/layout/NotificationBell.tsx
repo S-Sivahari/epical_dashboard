@@ -1,17 +1,20 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { Bell } from 'lucide-react'
-import { useEffect } from 'react'
+import { Bell, History } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useNotificationStore, NOTIFICATION_POLL_MS, type NotificationData } from '@store/notificationStore'
 import { useAuthStore } from '@store/authStore'
 import { getNotificationRoute } from '@utils/notificationNavigation'
 import { formatDistanceToNow } from 'date-fns'
+import { NotificationHistoryDialog } from '@components/layout/NotificationHistoryDialog'
 
 export function NotificationBell() {
   const navigate = useNavigate()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const isHydrated = useAuthStore((s) => s.isHydrated)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const {
     notifications,
     unreadCount,
@@ -42,125 +45,150 @@ export function NotificationBell() {
       await markAsRead(notification.id)
     }
     const route = getNotificationRoute(notification)
+    setDropdownOpen(false)
     if (route) navigate(route)
   }
 
-  return (
-    <DropdownMenu.Root
-      onOpenChange={(open) => {
-        if (open) fetchNotificationsSilent()
-      }}
-    >
-      <DropdownMenu.Trigger asChild>
-        <button type="button" className="cmd-bar-icon-btn relative p-2" title="Notifications">
-          <Bell className="h-4 w-4" />
-          {unreadCount > 0 && (
-            <motion.span
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white"
-            >
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </motion.span>
-          )}
-        </button>
-      </DropdownMenu.Trigger>
+  const openHistory = () => {
+    setDropdownOpen(false)
+    setHistoryOpen(true)
+  }
 
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content className="cmd-dropdown notification-dropdown-panel z-50 w-96 overflow-hidden" sideOffset={6} align="end">
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="border-b border-[var(--border-subtle)] px-4 py-3">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="font-semibold text-[var(--text-primary)]">Notifications</h3>
-                {notifications.length > 0 && (
-                  <div className="notification-dropdown-actions">
-                    {unreadCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => void markAllAsRead()}
-                        className="text-xs font-medium text-[var(--text-link)] hover:text-[var(--text-link-hover)] hover:underline"
-                      >
-                        Mark all read
-                      </button>
-                    )}
+  return (
+    <>
+      <DropdownMenu.Root
+        open={dropdownOpen}
+        onOpenChange={(open) => {
+          setDropdownOpen(open)
+          if (open) fetchNotificationsSilent()
+        }}
+      >
+        <DropdownMenu.Trigger asChild>
+          <button type="button" className="cmd-bar-icon-btn relative p-2" title="Notifications">
+            <Bell className="h-4 w-4" />
+            {unreadCount > 0 && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white"
+              >
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </motion.span>
+            )}
+          </button>
+        </DropdownMenu.Trigger>
+
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content className="cmd-dropdown notification-dropdown-panel z-50 w-96 overflow-hidden" sideOffset={6} align="end">
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-semibold text-[var(--text-primary)]">Notifications</h3>
+                  <div className="notification-dropdown-actions flex flex-wrap items-center justify-end gap-2">
                     <button
                       type="button"
-                      onClick={() => void deleteAllNotifications()}
-                      className="text-xs font-medium text-red-600 hover:text-red-700 hover:underline"
+                      onClick={openHistory}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[var(--text-link)] hover:text-[var(--text-link-hover)] hover:underline"
                     >
-                      Clear all
+                      <History className="h-3.5 w-3.5" />
+                      History
                     </button>
+                    {notifications.length > 0 && (
+                      <>
+                        {unreadCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => void markAllAsRead()}
+                            className="text-xs font-medium text-[var(--text-link)] hover:text-[var(--text-link-hover)] hover:underline"
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void deleteAllNotifications()}
+                          className="text-xs font-medium text-red-600 hover:text-red-700 hover:underline"
+                        >
+                          Clear all
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="max-h-96 overflow-y-auto">
+                {displayNotifications.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">
+                    No notifications yet
+                  </div>
+                ) : (
+                  <div className="divide-y divide-[var(--border-subtle)]">
+                    {displayNotifications.map((notification, i) => (
+                      <motion.div
+                        key={notification.id}
+                        initial={{ opacity: 0, x: 12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.04, duration: 0.25 }}
+                        className={`notification-dropdown-item flex cursor-pointer items-start gap-3 px-4 py-3 ${
+                          !notification.isRead
+                            ? 'notification-dropdown-item--unread'
+                            : 'notification-dropdown-item--read'
+                        }`}
+                        onClick={() => void handleNotificationClick(notification)}
+                      >
+                        <div
+                          className={`mt-1 h-2 w-2 flex-shrink-0 rounded-full ${
+                            !notification.isRead ? 'bg-primary' : 'bg-transparent'
+                          }`}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <h4 className={`text-sm font-medium ${notification.isRead ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)]'}`}>
+                            {notification.title}
+                          </h4>
+                          <p className="line-clamp-2 text-sm text-[var(--text-secondary)]">
+                            {notification.message}
+                          </p>
+                          <span className="mt-1 block text-xs text-[var(--text-muted)]">
+                            {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteNotification(notification.id)
+                          }}
+                          className="text-[var(--text-muted)] transition-colors hover:text-[var(--emerald-dark)]"
+                        >
+                          ✕
+                        </button>
+                      </motion.div>
+                    ))}
                   </div>
                 )}
               </div>
-            </div>
 
-            <div className="max-h-96 overflow-y-auto">
-              {displayNotifications.length === 0 ? (
-                <div className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">
-                  No notifications yet
-                </div>
-              ) : (
-                <div className="divide-y divide-[var(--border-subtle)]">
-                  {displayNotifications.map((notification, i) => (
-                    <motion.div
-                      key={notification.id}
-                      initial={{ opacity: 0, x: 12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.04, duration: 0.25 }}
-                      className={`notification-dropdown-item flex cursor-pointer items-start gap-3 px-4 py-3 ${
-                        !notification.isRead
-                          ? 'notification-dropdown-item--unread'
-                          : 'notification-dropdown-item--read'
-                      }`}
-                      onClick={() => void handleNotificationClick(notification)}
-                    >
-                      <div
-                        className={`mt-1 h-2 w-2 flex-shrink-0 rounded-full ${
-                          !notification.isRead ? 'bg-primary' : 'bg-transparent'
-                        }`}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <h4 className={`text-sm font-medium ${notification.isRead ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)]'}`}>
-                          {notification.title}
-                        </h4>
-                        <p className="line-clamp-2 text-sm text-[var(--text-secondary)]">
-                          {notification.message}
-                        </p>
-                        <span className="mt-1 block text-xs text-[var(--text-muted)]">
-                          {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          deleteNotification(notification.id)
-                        }}
-                        className="text-[var(--text-muted)] transition-colors hover:text-[var(--emerald-dark)]"
-                      >
-                        ✕
-                      </button>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {notifications.length > displayNotifications.length && (
               <div className="border-t border-[var(--border-subtle)] px-4 py-2 text-center">
-                <button type="button" className="text-sm font-medium text-[var(--text-link)] hover:text-[var(--text-link-hover)] hover:underline">
-                  View all notifications
+                <button
+                  type="button"
+                  onClick={openHistory}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--text-link)] hover:text-[var(--text-link-hover)] hover:underline"
+                >
+                  <History className="h-3.5 w-3.5" />
+                  Notification History
                 </button>
               </div>
-            )}
-          </motion.div>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+            </motion.div>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+
+      <NotificationHistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} />
+    </>
   )
 }

@@ -10,6 +10,9 @@ notificationRoutes.use(authMiddleware);
 // Get all notifications
 notificationRoutes.get('/', notificationController.getAll);
 
+// Notification history (last 30 days; older cleared)
+notificationRoutes.get('/history', notificationController.getHistory);
+
 // Get unread notifications
 notificationRoutes.get('/unread', notificationController.getUnread);
 

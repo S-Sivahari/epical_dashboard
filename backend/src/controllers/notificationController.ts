@@ -11,6 +11,26 @@ function sessionUser(req: AuthRequest) {
 }
 
 export const notificationController = {
+  // GET /api/notifications/history - Last 30 days (older rows purged)
+  getHistory: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const { userId, userEmail, activeRole } = sessionUser(req);
+      if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const history = await notificationService.getNotificationHistoryForSession(
+        userId,
+        userEmail,
+        activeRole,
+      );
+      res.json(history);
+    } catch (error) {
+      console.error('Get notification history error:', error);
+      res.status(500).json({ error: 'Failed to fetch notification history' });
+    }
+  },
+
   // GET /api/notifications - Get all notifications for current user
   getAll: async (req: AuthRequest, res: Response): Promise<void> => {
     try {

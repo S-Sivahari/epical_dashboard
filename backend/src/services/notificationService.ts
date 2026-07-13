@@ -225,6 +225,9 @@ export async function resolveNotificationRecipient(
   };
 }
 
+/** Keep notification history for this many days; older rows are deleted. */
+export const NOTIFICATION_RETENTION_DAYS = 30;
+
 function recipientFilter(recipient: NotificationRecipient): Record<string, unknown> {
   if (recipient.recipientType === 'Admin') {
     return { recipientId: recipient.recipientId, recipientType: 'Admin' };
@@ -235,18 +238,63 @@ function recipientFilter(recipient: NotificationRecipient): Record<string, unkno
   };
 }
 
+function retentionCutoffDate(days: number = NOTIFICATION_RETENTION_DAYS): Date {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  return cutoff;
+}
+
+async function purgeExpiredNotificationsForRecipient(
+  recipient: NotificationRecipient,
+): Promise<number> {
+  const col = getNotificationCol();
+  const result = await col.deleteMany({
+    ...recipientFilter(recipient),
+    createdAt: { $lt: retentionCutoffDate() },
+  });
+  return result.deletedCount;
+}
+
 export async function getNotificationsForSession(
   userId: string,
   userEmail: string | undefined,
   activeRole: string,
 ): Promise<Notification[]> {
   const recipient = await resolveNotificationRecipient(userId, userEmail, activeRole);
+  await purgeExpiredNotificationsForRecipient(recipient);
   const col = getNotificationCol();
   const notifications = await col
-    .find(recipientFilter(recipient))
+    .find({
+      ...recipientFilter(recipient),
+      createdAt: { $gte: retentionCutoffDate() },
+    })
     .sort({ createdAt: -1 })
     .toArray();
   return notifications as Notification[];
+}
+
+/** Last N days of notifications for the active session (after purging older ones). */
+export async function getNotificationHistoryForSession(
+  userId: string,
+  userEmail: string | undefined,
+  activeRole: string,
+  days: number = NOTIFICATION_RETENTION_DAYS,
+): Promise<{ notifications: Notification[]; retentionDays: number; purgedCount: number }> {
+  const recipient = await resolveNotificationRecipient(userId, userEmail, activeRole);
+  const purgedCount = await purgeExpiredNotificationsForRecipient(recipient);
+  const col = getNotificationCol();
+  const notifications = await col
+    .find({
+      ...recipientFilter(recipient),
+      createdAt: { $gte: retentionCutoffDate(days) },
+    })
+    .sort({ createdAt: -1 })
+    .toArray();
+  return {
+    notifications: notifications as Notification[],
+    retentionDays: days,
+    purgedCount,
+  };
 }
 
 export async function getNotificationsByRecipient(recipientId: string): Promise<Notification[]> {
@@ -310,8 +358,13 @@ export async function getUnreadCountForSession(
   activeRole: string,
 ): Promise<number> {
   const recipient = await resolveNotificationRecipient(userId, userEmail, activeRole);
+  await purgeExpiredNotificationsForRecipient(recipient);
   const col = getNotificationCol();
-  return await col.countDocuments({ ...recipientFilter(recipient), isRead: false });
+  return await col.countDocuments({
+    ...recipientFilter(recipient),
+    isRead: false,
+    createdAt: { $gte: retentionCutoffDate() },
+  });
 }
 
 export async function markAsReadForSession(
@@ -373,9 +426,14 @@ export async function getUnreadCountsByCategoryForSession(
   activeRole: string,
 ): Promise<ReturnType<typeof emptyCategoryCounts>> {
   const recipient = await resolveNotificationRecipient(userId, userEmail, activeRole);
+  await purgeExpiredNotificationsForRecipient(recipient);
   const col = getNotificationCol();
   const unread = await col
-    .find({ ...recipientFilter(recipient), isRead: false })
+    .find({
+      ...recipientFilter(recipient),
+      isRead: false,
+      createdAt: { $gte: retentionCutoffDate() },
+    })
     .project({ type: 1 })
     .toArray();
 
