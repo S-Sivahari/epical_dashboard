@@ -13,6 +13,13 @@ const prefetchers = {
       import('@pages/admin/Projects/ProjectWorkspace'),
       import('@pages/employee/EmployeeCellWorkflow'),
     ]),
+  '/employee/project-analysis/projects': () =>
+    Promise.all([
+      import('@layouts/ProjectAnalysisLayout'),
+      import('@pages/admin/Projects/ProjectsDashboard'),
+      import('@pages/admin/Projects/ProjectWorkspace'),
+      import('@pages/employee/EmployeeCellWorkflow'),
+    ]),
   '/employee/projects': () =>
     Promise.all([
       import('@pages/admin/Projects/ProjectsDashboard'),

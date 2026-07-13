@@ -23,6 +23,7 @@ import { formatWorkedDuration } from '@utils/durationFormat'
 import { useAttendanceWeeklyHours } from '@hooks/useAttendanceWeeklyHours'
 import { cn } from '@pages/employee/lib/utils'
 import { InteractiveCard, portalCardClass } from '@components/employee/shared/interactiveCard'
+import { ROUTES } from '@constants/routes'
 
 const CARD_CLASS = portalCardClass({ className: 'flex h-full min-h-0 flex-col overflow-hidden p-4 sm:p-5' })
 const COMPACT_CARD_CLASS = portalCardClass({
@@ -183,7 +184,7 @@ export default function Dashboard() {
         icon: FolderKanban,
         trend: projectCount ? 'Assigned to you' : 'None assigned',
         accent: 'sage',
-        to: '/employee/timesheet',
+        to: ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECTS,
       },
       {
         title: 'Training',

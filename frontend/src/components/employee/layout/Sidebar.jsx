@@ -11,6 +11,7 @@ import {
   HelpCircle,
   Ticket,
   User,
+  Briefcase,
   X,
 } from 'lucide-react'
 import { cn } from '@pages/employee/lib/utils'
@@ -24,6 +25,7 @@ const SIDEBAR_COLLAPSED_WIDTH = 72
 const navIcons = {
   '/employee': LayoutDashboard,
   '/employee/timesheet': Clock,
+  '/employee/project-analysis/projects': Briefcase,
   '/employee/leave': CalendarOff,
   '/employee/calendar': Calendar,
   '/employee/documents': FileText,

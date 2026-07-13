@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   BookOpen,
+  Briefcase,
   CalendarDays,
   CalendarOff,
   Clock,
@@ -43,9 +44,15 @@ export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
   },
   {
     to: '/employee/timesheet',
-    label: 'Projects & Timesheets',
-    navLabel: 'Projects & Timesheets',
+    label: 'Timesheets',
+    navLabel: 'Timesheets',
     icon: Clock,
+  },
+  {
+    to: '/employee/project-analysis/projects',
+    label: 'Projects',
+    navLabel: 'Projects',
+    icon: Briefcase,
   },
   {
     to: '/employee/leave',
@@ -104,8 +111,9 @@ export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
 /** Command bar subtitle — current page short title */
 export const EMPLOYEE_ROUTE_TITLES: Record<string, string> = {
   '/employee': 'Dashboard',
-  '/employee/timesheet': 'Projects & Timesheets',
-  '/employee/project-analysis': 'Project Management',
+  '/employee/timesheet': 'Timesheets',
+  '/employee/project-analysis': 'Projects',
+  '/employee/project-analysis/projects': 'Projects',
   '/employee/project-analysis/notes': 'Daily Notes',
   '/employee/metal-routing': 'Metal Routing',
   '/employee/leave': 'Leave Request',

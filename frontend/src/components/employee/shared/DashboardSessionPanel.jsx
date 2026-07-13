@@ -156,12 +156,12 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
           <p className="emp-dash-session-panel__title">Check in</p>
         </div>
         <p className="emp-dash-session-panel__hint">
-          Start your work session from Projects &amp; Timesheets.
+          Start your work session from Timesheets.
         </p>
         <Button asChild className="emp-dash-session-panel__checkin-btn w-full gap-2">
           <Link to="/employee/timesheet">
             <LogIn className="h-4 w-4 shrink-0" />
-            Projects &amp; Timesheets
+            Open Timesheets
           </Link>
         </Button>
       </div>

@@ -584,7 +584,7 @@ export default function Timesheet() {
       <div className="emp-timesheet-shell">
       <div className="emp-timesheet-hero">
         <div className="emp-timesheet-hero-intro">
-          <h1 className="emp-timesheet-hero-title">Projects & Timesheets</h1>
+          <h1 className="emp-timesheet-hero-title">Timesheets</h1>
         </div>
         <div className="emp-timesheet-hero-stats">
           <ProjectAnalysisLaunchButton
