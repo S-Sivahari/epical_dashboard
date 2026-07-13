@@ -15,7 +15,7 @@ async function resolveEmployeeRecipient(assignedEmployeeId?: string | null) {
   if (!employee) return { recipientId: assigned, employeeName: 'Engineer', employeeEmail: '' };
 
   const employeeName = [employee.firstName, employee.lastName].filter(Boolean).join(' ').trim() || 'Engineer';
-  const employeeEmail = getEmployeeOfficialEmail(employee) || '';
+  const employeeEmail = getEmployeeOfficialEmail(employee as any) || '';
 
   return {
     recipientId: String(employee.id || assigned),
@@ -53,13 +53,19 @@ export async function notifyCellCreatedUnassigned(params: {
   libraryName?: string;
   createdByName: string;
   teamLeadName?: string;
+  /** When true, cell already has an assignee (employee self-created). */
+  assigned?: boolean;
 }): Promise<void> {
   const libraryPart = params.libraryName ? ` in ${params.libraryName}` : '';
-  const message = `${params.createdByName} created ${params.cellName}${libraryPart} in ${params.projectName}. Assign an engineer to begin work.`;
+  const assigned = Boolean(params.assigned);
+  const title = assigned ? 'New cell created' : 'New cell awaiting assignment';
+  const message = assigned
+    ? `${params.createdByName} created ${params.cellName}${libraryPart} in ${params.projectName}.`
+    : `${params.createdByName} created ${params.cellName}${libraryPart} in ${params.projectName}. Assign an engineer to begin work.`;
 
   await notifyAllAdmins({
     type: 'CellCreatedUnassigned',
-    title: 'New cell awaiting assignment',
+    title,
     message,
     relatedId: params.cellId,
     relatedData: {
@@ -79,7 +85,7 @@ export async function notifyCellCreatedUnassigned(params: {
     recipientId: teamLead.recipientId,
     recipientType: 'Employee',
     type: 'CellCreatedUnassigned',
-    title: 'New cell awaiting assignment',
+    title,
     message,
     relatedId: params.cellId,
     relatedData: {
@@ -87,6 +93,50 @@ export async function notifyCellCreatedUnassigned(params: {
       cellId: params.cellId,
       projectName: params.projectName,
       cellName: params.cellName,
+      libraryName: params.libraryName,
+      createdByName: params.createdByName,
+      employeeName: teamLead.employeeName,
+    },
+  });
+}
+
+export async function notifyLibraryCreated(params: {
+  projectId: string;
+  libraryId: string;
+  projectName: string;
+  libraryName: string;
+  createdByName: string;
+  teamLeadName?: string;
+}): Promise<void> {
+  const title = 'New library created';
+  const message = `${params.createdByName} created library "${params.libraryName}" in ${params.projectName}.`;
+
+  await notifyAllAdmins({
+    type: 'LibraryCreated',
+    title,
+    message,
+    relatedId: params.libraryId,
+    relatedData: {
+      projectId: params.projectId,
+      projectName: params.projectName,
+      libraryName: params.libraryName,
+      createdByName: params.createdByName,
+    },
+  });
+
+  const teamLead = await resolveTeamLeadRecipient(params.teamLeadName);
+  if (!teamLead) return;
+
+  await createNotification({
+    recipientId: teamLead.recipientId,
+    recipientType: 'Employee',
+    type: 'LibraryCreated',
+    title,
+    message,
+    relatedId: params.libraryId,
+    relatedData: {
+      projectId: params.projectId,
+      projectName: params.projectName,
       libraryName: params.libraryName,
       createdByName: params.createdByName,
       employeeName: teamLead.employeeName,

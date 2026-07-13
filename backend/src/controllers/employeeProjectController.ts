@@ -90,10 +90,16 @@ import {
   syncSchematicWorkflowFromView,
 } from '../utils/schematicWorkflow';
 import { assertCellChecklistFilled, buildCellChecklistDetail } from '../services/cellTypeChecklistService';
-import { sendReviewNotificationsFromCell } from '../services/cellReviewNotificationService';
+import {
+  sendReviewNotificationsFromCell,
+  findNewlyPendingLayoutReviews,
+  findNewlyPendingSchematicReview,
+  ensurePendingReviewNotifications,
+} from '../services/cellReviewNotificationService';
 import {
   notifyCellCreatedUnassigned,
   notifyEmployeeCellAssigned,
+  notifyLibraryCreated,
 } from '../services/cellAssignmentNotificationService';
 import { updateCellChecklistItemResponse, syncChecklistMappingsForCell } from '../services/checklistService';
 import { normalizeCellType } from '../services/projectTypeChecklistService';
@@ -802,6 +808,22 @@ export const employeeProjectController = {
       });
       await cell.save();
 
+      const pendingEntries = findNewlyPendingLayoutReviews(prevWorkflow, nextCellWorkflow);
+      if (pendingEntries.length) {
+        await ensurePendingReviewNotifications({
+          projectId,
+          cellId,
+          employeeName: actor.userName,
+          initiatedBy: actor.userId,
+          initiatedByName: actor.userName,
+          assignedEmployeeId: cell.assignedEmployeeId,
+          authorRole: 'Employee',
+          entries: pendingEntries,
+        }).catch((notifyErr) => {
+          console.error('[employee-projects] review-stage notification failed:', notifyErr);
+        });
+      }
+
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
       res.json(await toEmployeeCellWithTiming(cell, tokens, meta));
     } catch (err: any) {
@@ -889,6 +911,22 @@ export const employeeProjectController = {
 
       await cell.save();
 
+      const pendingEntries = findNewlyPendingLayoutReviews(prevWorkflow, result.workflow);
+      if (pendingEntries.length) {
+        await ensurePendingReviewNotifications({
+          projectId,
+          cellId,
+          employeeName: actor.userName,
+          initiatedBy: actor.userId,
+          initiatedByName: actor.userName,
+          assignedEmployeeId: cell.assignedEmployeeId,
+          authorRole: 'Employee',
+          entries: pendingEntries,
+        }).catch((notifyErr) => {
+          console.error('[employee-projects] review-stage notification failed:', notifyErr);
+        });
+      }
+
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
       res.json(await toEmployeeCellWithTiming(cell, tokens, meta));
     } catch (err: any) {
@@ -966,6 +1004,20 @@ export const employeeProjectController = {
       });
 
       await cell.save();
+
+      const schematicPending = findNewlyPendingSchematicReview(prevWorkflow, result.workflow);
+      void ensurePendingReviewNotifications({
+        projectId,
+        cellId,
+        employeeName: actor.userName,
+        initiatedBy: actor.userId,
+        initiatedByName: actor.userName,
+        assignedEmployeeId: cell.assignedEmployeeId,
+        authorRole: 'Employee',
+        entries: schematicPending ? [schematicPending] : [],
+      }).catch((notifyErr) => {
+        console.error('[employee-projects] schematic review-stage notification failed:', notifyErr);
+      });
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
       res.json(await toEmployeeCellWithTiming(cell, tokens, meta));
@@ -1092,7 +1144,7 @@ export const employeeProjectController = {
       });
       await cell.save();
 
-      void sendReviewNotificationsFromCell({
+      await sendReviewNotificationsFromCell({
         projectId,
         cellId,
         reviewId: review._id.toString(),
@@ -1552,6 +1604,21 @@ export const employeeProjectController = {
         assignedEmployeeName: assignment.assignedEmployeeName,
         createdBy: actor.userId,
       });
+
+      const createdByEmployee = !isTeamLeadOnProject(project, tokens);
+      if (createdByEmployee) {
+        void notifyLibraryCreated({
+          projectId: project._id.toString(),
+          libraryId: library._id.toString(),
+          projectName: project.projectName || 'Project',
+          libraryName: library.name,
+          createdByName: actor.userName,
+          teamLeadName: project.teamLead,
+        }).catch((notifyErr) => {
+          console.error('[employee-projects] library created notification failed:', notifyErr);
+        });
+      }
+
       res.status(201).json(toLibrary(library));
     } catch (err) {
       res.status(500).json({ error: 'Failed to create library' });
@@ -1651,7 +1718,7 @@ export const employeeProjectController = {
       const meta = await computeDependencyMeta(project._id, cell);
       const createdByEmployee = !isTeamLeadOnProject(project, tokens);
 
-      if (createdByEmployee && !assignment.assignedEmployeeId) {
+      if (createdByEmployee) {
         void notifyCellCreatedUnassigned({
           projectId: project._id.toString(),
           cellId: cell._id.toString(),
@@ -1660,8 +1727,9 @@ export const employeeProjectController = {
           libraryName: library.name,
           createdByName: actor.userName,
           teamLeadName: project.teamLead,
+          assigned: Boolean(assignment.assignedEmployeeId),
         }).catch((notifyErr) => {
-          console.error('[employee-projects] unassigned cell notification failed:', notifyErr);
+          console.error('[employee-projects] cell created notification failed:', notifyErr);
         });
       } else if (assignment.assignedEmployeeId) {
         void notifyEmployeeCellAssigned({
@@ -1674,6 +1742,20 @@ export const employeeProjectController = {
           assignedByName: actor.userName,
         }).catch((notifyErr) => {
           console.error('[employee-projects] cell assignment notification failed:', notifyErr);
+        });
+      } else {
+        // Team lead created an unassigned cell — still alert admins
+        void notifyCellCreatedUnassigned({
+          projectId: project._id.toString(),
+          cellId: cell._id.toString(),
+          projectName: project.projectName || 'Project',
+          cellName: cell.name,
+          libraryName: library.name,
+          createdByName: actor.userName,
+          teamLeadName: project.teamLead,
+          assigned: false,
+        }).catch((notifyErr) => {
+          console.error('[employee-projects] unassigned cell notification failed:', notifyErr);
         });
       }
 

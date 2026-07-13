@@ -30,7 +30,7 @@ export function getNotificationTabKey(type: NotificationData['type']): Notificat
   if (type.startsWith('Payslip')) return 'payslips'
   if (type.startsWith('Ticket')) return 'tickets'
   if (type.startsWith('Holiday') || type.startsWith('CalendarEvent')) return 'calendar'
-  if (type.startsWith('Cell')) return 'projects'
+  if (type.startsWith('Cell') || type === 'LibraryCreated') return 'projects'
   return null
 }
 
@@ -66,7 +66,7 @@ export function getNotificationTypesForPath(pathname: string): NotificationData[
     path.startsWith('/admin/project-management') ||
     path.startsWith('/admin/project-analysis')
   ) {
-    return ['CellReviewRequested', 'CellCreatedUnassigned']
+    return ['CellReviewRequested', 'CellCreatedUnassigned', 'LibraryCreated']
   }
 
   if (path === '/employee/leave' || path.startsWith('/employee/leave/')) {

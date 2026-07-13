@@ -856,8 +856,62 @@ export interface CellReviewEmailData {
   resolvedByName?: string;
 }
 
+export interface CellReviewRequestedEmailData {
+  recipientEmail: string;
+  recipientName: string;
+  employeeName: string;
+  projectId: string;
+  cellId: string;
+  projectName: string;
+  cellName: string;
+  reviewPoint: string;
+  stageLabel: string;
+}
+
+/** Email admins / team lead when an employee requests an R1 or R2 cell review. */
+export async function sendCellReviewRequestedEmail(
+  data: CellReviewRequestedEmailData,
+): Promise<boolean> {
+  const raw = String(data.reviewPoint || '').trim().toLowerCase();
+  const reviewLabel =
+    raw === 'r1' || raw === 'review_1' || raw === 'review1'
+      ? 'R1'
+      : raw === 'r2' || raw === 'review_2' || raw === 'review2'
+        ? 'R2'
+        : String(data.reviewPoint || 'Review').toUpperCase();
+
+  const subject = `${reviewLabel} review requested — ${data.cellName} (${data.projectName})`;
+  const message = `<strong>${data.employeeName}</strong> requested a <strong>${reviewLabel}</strong> review for <strong>${data.cellName}</strong> in <strong>${data.projectName}</strong>.`;
+
+  const details: DetailField[] = [
+    { label: 'Employee', value: data.employeeName },
+    { label: 'Project', value: data.projectName },
+    { label: 'Cell', value: data.cellName },
+    { label: 'Review', value: reviewLabel },
+    { label: 'Stage', value: data.stageLabel },
+  ];
+
+  const actionUrl = frontendUrl(`/admin/projects/${data.projectId}/cells/${data.cellId}`);
+  const html = buildHtmlTemplate(
+    data.recipientName,
+    `${reviewLabel} review requested`,
+    message,
+    details,
+    actionUrl,
+  );
+  const text = `Hi ${data.recipientName},\n\n${data.employeeName} requested a ${reviewLabel} review for ${data.cellName} in ${data.projectName}.\n\nStage: ${data.stageLabel}\n\nOpen in app: ${actionUrl}`;
+
+  return await sendEmail({ to: data.recipientEmail, subject, html, text });
+}
+
 export async function sendCellReviewEmail(data: CellReviewEmailData): Promise<boolean> {
-  const reviewLabel = data.reviewPoint.toUpperCase();
+  const raw = String(data.reviewPoint || '').trim().toLowerCase();
+  const reviewLabel =
+    raw === 'r1' || raw === 'review_1' || raw === 'review1'
+      ? 'R1'
+      : raw === 'r2' || raw === 'review_2' || raw === 'review2'
+        ? 'R2'
+        : data.reviewPoint.toUpperCase();
   const approved = data.outcome === 'approved';
   const subject = approved
     ? `${reviewLabel} review approved — ${data.cellName}`

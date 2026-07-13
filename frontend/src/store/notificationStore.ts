@@ -99,7 +99,7 @@ export interface NotificationData {
     | 'CalendarEventAdded' | 'CalendarEventUpdated' | 'CalendarEventRemoved'
     | 'TicketSubmitted' | 'TicketStatusUpdated' | 'TicketCommentAdded'
     | 'CellReviewRequested' | 'CellReviewApproved' | 'CellReviewRejected'
-    | 'CellCreatedUnassigned' | 'CellAssigned'
+    | 'CellCreatedUnassigned' | 'CellAssigned' | 'LibraryCreated'
     | 'NotesDelegationAssigned' | 'NotesDelegationMorning'
   title: string
   message: string

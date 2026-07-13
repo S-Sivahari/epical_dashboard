@@ -47,6 +47,19 @@ export function useCommandCenterData(chartDateRange: ChartDateRange) {
   const [employeeHours, setEmployeeHours] = useState<any[]>([])
   const [documentRequests, setDocumentRequests] = useState<any[]>([])
   const [payslipBatches, setPayslipBatches] = useState<any[]>([])
+  const [pendingReviewsCount, setPendingReviewsCount] = useState(0)
+  const [pendingReviews, setPendingReviews] = useState<
+    {
+      id: string
+      projectId: string
+      cellId: string
+      projectName: string
+      cellName: string
+      employeeName: string
+      reviewPoint?: string | null
+      stageAtRequest?: string
+    }[]
+  >([])
   const [loading, setLoading] = useState(true)
   const [chartLoading, setChartLoading] = useState(true)
 
@@ -127,11 +140,12 @@ export function useCommandCenterData(chartDateRange: ChartDateRange) {
           api.get('/payslips/batches'),
           api.get('/employees', { params: { pageSize: 500, page: 1 } }),
           ticketService.getTickets(),
+          api.get('/projects/pending-reviews/count'),
         ])
 
         if (cancelled || id !== requestId) return
 
-        const [projRes, empHoursRes, docRes, batchRes, empRes, ticketList] = results
+        const [projRes, empHoursRes, docRes, batchRes, empRes, ticketList, reviewsRes] = results
 
         if (projRes.status === 'fulfilled') setProjects(projRes.value.data || [])
         if (empHoursRes.status === 'fulfilled') setEmployeeHours(empHoursRes.value.data || [])
@@ -144,6 +158,29 @@ export function useCommandCenterData(chartDateRange: ChartDateRange) {
         }
 
         if (batchRes.status === 'fulfilled') setPayslipBatches(batchRes.value.data || [])
+
+        if (reviewsRes.status === 'fulfilled') {
+          const payload = reviewsRes.value.data as {
+            count?: number
+            items?: {
+              id: string
+              projectId: string
+              cellId: string
+              projectName: string
+              cellName: string
+              employeeName: string
+              reviewPoint?: string | null
+              stageAtRequest?: string
+            }[]
+          }
+          const items = Array.isArray(payload?.items) ? payload.items : []
+          setPendingReviews(items)
+          const count = Number(payload?.count ?? items.length)
+          setPendingReviewsCount(Number.isFinite(count) ? count : items.length)
+        } else {
+          setPendingReviews([])
+          setPendingReviewsCount(0)
+        }
 
         if (ticketList.status === 'fulfilled') {
           useTicketStore.setState({
@@ -373,6 +410,8 @@ export function useCommandCenterData(chartDateRange: ChartDateRange) {
     companyHealthScore,
     pendingLeavesCount: pendingLeaves.length,
     pendingTicketsCount,
+    pendingReviewsCount,
+    pendingReviews,
     chartData,
     chartDateRange,
     totalPeriodHours,

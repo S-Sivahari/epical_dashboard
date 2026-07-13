@@ -45,18 +45,22 @@ export function getNotificationRoute(notification: NotificationData): string | n
       return relatedData?.projectId
         ? ROUTES.PROJECT_ANALYSIS_PROJECT_WORKSPACE(relatedData.projectId)
         : ROUTES.PROJECT_ANALYSIS_PROJECTS
-    case 'CellReviewApproved':
-    case 'CellReviewRejected':
+    case 'LibraryCreated':
+    case 'CellCreatedUnassigned':
+      if (recipientType === 'Admin' && relatedData?.projectId && relatedData?.cellId) {
+        return ROUTES.PROJECT_ANALYSIS_PROJECT_CELL(relatedData.projectId, relatedData.cellId)
+      }
+      if (recipientType === 'Admin' && relatedData?.projectId) {
+        return ROUTES.PROJECT_ANALYSIS_PROJECT_WORKSPACE(relatedData.projectId)
+      }
       if (relatedData?.projectId && relatedData?.cellId) {
         return ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_CELL(relatedData.projectId, relatedData.cellId)
       }
       return relatedData?.projectId
         ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_WORKSPACE(relatedData.projectId)
         : ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECTS
-    case 'CellCreatedUnassigned':
-      if (recipientType === 'Admin' && relatedData?.projectId && relatedData?.cellId) {
-        return ROUTES.PROJECT_ANALYSIS_PROJECT_CELL(relatedData.projectId, relatedData.cellId)
-      }
+    case 'CellReviewApproved':
+    case 'CellReviewRejected':
       if (relatedData?.projectId && relatedData?.cellId) {
         return ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_CELL(relatedData.projectId, relatedData.cellId)
       }

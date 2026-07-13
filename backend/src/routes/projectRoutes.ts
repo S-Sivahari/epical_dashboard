@@ -87,6 +87,7 @@ router.post(
 );
 
 router.get('/', adminOnly, projectController.getAll);
+router.get('/pending-reviews/count', adminOnly, projectWorkspaceController.countOpenReviews);
 router.get('/archived', adminOnly, projectController.getArchivedProjects);
 router.get('/archived/:id', adminOnly, projectController.getArchivedProjectById);
 router.delete('/archived/:id', adminOnly, projectController.deleteArchivedProject);

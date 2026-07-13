@@ -10,3 +10,14 @@ export type MissingTimesheetEntry = {
   name: string
 }
 
+export type PendingProjectReviewEntry = {
+  id: string
+  projectId: string
+  cellId: string
+  projectName: string
+  cellName: string
+  employeeName: string
+  reviewPoint?: string | null
+  stageAtRequest?: string
+}
+

@@ -106,11 +106,15 @@ export async function listAdminNotificationRecipients(): Promise<AdminNotificati
 
   const portalAdmins = await db.collection('employees').find({
     $or: [{ portalAccess: 'Employee+Admin' }, { role: 'Admin' }],
-    status: { $in: ['Active', 'Notice Period'] },
   }).toArray();
 
   for (const employee of portalAdmins) {
     if (!employeeHasPortalAdmin(employee)) continue;
+    const status = String(employee.status || '');
+    // Skip clearly inactive accounts, but allow Active / Notice Period / empty status
+    if (status && !['Active', 'Notice Period', 'active', 'notice period'].includes(status)) {
+      continue;
+    }
     const recipientId = String(employee.id);
     if (!recipientId || seen.has(recipientId)) continue;
     seen.add(recipientId);
@@ -131,6 +135,13 @@ export async function notifyAllAdmins(
   payload: Omit<CreateNotificationPayload, 'recipientId' | 'recipientType'>
 ): Promise<void> {
   const recipients = await listAdminNotificationRecipients();
+  if (!recipients.length) {
+    console.warn(`[Notification Service] notifyAllAdmins(${payload.type}): no admin recipients found`);
+    return;
+  }
+  console.log(
+    `[Notification Service] notifyAllAdmins(${payload.type}): sending to ${recipients.length} admin(s)`,
+  );
   for (const recipient of recipients) {
     await createNotification({
       ...payload,
@@ -167,7 +178,7 @@ export async function createNotification(
   payload: CreateNotificationPayload
 ): Promise<Notification> {
   const col = getNotificationCol();
-  const id = `N-${Date.now()}`;
+  const id = `N-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const notification: any = {
     ...payload,
     id,
@@ -188,6 +199,8 @@ export async function createNotification(
 export type NotificationRecipient = {
   recipientId: string;
   recipientType: 'Admin' | 'Employee' | 'Manager';
+  /** All inbox ids for this session (admin portal may match user + employee). */
+  recipientIds?: string[];
 };
 
 /** Resolve which notification inbox to use for the active portal session. */
@@ -200,15 +213,18 @@ export async function resolveNotificationRecipient(
   const portal = normalizeApiRole(activeRole);
 
   if (portal === 'admin') {
-    if (employee && employeeHasPortalAdmin(employee)) {
-      return {
-        recipientId: String(employee.id),
-        recipientType: 'Admin',
-      };
+    const ids: string[] = [];
+    if (employee?.id && employeeHasPortalAdmin(employee)) {
+      ids.push(String(employee.id));
     }
+    if (userId) ids.push(String(userId));
+    const uniqueIds = [...new Set(ids.filter(Boolean))];
+    const primary =
+      employee?.id && employeeHasPortalAdmin(employee) ? String(employee.id) : String(userId);
     return {
-      recipientId: userId,
+      recipientId: primary,
       recipientType: 'Admin',
+      recipientIds: uniqueIds.length ? uniqueIds : [primary],
     };
   }
 
@@ -216,22 +232,25 @@ export async function resolveNotificationRecipient(
     return {
       recipientId: String(employee.id),
       recipientType: 'Employee',
+      recipientIds: [String(employee.id)],
     };
   }
 
   return {
     recipientId: userId,
     recipientType: 'Employee',
+    recipientIds: [userId],
   };
 }
 
 function recipientFilter(recipient: NotificationRecipient): Record<string, unknown> {
-  if (recipient.recipientType === 'Admin') {
-    return { recipientId: recipient.recipientId, recipientType: 'Admin' };
-  }
+  const ids =
+    recipient.recipientIds && recipient.recipientIds.length > 0
+      ? recipient.recipientIds
+      : [recipient.recipientId];
   return {
-    recipientId: recipient.recipientId,
-    recipientType: 'Employee',
+    recipientType: recipient.recipientType === 'Admin' ? 'Admin' : 'Employee',
+    recipientId: ids.length === 1 ? ids[0] : { $in: ids },
   };
 }
 
@@ -492,8 +511,19 @@ async function loadPayslipPdfAttachment(
   }
 }
 
+/** Admin/Manager inbox types that should also send email (actionable requests). */
+const ADMIN_EMAIL_NOTIFICATION_TYPES = new Set([
+  'LeaveSubmitted',
+  // CellReviewRequested emails are sent explicitly in cellReviewNotificationService
+  'DocumentRequested',
+  'TicketSubmitted',
+  'CellCreatedUnassigned',
+  'LibraryCreated',
+]);
+
 function resolveNotificationActionUrl(notification: any): string {
   const { type, relatedData: related = {}, recipientType } = notification;
+  const isAdmin = recipientType === 'Admin' || recipientType === 'Manager';
 
   switch (type) {
     case 'LeaveSubmitted':
@@ -505,12 +535,16 @@ function resolveNotificationActionUrl(notification: any): string {
     case 'PayslipSent':
     case 'PayslipRegenerated':
       return emailService.frontendUrl('/employee/documents?tab=payslips');
+    case 'DocumentRequested':
+      return emailService.frontendUrl('/admin/documents');
     case 'DocumentApproved':
     case 'DocumentRejected':
       return emailService.frontendUrl('/employee/documents?tab=requests');
+    case 'TicketSubmitted':
+      return emailService.frontendUrl('/admin/tickets');
     case 'TicketStatusUpdated':
     case 'TicketCommentAdded':
-      return emailService.frontendUrl('/employee/tickets');
+      return emailService.frontendUrl(isAdmin ? '/admin/tickets' : '/employee/tickets');
     case 'HolidayAdded':
     case 'HolidayUpdated':
     case 'HolidayDeleted':
@@ -518,20 +552,22 @@ function resolveNotificationActionUrl(notification: any): string {
     case 'CalendarEventAdded':
     case 'CalendarEventUpdated':
     case 'CalendarEventRemoved':
-      return emailService.frontendUrl(recipientType === 'Admin' ? '/admin/calendar' : '/employee/calendar');
+      return emailService.frontendUrl(isAdmin ? '/admin/calendar' : '/employee/calendar');
+    case 'CellReviewRequested':
     case 'CellReviewApproved':
     case 'CellReviewRejected':
     case 'CellAssigned':
     case 'CellCreatedUnassigned':
+    case 'LibraryCreated':
       if (related.projectId && related.cellId) {
-        const prefix = recipientType === 'Admin' ? '/admin' : '/employee';
+        const prefix = isAdmin ? '/admin' : '/employee';
         return emailService.frontendUrl(`${prefix}/projects/${related.projectId}/cells/${related.cellId}`);
       }
       if (related.projectId) {
-        const prefix = recipientType === 'Admin' ? '/admin' : '/employee';
+        const prefix = isAdmin ? '/admin' : '/employee';
         return emailService.frontendUrl(`${prefix}/projects/${related.projectId}`);
       }
-      return emailService.frontendUrl(recipientType === 'Admin' ? '/admin/projects' : '/employee/projects');
+      return emailService.frontendUrl(isAdmin ? '/admin/projects' : '/employee/projects');
     case 'NotesDelegationAssigned':
     case 'NotesDelegationMorning':
       return emailService.frontendUrl('/employee/project-analysis/notes');
@@ -542,12 +578,13 @@ function resolveNotificationActionUrl(notification: any): string {
 
 /**
  * Resolves the recipient's email address and triggers the appropriate email template from emailService.
- * Admins and Managers only receive in-app notifications — emails are skipped for them.
+ * Admins/Managers get emails for actionable request types (leave, review, document, ticket).
  */
 async function triggerEmailNotification(notification: any): Promise<void> {
   try {
-    // Admins and Managers get in-app notifications only, not emails
-    if (notification.recipientType === 'Admin' || notification.recipientType === 'Manager') {
+    const isAdminRecipient =
+      notification.recipientType === 'Admin' || notification.recipientType === 'Manager';
+    if (isAdminRecipient && !ADMIN_EMAIL_NOTIFICATION_TYPES.has(notification.type)) {
       return;
     }
 
@@ -556,11 +593,23 @@ async function triggerEmailNotification(notification: any): Promise<void> {
     let recipientName = 'User';
 
     // 1. Resolve recipient email and name based on recipientType
-    if (notification.recipientType === 'Admin' || notification.recipientType === 'Manager') {
+    if (isAdminRecipient) {
       const user = await db.collection('users').findOne({ id: notification.recipientId });
-      if (user) {
+      if (user?.email) {
         recipientEmail = user.email;
         recipientName = user.name || 'Admin';
+      }
+      if (!recipientEmail) {
+        const employee = await db.collection('employees').findOne(
+          { $or: [{ id: notification.recipientId }, { employeeId: notification.recipientId }] },
+          { projection: { documents: 0, 'photo.data': 0 } },
+        );
+        if (employee) {
+          recipientEmail = getEmployeeOfficialEmail(employee) || '';
+          recipientName =
+            [employee.firstName, employee.middleName, employee.lastName].filter(Boolean).join(' ').trim() ||
+            'Admin';
+        }
       }
     } else if (notification.recipientType === 'Employee') {
       const employee = await db.collection('employees').findOne(
@@ -728,6 +777,59 @@ async function triggerEmailNotification(notification: any): Promise<void> {
           cellUrl,
         );
       }
+    } else if (notification.type === 'CellReviewRequested') {
+      const stageLabels: Record<string, string> = {
+        floor_plan: 'Floor Plan',
+        drc_r1: 'DRC (R1)',
+        routing: 'Routing',
+        drc: 'DRC',
+        lvs_r2: 'LVS (R2)',
+      };
+      const stageKey = related.stageAtRequest || '';
+      const stageLabel =
+        stageLabels[stageKey] || String(stageKey).replace(/_/g, ' ') || 'Layout';
+      const reviewLabel = String(related.reviewPoint || 'review').toUpperCase();
+
+      await emailService.sendGenericNotificationEmail(
+        recipientEmail,
+        recipientName,
+        notification.title,
+        notification.message,
+        [
+          { label: 'Employee', value: related.employeeName || '—' },
+          { label: 'Project', value: related.projectName || '—' },
+          { label: 'Cell', value: related.cellName || '—' },
+          { label: 'Review', value: reviewLabel },
+          { label: 'Stage', value: stageLabel },
+        ],
+        resolveNotificationActionUrl(notification),
+      );
+    } else if (notification.type === 'DocumentRequested') {
+      await emailService.sendGenericNotificationEmail(
+        recipientEmail,
+        recipientName,
+        notification.title,
+        notification.message,
+        [
+          { label: 'Employee', value: related.employeeName || '—' },
+          ...(related.documentName ? [{ label: 'Document', value: String(related.documentName) }] : []),
+          ...(related.documentType ? [{ label: 'Type', value: String(related.documentType) }] : []),
+        ],
+        resolveNotificationActionUrl(notification),
+      );
+    } else if (notification.type === 'TicketSubmitted') {
+      await emailService.sendGenericNotificationEmail(
+        recipientEmail,
+        recipientName,
+        notification.title,
+        notification.message,
+        [
+          { label: 'Employee', value: related.employeeName || '—' },
+          ...(related.ticketTitle ? [{ label: 'Ticket', value: String(related.ticketTitle) }] : []),
+          ...(related.ticketId ? [{ label: 'Ticket ID', value: String(related.ticketId) }] : []),
+        ],
+        resolveNotificationActionUrl(notification),
+      );
     } else if (
       notification.type === 'HolidayAdded' ||
       notification.type === 'HolidayUpdated' ||

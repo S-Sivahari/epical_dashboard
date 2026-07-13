@@ -38,7 +38,12 @@ import {
   evaluateCellCompletionReadiness,
   markCellTouched,
 } from '../services/cellCompletionService';
-import { sendReviewNotificationsFromCell } from '../services/cellReviewNotificationService';
+import {
+  sendReviewNotificationsFromCell,
+  findNewlyPendingLayoutReviews,
+  findNewlyPendingSchematicReview,
+  ensurePendingReviewNotifications,
+} from '../services/cellReviewNotificationService';
 import { notifyEmployeeCellAssigned } from '../services/cellAssignmentNotificationService';
 import { clearResponsesForCell, normalizeCellType } from '../services/projectTypeChecklistService';
 import {
@@ -967,6 +972,52 @@ export const projectWorkspaceController = {
     }
   },
 
+  countOpenReviews: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const reviews = await CellReviewModel.find({ status: 'open' })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean();
+
+      const projectIds = [...new Set(reviews.map((r) => r.projectId.toString()))];
+      const cellIds = [...new Set(reviews.map((r) => r.cellId.toString()))];
+
+      const [projects, cells] = await Promise.all([
+        ProjectModel.find({ _id: { $in: projectIds } }).select('projectName').lean(),
+        ProjectCellModel.find({ _id: { $in: cellIds } })
+          .select('name assignedEmployeeName assignedEmployeeId')
+          .lean(),
+      ]);
+
+      const projectNameById = new Map(projects.map((p) => [p._id.toString(), p.projectName || 'Project']));
+      const cellById = new Map(cells.map((c) => [c._id.toString(), c]));
+
+      const items = reviews.map((review) => {
+        const projectId = review.projectId.toString();
+        const cellId = review.cellId.toString();
+        const cell = cellById.get(cellId);
+        return {
+          id: review._id.toString(),
+          projectId,
+          cellId,
+          projectName: projectNameById.get(projectId) || 'Project',
+          cellName: cell?.name || 'Cell',
+          employeeName:
+            cell?.assignedEmployeeName?.trim() ||
+            review.initiatedByName ||
+            'Employee',
+          reviewPoint: review.reviewPoint || null,
+          stageAtRequest: review.stageAtRequest,
+          createdAt: review.createdAt,
+        };
+      });
+
+      res.json({ count: items.length, items });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to count pending reviews' });
+    }
+  },
+
   listCellReviews: async (req: Request, res: Response): Promise<void> => {
     try {
       const projectId = paramId(req.params.projectId);
@@ -1260,6 +1311,22 @@ export const projectWorkspaceController = {
 
       await reconcileCellProductiveTime(projectId, cellId, cell, actor);
 
+      const pendingEntries = findNewlyPendingLayoutReviews(prevWorkflow, nextWorkflow);
+      if (pendingEntries.length) {
+        await ensurePendingReviewNotifications({
+          projectId,
+          cellId,
+          employeeName: cell.assignedEmployeeName || actor.userName,
+          initiatedBy: actor.userId,
+          initiatedByName: actor.userName,
+          assignedEmployeeId: cell.assignedEmployeeId,
+          authorRole: actor.role === 'Employee' ? 'Employee' : 'Admin',
+          entries: pendingEntries,
+        }).catch((notifyErr) => {
+          console.error('[workspace] review-stage notification failed:', notifyErr);
+        });
+      }
+
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
       res.json(await toCellWithDuration(cell, meta));
     } catch (err) {
@@ -1325,6 +1392,20 @@ export const projectWorkspaceController = {
       });
 
       await cell.save();
+
+      const schematicPending = findNewlyPendingSchematicReview(prevWorkflow, result.workflow);
+      void ensurePendingReviewNotifications({
+        projectId,
+        cellId,
+        employeeName: cell.assignedEmployeeName || actor.userName,
+        initiatedBy: actor.userId,
+        initiatedByName: actor.userName,
+        assignedEmployeeId: cell.assignedEmployeeId,
+        authorRole: actor.role === 'Employee' ? 'Employee' : 'Admin',
+        entries: schematicPending ? [schematicPending] : [],
+      }).catch((notifyErr) => {
+        console.error('[workspace] schematic review-stage notification failed:', notifyErr);
+      });
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
       res.json(await toCellWithDuration(cell, meta));

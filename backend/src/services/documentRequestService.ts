@@ -81,6 +81,8 @@ export async function createDocumentRequest(
       relatedData: {
         employeeId: ctx.employeeId,
         employeeName: ctx.employeeName,
+        documentName: payload.documentName.trim(),
+        documentType: payload.documentType.trim(),
       },
       relatedId: doc.id,
     });

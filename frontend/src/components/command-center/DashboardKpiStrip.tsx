@@ -11,7 +11,7 @@ export type DashboardKpiItem = {
   trend?: string
   subtext?: string
   icon: LucideIcon
-  tone: 'slate' | 'amber' | 'blue' | 'violet'
+  tone: 'slate' | 'amber' | 'blue' | 'violet' | 'rose'
   route: string
   notificationCount?: number
   /** Secondary line under label (e.g. hires this month) */
@@ -45,6 +45,12 @@ const toneStyles = {
     iconBg: 'bg-violet-50',
     iconColor: 'text-violet-600',
     value: 'text-violet-600',
+    label: 'text-slate-700',
+  },
+  rose: {
+    iconBg: 'bg-rose-50',
+    iconColor: 'text-rose-600',
+    value: 'text-rose-600',
     label: 'text-slate-700',
   },
 } as const

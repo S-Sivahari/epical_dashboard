@@ -26,6 +26,7 @@ export type NotificationType =
   | 'CellReviewRejected'
   | 'CellCreatedUnassigned'
   | 'CellAssigned'
+  | 'LibraryCreated'
   | 'NotesDelegationAssigned'
   | 'NotesDelegationMorning';
 
