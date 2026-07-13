@@ -9,6 +9,32 @@ export function buildEmployeeFullName(
   return [employee.firstName, employee.middleName, employee.lastName].filter(Boolean).join(' ').trim()
 }
 
+function namePartCount(name: string): number {
+  return name.trim().split(/\s+/).filter(Boolean).length
+}
+
+/** Prefer structured profile name; keep auth/display name when it has more parts (e.g. middle name). */
+export function resolveEmployeeDisplayName(
+  employee?: {
+    firstName?: string
+    middleName?: string
+    lastName?: string
+    name?: string
+  } | null,
+  fallbackName?: string,
+): string {
+  const structured = buildEmployeeFullName(employee)
+  const fallback = (fallbackName ?? employee?.name ?? '').trim()
+
+  if (!structured) {
+    return fallback || getEmployeeFirstName(employee, fallback) || 'Employee'
+  }
+  if (!fallback) return structured
+
+  if (namePartCount(fallback) > namePartCount(structured)) return fallback
+  return structured
+}
+
 /** Greeting / banner label — first name only. */
 export function getEmployeeFirstName(
   employee?: { firstName?: string } | null,

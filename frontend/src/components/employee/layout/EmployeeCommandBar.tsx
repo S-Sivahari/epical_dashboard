@@ -19,13 +19,13 @@ export function EmployeeCommandBar() {
   const user = useAuthStore((s) => s.user)
   const portalAdmin = useAuthStore((s) => s.portalAdmin)
   const logout = useAuthStore((s) => s.logout)
-  const { avatarUrl, firstName } = useMyEmployeeAvatar()
+  const { avatarUrl, fullName } = useMyEmployeeAvatar()
   const headerRef = useRef<HTMLElement>(null)
   const brandRef = useRef<HTMLDivElement>(null)
 
   const showBack = shouldShowEmployeeBackButton(pathname)
 
-  useEmployeeCmdBarSlashBand(headerRef, brandRef, [firstName, showBack])
+  useEmployeeCmdBarSlashBand(headerRef, brandRef, [fullName, showBack])
 
   const handleLogout = () => {
     void logout()
@@ -68,7 +68,7 @@ export function EmployeeCommandBar() {
 
         {user ? (
           <div className="employee-cmd-bar__identity">
-            <p className="employee-cmd-bar__name font-display font-extrabold">{firstName}</p>
+            <p className="employee-cmd-bar__name font-display font-extrabold">{fullName}</p>
           </div>
         ) : null}
 
@@ -101,7 +101,7 @@ export function EmployeeCommandBar() {
         >
           <EmployeePhotoAvatar
             employeeId={user?.id}
-            name={firstName}
+            name={fullName}
             fallbackSrc={avatarUrl ?? user?.avatarUrl}
             className="h-8 w-8"
             fallbackClassName="bg-[#266b1c] text-xs text-white"

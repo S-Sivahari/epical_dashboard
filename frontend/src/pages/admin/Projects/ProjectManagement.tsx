@@ -179,6 +179,25 @@ function allEmployeeDisplayNames(employees: Employee[]): string[] {
   return employees.map(employeeDisplayName)
 }
 
+/** Stable HR employee id for grouping exports — survives name/profile edits. */
+function resolveTimesheetEmployeeKey(
+  log: Pick<TimesheetLog, 'employeeId' | 'employeeName'>,
+  employees: Employee[],
+): { key: string; name: string; dept: string } {
+  const emp = employees.find(
+    (e) =>
+      e.id === log.employeeId ||
+      e.employeeId === log.employeeId ||
+      employeeDisplayName(e) === log.employeeName,
+  )
+  const key = emp?.employeeId || log.employeeId || log.employeeName
+  return {
+    key,
+    name: emp ? employeeDisplayName(emp) : log.employeeName,
+    dept: emp?.department ?? '—',
+  }
+}
+
 /** Hours-by-project and employee leaderboard from filtered logs (export/PDF). */
 function buildTimesheetExportAnalytics(logs: TimesheetLog[], employees: Employee[]) {
   const byProject: Record<string, number> = {}
@@ -194,16 +213,12 @@ function buildTimesheetExportAnalytics(logs: TimesheetLog[], employees: Employee
     ) || 0
     byProject[t.project] = (byProject[t.project] || 0) + hours
 
-    const emp = employees.find((e) => e.id === t.employeeId || e.employeeId === t.employeeId)
-    const existing = byEmployee[t.employeeId]
+    const { key, name, dept } = resolveTimesheetEmployeeKey(t, employees)
+    const existing = byEmployee[key]
     if (existing) {
       existing.hours += hours
     } else {
-      byEmployee[t.employeeId] = {
-        name: t.employeeName,
-        dept: emp?.department ?? '—',
-        hours,
-      }
+      byEmployee[key] = { name, dept, hours }
     }
   })
 
@@ -314,41 +329,63 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange, size = 'm
   const [calendarPosition, setCalendarPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
 
   const updateCalendarPosition = useCallback(() => {
-    if (containerRef.current && open) {
-      const rect = containerRef.current.getBoundingClientRect()
-      const viewportHeight = window.innerHeight
-      const viewportWidth = window.innerWidth
-      const calendarHeight = 560
-      const calendarWidth = 700
+    if (!containerRef.current || !calendarRef.current || !open) return
 
-      let top = rect.bottom + 8
-      let left = rect.left
+    const rect = containerRef.current.getBoundingClientRect()
+    const viewportHeight = window.innerHeight
+    const viewportWidth = window.innerWidth
+    const padding = 12
+    const gap = 8
+    const maxPopoverHeight = viewportHeight - padding * 2
 
-      if (top + calendarHeight > viewportHeight - 20) {
-        top = rect.top - calendarHeight - 8
-        if (top < 20) {
-          top = rect.bottom + 8
-        }
+    const calendarEl = calendarRef.current
+    calendarEl.style.maxHeight = `${maxPopoverHeight}px`
+
+    const calendarHeight = Math.min(calendarEl.offsetHeight, maxPopoverHeight)
+    const calendarWidth = calendarEl.offsetWidth || Math.min(700, viewportWidth - padding * 2)
+
+    let top = rect.bottom + gap
+    let left = rect.left
+
+    if (top + calendarHeight > viewportHeight - padding) {
+      const aboveTop = rect.top - calendarHeight - gap
+      if (aboveTop >= padding) {
+        top = aboveTop
+      } else {
+        top = Math.max(padding, viewportHeight - calendarHeight - padding)
       }
-
-      if (left < 16) {
-        left = 16
-      }
-
-      if (left + calendarWidth > viewportWidth - 16) {
-        left = viewportWidth - calendarWidth - 16
-      }
-
-      setCalendarPosition({ top, left })
     }
+
+    top = Math.max(padding, Math.min(top, viewportHeight - calendarHeight - padding))
+
+    if (left < padding) {
+      left = padding
+    }
+
+    if (left + calendarWidth > viewportWidth - padding) {
+      left = Math.max(padding, viewportWidth - calendarWidth - padding)
+    }
+
+    setCalendarPosition({ top, left })
   }, [open])
 
   useEffect(() => {
-    if (open) {
+    if (!open || !calendarRef.current) return
+
+    const observer = new ResizeObserver(() => {
       updateCalendarPosition()
+    })
+    observer.observe(calendarRef.current)
+    return () => observer.disconnect()
+  }, [open, updateCalendarPosition])
+
+  useEffect(() => {
+    if (open) {
+      const frame = requestAnimationFrame(() => updateCalendarPosition())
       window.addEventListener('scroll', updateCalendarPosition, true)
       window.addEventListener('resize', updateCalendarPosition)
       return () => {
+        cancelAnimationFrame(frame)
         window.removeEventListener('scroll', updateCalendarPosition, true)
         window.removeEventListener('resize', updateCalendarPosition)
       }
@@ -558,7 +595,8 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange, size = 'm
               pointerEvents: 'auto',
             }}
           >
-            <div className="projects-date-calendar-main flex-1 select-none">
+            <div className="projects-date-calendar-main flex min-h-0 flex-1 select-none flex-col">
+              <div className="projects-date-calendar-body">
               <div className="projects-date-fields">
                 <button
                   type="button"
@@ -638,6 +676,7 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange, size = 'm
                     </button>
                   )
                 })}
+              </div>
               </div>
 
               <div className="projects-date-actions">
@@ -2147,14 +2186,17 @@ export function ProjectManagement() {
         t.totalHours,
         t.totalPausedMs
       ) || 0
-      const empInfo = employees.find((e) => e.id === t.employeeId || e.employeeId === t.employeeId)
-      const employeeColorKey = t.employeeId || t.employeeName
-      if (empMap[t.employeeName]) {
-        empMap[t.employeeName].hours += hours
+      const { key, name, dept } = resolveTimesheetEmployeeKey(t, employees)
+      const empInfo = employees.find(
+        (e) => e.employeeId === key || e.id === key || employeeDisplayName(e) === name,
+      )
+      const employeeColorKey = key || name
+      if (empMap[key]) {
+        empMap[key].hours += hours
       } else {
-        empMap[t.employeeName] = {
-          name: t.employeeName,
-          dept: empInfo?.department ?? '—',
+        empMap[key] = {
+          name,
+          dept,
           hours,
           hue: (empInfo as any)?.hue ?? stringToHue(employeeColorKey),
         }
@@ -2439,8 +2481,9 @@ export function ProjectManagement() {
         t.totalHours,
         t.totalPausedMs
       )
-      sheet.getCell(currentRow, 1).value = t.employeeName
-      sheet.getCell(currentRow, 2).value = t.employeeId
+      const { key, name } = resolveTimesheetEmployeeKey(t, employees)
+      sheet.getCell(currentRow, 1).value = name
+      sheet.getCell(currentRow, 2).value = key
       sheet.getCell(currentRow, 3).value = t.project
       sheet.getCell(currentRow, 4).value = formatDateTime(t.loginTime)
       sheet.getCell(currentRow, 5).value = t.logoutTime ? formatDateTime(t.logoutTime) : '—'
@@ -2486,7 +2529,7 @@ export function ProjectManagement() {
 
     const buffer = await workbook.xlsx.writeBuffer()
     downloadExcelBuffer(buffer, timesheetReportFileName(tsStartDate, tsEndDate, 'xlsx'))
-  }, [filteredTimesheets, tsStartDate, tsEndDate])
+  }, [filteredTimesheets, tsStartDate, tsEndDate, employees])
 
   const handleExportPDF = useCallback(async () => {
     if (!filteredTimesheets.length) {
@@ -2688,6 +2731,7 @@ export function ProjectManagement() {
         t.totalHours,
         t.totalPausedMs
       )
+      const { key, name } = resolveTimesheetEmployeeKey(t, employees)
       const durationStr = (() => {
         if (hours === null) return '—'
         const totalMinutes = Math.round(hours * 60)
@@ -2697,7 +2741,7 @@ export function ProjectManagement() {
       })()
       
       return [
-        `${t.employeeName} (${t.employeeId})`,
+        `${name} (${key})`,
         t.project,
         formatDateTime(t.loginTime),
         t.logoutTime ? formatDateTime(t.logoutTime) : '—',
@@ -2734,7 +2778,7 @@ export function ProjectManagement() {
     }
 
     doc.save(timesheetReportFileName(tsStartDate, tsEndDate, 'pdf'))
-  }, [filteredTimesheets, tsStartDate, tsEndDate])
+  }, [filteredTimesheets, tsStartDate, tsEndDate, employees])
 
   const clearTimesheetFilters = useCallback(() => {
     const today = formatLocalDateString()

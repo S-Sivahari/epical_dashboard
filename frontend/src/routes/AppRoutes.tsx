@@ -364,13 +364,14 @@ export function AppRoutes() {
               <Route path="projects/:projectId" element={<ProjectWorkspace />} />
               <Route path="projects" element={<AdminProjectsPage />} />
               <Route path="signal-analysis/*" element={<ProjectAnalysisSignalPage />} />
+              <Route path="notes" element={<EmployeeNotesPage />} />
             </Route>
 
             <Route path="projects/*" element={<EmployeeProjectsLegacyRedirect />} />
 
             <Route path="metal-routing/*" element={<EmployeeMetalRoutingLegacyRedirect />} />
 
-            <Route path="notes" element={<EmployeeNotesPage />} />
+            <Route path="notes" element={<Navigate to={ROUTES.EMPLOYEE_PROJECT_ANALYSIS_NOTES} replace />} />
 
             <Route
               path="leave"

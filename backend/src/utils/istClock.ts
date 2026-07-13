@@ -34,6 +34,12 @@ export function buildClockTimeOnDate(dateKey: string, hours: number, minutes: nu
   );
 }
 
+export function calendarDayBounds(dateKey: string): { start: Date; end: Date } {
+  const start = buildClockTimeOnDate(dateKey, 0, 0);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
+  return { start, end };
+}
+
 /** Next occurrence of HH:mm in scheduler timezone (IST by default), strictly after `from`. */
 export function buildNextSchedulerClockTime(from: Date, hours: number, minutes: number): Date {
   const dateKey = getSchedulerDateKey(from);
@@ -44,10 +50,10 @@ export function buildNextSchedulerClockTime(from: Date, hours: number, minutes: 
   return buildClockTimeOnDate(nextKey, hours, minutes);
 }
 
-/** First scheduled auto-checkout instant after check-in (always IST wall clock, never UTC midnight). */
+/** First scheduled auto-checkout instant after check-in (scheduler timezone wall clock). */
 export function resolveSchedulerAutoCheckoutDeadline(
   checkInTime: Date,
-  autoCheckoutTime = '00:00',
+  autoCheckoutTime = '23:59',
 ): Date {
   const { hours, minutes } = parseSchedulerClockTime(autoCheckoutTime);
   return buildNextSchedulerClockTime(checkInTime, hours, minutes);

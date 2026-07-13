@@ -22,7 +22,7 @@ import {
   startBreak as apiStartBreak,
   endBreak as apiEndBreak,
 } from '@services/employeeTimesheetService'
-import { formatSessionDuration } from '@utils/durationFormat'
+import { formatSessionDuration, computeWorkedMs } from '@utils/durationFormat'
 
 function defaultMonthRange() {
   return getPresetDateRange('This Month')
@@ -109,13 +109,18 @@ function mapSessionFromApi(entry) {
     task: entry.task,
     start: fmt(login),
     end: fmt(logout),
-    hours: entry.totalHours ?? (logout && login ? Math.round(((logout - login) / 3600000) * 10) / 10 : '—'),
+    hours:
+      entry.totalHours ??
+      (logout && login
+        ? Math.round((computeWorkedMs(login, logout, entry.totalPausedMs || 0) / 3600000) * 10) / 10
+        : '—'),
     durationLabel: formatSessionDuration(entry),
     date: entry.date || (login ? login.toISOString().split('T')[0] : ''),
     loginTime: entry.loginTime,
     logoutTime: entry.logoutTime,
     totalHours: entry.totalHours,
     totalPausedMs: entry.totalPausedMs || 0,
+    pausedAt: entry.pausedAt,
     autoCheckedOut: entry.autoCheckedOut ?? false,
     taskStatus: entry.taskStatus,
     workflowStatus: entry.workflowStatus,
@@ -151,6 +156,7 @@ export const useTimesheetStore = create((set, get) => ({
   backendTotalPausedMs: 0,
   hasBackendElapsedData: false,
   backendElapsedLastFetch: null,
+  backendSessionElapsedMs: 0,
   currentRange: { from: getPresetDateRange('This Month').start, to: getPresetDateRange('This Month').end },
 
 
@@ -285,15 +291,22 @@ export const useTimesheetStore = create((set, get) => ({
     try {
       const data = await fetchCurrentElapsed()
       if (data.hasActiveSession) {
+        const taskElapsed =
+          data.taskElapsedMs != null ? data.taskElapsedMs : data.elapsedMs
         set({
-          backendElapsedMs: data.elapsedMs,
+          backendElapsedMs: taskElapsed,
+          backendSessionElapsedMs: data.elapsedMs,
           backendTotalPausedMs: data.totalPausedMs,
           hasBackendElapsedData: true,
           backendElapsedLastFetch: new Date(),
         })
         return data
       } else {
-        set({ hasBackendElapsedData: false, backendElapsedMs: 0 })
+        set({
+          hasBackendElapsedData: false,
+          backendElapsedMs: 0,
+          backendSessionElapsedMs: 0,
+        })
         return null
       }
     } catch (err) {
@@ -441,6 +454,7 @@ export const useTimesheetStore = create((set, get) => ({
       get().refreshSessionsForRange(),
       get().refreshProjectWiseHours(),
       get().refreshAllTimeProjectWiseHours(),
+      get().fetchBackendElapsedData(),
     ])
     return data
   },
@@ -499,6 +513,7 @@ export const useTimesheetStore = create((set, get) => ({
       await get().refreshActiveTask()
       await get().refreshAssignedTasks()
     }
+    await get().fetchBackendElapsedData()
     return data
   },
 
@@ -546,6 +561,7 @@ export const useTimesheetStore = create((set, get) => ({
       await get().refreshActiveTask()
       await get().refreshAssignedTasks()
     }
+    await get().fetchBackendElapsedData()
     return data
   },
 
@@ -565,6 +581,7 @@ export const useTimesheetStore = create((set, get) => ({
       await get().refreshActiveTask()
       await get().refreshAssignedTasks()
     }
+    await get().fetchBackendElapsedData()
     return data
   },
 
@@ -597,6 +614,7 @@ export const useTimesheetStore = create((set, get) => ({
     const data = await apiStartBreak(breakType)
     applyBreakStateFromApi(data, set)
     applyActiveTaskPayload(data, set)
+    await get().fetchBackendElapsedData()
     return data
   },
 
@@ -604,6 +622,7 @@ export const useTimesheetStore = create((set, get) => ({
     const data = await apiEndBreak()
     applyBreakStateFromApi(data, set)
     applyActiveTaskPayload(data, set)
+    await get().fetchBackendElapsedData()
     return data
   },
 

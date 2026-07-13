@@ -2,23 +2,29 @@ import { useEffect, useState } from 'react'
 import { useAuthStore } from '@store/authStore'
 import * as employeeService from '@services/employeeService'
 import { getEmployeeAvatarUrl } from '@/utils/getAvatarUrl'
-import { getEmployeeFirstName } from '@/utils/employeeDisplayName'
+import { getEmployeeFirstName, resolveEmployeeDisplayName } from '@/utils/employeeDisplayName'
 
-/** Command-bar avatar + stable first-name label from the employee profile. */
-export function useMyEmployeeAvatar(): { avatarUrl?: string; firstName: string } {
+/** Command-bar avatar + employee display name from the employee profile. */
+export function useMyEmployeeAvatar(): {
+  avatarUrl?: string
+  firstName: string
+  fullName: string
+} {
   const user = useAuthStore((s) => s.user)
   const patchUser = useAuthStore((s) => s.patchUser)
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(user?.avatarUrl)
   const [firstName, setFirstName] = useState(() => getEmployeeFirstName(undefined, user?.name))
+  const [fullName, setFullName] = useState(() =>
+    resolveEmployeeDisplayName(undefined, user?.name),
+  )
 
   useEffect(() => {
     if (!user?.id) {
       setAvatarUrl(undefined)
       setFirstName('')
+      setFullName('')
       return
     }
-
-    setFirstName(getEmployeeFirstName(undefined, user.name))
 
     let cancelled = false
     void (async () => {
@@ -28,6 +34,7 @@ export function useMyEmployeeAvatar(): { avatarUrl?: string; firstName: string }
         const url = getEmployeeAvatarUrl(emp) ?? user.avatarUrl
         setAvatarUrl(url)
         setFirstName(getEmployeeFirstName(emp, user.name))
+        setFullName(resolveEmployeeDisplayName(emp, user.name))
 
         const patch: { avatarUrl?: string } = {}
         if (url && url !== user.avatarUrl) patch.avatarUrl = url
@@ -36,6 +43,7 @@ export function useMyEmployeeAvatar(): { avatarUrl?: string; firstName: string }
         if (!cancelled) {
           setAvatarUrl(user.avatarUrl)
           setFirstName(getEmployeeFirstName(undefined, user.name))
+          setFullName(resolveEmployeeDisplayName(undefined, user.name))
         }
       }
     })()
@@ -45,8 +53,13 @@ export function useMyEmployeeAvatar(): { avatarUrl?: string; firstName: string }
     }
   }, [user?.id, user?.name, user?.avatarUrl, patchUser])
 
+  const resolvedFirstName = firstName || getEmployeeFirstName(undefined, user?.name) || 'Employee'
+  const resolvedFullName =
+    fullName || resolveEmployeeDisplayName(undefined, user?.name) || resolvedFirstName
+
   return {
     avatarUrl: avatarUrl ?? user?.avatarUrl,
-    firstName: firstName || getEmployeeFirstName(undefined, user?.name) || 'Employee',
+    firstName: resolvedFirstName,
+    fullName: resolvedFullName,
   }
 }

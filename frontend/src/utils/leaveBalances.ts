@@ -24,6 +24,28 @@ export const LEAVE_BALANCE_COLORS: Record<string, string> = {
   'LOP Days': '#64748b',
 }
 
+/** All leave balance admin adjustments use half-day steps. */
+export const LEAVE_BALANCE_STEP = 0.5
+
+/** @deprecated Use LEAVE_BALANCE_STEP */
+export const EARNED_LEAVE_BALANCE_STEP = LEAVE_BALANCE_STEP
+
+export function getLeaveBalanceAdjustmentStep(_type?: string): number {
+  return LEAVE_BALANCE_STEP
+}
+
+export function formatLeaveDayCount(value: number): string {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '0'
+  return Number.isInteger(n) ? String(n) : n.toFixed(1)
+}
+
+export function isLeaveBalanceStepMultiple(value: number, step: number): boolean {
+  if (!Number.isFinite(value) || !Number.isFinite(step) || step <= 0) return false
+  const ratio = value / step
+  return Math.abs(ratio - Math.round(ratio)) < 1e-9
+}
+
 const DEFAULT_TOTALS: Record<string, number | undefined> = {
   'Casual Leave': 12,
   'Sick Leave': 6,

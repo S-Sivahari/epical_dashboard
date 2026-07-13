@@ -23,6 +23,9 @@ export interface EmployeeAttendance extends Document {
   morningBreakAt?: Date;
   lunchBreakAt?: Date;
   eveningBreakAt?: Date;
+  morningBreakMs?: number;
+  lunchBreakMs?: number;
+  eveningBreakMs?: number;
   activeBreakType?: 'morning' | 'lunch' | 'evening';
   activeBreakStartedAt?: Date;
   activeBreakEndsAt?: Date;
@@ -52,6 +55,9 @@ const EmployeeAttendanceSchema = new Schema<EmployeeAttendance>(
     morningBreakAt: { type: Date },
     lunchBreakAt: { type: Date },
     eveningBreakAt: { type: Date },
+    morningBreakMs: { type: Number },
+    lunchBreakMs: { type: Number },
+    eveningBreakMs: { type: Number },
     activeBreakType: { type: String, enum: ['morning', 'lunch', 'evening'] },
     activeBreakStartedAt: { type: Date },
     activeBreakEndsAt: { type: Date },

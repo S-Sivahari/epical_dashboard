@@ -190,16 +190,12 @@ export async function listBatches(): Promise<PayrollBatch[]> {
   return response.data
 }
 
-/** Same-origin deploy: iframe can load PDF with session cookie. Cross-origin: fetch blob. */
 function payslipPdfViewUrl(batchId: string, fileName: string): string {
   return `${base}/batches/${batchId}/payslips/${encodeURIComponent(fileName)}`
 }
 
+/** Authenticated blob URL for in-app PDF preview (same-origin and cross-origin deploys). */
 export async function openPayslipPdf(batchId: string, fileName: string): Promise<string> {
-  const apiBase = getApiBaseUrl()
-  if (!apiBase.startsWith('http')) {
-    return payslipPdfViewUrl(batchId, fileName)
-  }
   const blob = await fetchPdfBlob(payslipPdfViewUrl(batchId, fileName))
   return window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
 }

@@ -1,12 +1,14 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import { getAutoCheckoutSettings } from './autoCheckoutService';
 import { processReminders, processAutoCheckouts } from './autoCheckoutService';
+import { processExpiredBreaks } from './breakAutoResumeService';
 import { env } from '../config/env';
 import { formatSchedulerDateTime } from '../utils/istClock';
 
 let reminderJob: ScheduledTask | null = null;
 let autoCheckoutJob: ScheduledTask | null = null;
 let overdueSweepJob: ScheduledTask | null = null;
+let breakAutoResumeJob: ScheduledTask | null = null;
 
 function timeToCron(timeStr: string): string {
   const [hours, minutes] = timeStr.split(':').map(Number);
@@ -38,9 +40,28 @@ async function scheduleJobs() {
     overdueSweepJob.stop();
     overdueSweepJob = null;
   }
+  if (breakAutoResumeJob) {
+    console.log('[Scheduler] Stopping existing break auto-resume job.');
+    breakAutoResumeJob.stop();
+    breakAutoResumeJob = null;
+  }
+
+  const breakAutoResumeCron = '* * * * *';
 
   if (!settings.enabled) {
     console.log('[Scheduler] Auto-checkout scheduler disabled via settings');
+    breakAutoResumeJob = cron.schedule(
+      breakAutoResumeCron,
+      async () => {
+        try {
+          await processExpiredBreaks();
+        } catch (error) {
+          console.error('[Scheduler] Break auto-resume job error:', error);
+        }
+      },
+      cronOptions(),
+    );
+    console.log(`[Scheduler] Break auto-resume job active (${breakAutoResumeCron})`);
     return;
   }
 
@@ -98,7 +119,20 @@ async function scheduleJobs() {
     cronOptions()
   );
 
+  breakAutoResumeJob = cron.schedule(
+    breakAutoResumeCron,
+    async () => {
+      try {
+        await processExpiredBreaks();
+      } catch (error) {
+        console.error('[Scheduler] Break auto-resume job error:', error);
+      }
+    },
+    cronOptions(),
+  );
+
   console.log('[Scheduler] Timesheet scheduler initialized');
+  console.log(`[Scheduler] Break auto-resume job active (${breakAutoResumeCron})`);
 }
 
 export async function initScheduler() {
@@ -106,6 +140,8 @@ export async function initScheduler() {
     await scheduleJobs();
     console.log('[Scheduler] Running startup overdue auto-checkout sweep...');
     await processAutoCheckouts();
+    console.log('[Scheduler] Running startup expired break sweep...');
+    await processExpiredBreaks();
   } catch (error) {
     console.error('[Scheduler] Failed to initialize scheduler:', error);
   }
@@ -128,6 +164,10 @@ export function stopScheduler() {
   if (overdueSweepJob) {
     overdueSweepJob.stop();
     overdueSweepJob = null;
+  }
+  if (breakAutoResumeJob) {
+    breakAutoResumeJob.stop();
+    breakAutoResumeJob = null;
   }
   console.log('[Scheduler] Scheduler stopped');
 }

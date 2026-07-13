@@ -9,10 +9,11 @@ import {
   PROJECT_ROOT,
   findProjectRootLogo,
 } from "../config/paths";
-import type { Company, SalaryStructure, Employee } from "./payslipGenerator";
+import type { Company, SalaryStructure, Employee } from './payslipGenerator'
 import { buildPayslipPayrollSummary } from "./payslipGenerator";
 import { formatPayslipTitleLabel } from "./payslipDownloadName";
 import { formatLeaveBalanceDisplay } from "./payslipEmployeeEnrichment";
+import { formatPayslipPersonName } from "../utils/personName";
 
 export type TemplateId = "classic" | "corporate" | "minimal";
 
@@ -51,7 +52,7 @@ const LAYOUT = {
 
 /** Company header row (logo + company details). */
 const HEADER = {
-  height: 58,
+  height: 62,
   pad: 10,
   logoColShare: 0.3,
   border: "#cccccc",
@@ -290,13 +291,6 @@ function contentZoneTop(): number {
   return PAGE.bottom - bottomReservedHeight();
 }
 
-function titleCase(input: string): string {
-  return input
-    .toLowerCase()
-    .replace(/\b\w/g, (match) => match.toUpperCase())
-    .trim();
-}
-
 function formatGeneratedDate(date: Date): string {
   return new Intl.DateTimeFormat("en-IN", {
     day: "2-digit",
@@ -415,7 +409,6 @@ function drawCompanyFooter(
 ): void {
   const companyName = safe(company["Company Name"], "Epical Layouts Pvt Ltd");
   const regLine = [
-    `CIN: ${safe(company["CIN"])}`,
     `GSTIN: ${safe(company["GSTIN"])}`,
     `PAN: ${safe(company["Company PAN"])}`,
     `Email: ${safe(company["Email"])}`,
@@ -489,12 +482,23 @@ function drawCompanyFooter(
 }
 
 /** Fit data + spacer rows in the band above totals and the fixed bottom block. */
+/** Default earnings row count in payroll master template (spare rows fill before table grows). */
+const PAYSLIP_EARNINGS_BASELINE_ROWS = 9
+/** PT, TDS, LOP Deduction, Loan Recovery */
+const PAYSLIP_DEDUCTIONS_BASELINE_ROWS = 4
+
+function calcTableBodyRowCount(dataRows: number, baseline: number): number {
+  const spareUsed = Math.max(0, dataRows - baseline)
+  const spareRows = Math.max(0, LAYOUT.tableEmptyRowsAfter - spareUsed)
+  return dataRows + spareRows
+}
+
 function calcTableRowHeight(
   yTableStart: number,
-  dataRowCount: number,
+  bodyRowCount: number,
   headerBandH: number,
 ): number {
-  const bodyRows = dataRowCount + LAYOUT.tableEmptyRowsAfter;
+  const bodyRows = bodyRowCount
   if (bodyRows <= 0) return SALARY_TABLE_STYLE.dataRowH;
   const available =
     contentZoneTop() - yTableStart - headerBandH - LAYOUT.totalsH;
@@ -723,6 +727,42 @@ const FOOTER = {
   metaSize: 6,
   lineGap: 2,
 };
+
+/** Company slogan — single line beneath company name in header. */
+const COMPANY_SLOGAN = {
+  text: ' "Precision in every micron, Innovation in every design" ',
+  fontSize: 8,
+  gapAfterName: 2,
+  textColor: "#666666",
+};
+
+function measureCompanySloganHeight(
+  doc: InstanceType<typeof PDFDocument>,
+  regionWidth: number,
+): number {
+  doc.save();
+  doc.font(FONT.italic).fontSize(COMPANY_SLOGAN.fontSize);
+  const h = doc.heightOfString(COMPANY_SLOGAN.text, { width: regionWidth, lineBreak: false });
+  doc.restore();
+  return h;
+}
+
+function drawCompanySlogan(
+  doc: InstanceType<typeof PDFDocument>,
+  y: number,
+  regionX: number,
+  regionWidth: number,
+): number {
+  const s = COMPANY_SLOGAN;
+  doc.font(FONT.italic).fontSize(s.fontSize).fillColor(s.textColor);
+  doc.text(s.text, regionX, y, {
+    width: regionWidth,
+    align: "center",
+    lineBreak: false,
+    lineGap: 0,
+  });
+  return measureCompanySloganHeight(doc, regionWidth);
+}
 
 function footerBlockHeight(metaLineCount = 4, includeName = true): number {
   const nameLines = includeName ? 1 : 0;
@@ -1367,8 +1407,16 @@ export async function savePayslipAsPdf(
     ytd: d.ytd,
   }));
 
-  const maxRows = Math.max(earningRows.length, deductionRows.length);
-  const compactLayout = maxRows > 10;
+  const earnBodyRows = calcTableBodyRowCount(
+    earningRows.length,
+    PAYSLIP_EARNINGS_BASELINE_ROWS,
+  );
+  const dedBodyRows = calcTableBodyRowCount(
+    deductionRows.length,
+    PAYSLIP_DEDUCTIONS_BASELINE_ROWS,
+  );
+  const totalBodyRows = Math.max(earnBodyRows, dedBodyRows);
+  const compactLayout = totalBodyRows > 10;
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
@@ -1442,6 +1490,12 @@ export async function savePayslipAsPdf(
       align: "center",
       lineGap: 0,
     });
+    drawCompanySlogan(
+      doc,
+      companyNameY + companyNameH + COMPANY_SLOGAN.gapAfterName,
+      infoX,
+      infoColW,
+    );
     doc.restore();
     doc.fillColor(COLORS.valueBold);
 
@@ -1493,7 +1547,7 @@ export async function savePayslipAsPdf(
     const empBlocks = [
       [
         { label: "Emp ID", value: safe(emp["Emp ID"]) },
-        { label: "Name", value: safe(emp["Name"]) },
+        { label: "Name", value: formatPayslipPersonName(safe(emp["Name"])) },
         { label: "Date of Birth", value: safe(emp["Date of Birth"]) },
         { label: "Date of Joining", value: safe(emp["Date of Joining"]) },
       ],
@@ -1671,7 +1725,7 @@ export async function savePayslipAsPdf(
       { title: "EARNED LEAVE (EL)", w: PAGE.width * 0.18 },
       { title: "CASUAL LEAVE (CL)", w: PAGE.width * 0.18 },
       { title: "SICK LEAVE (SL)", w: PAGE.width * 0.18 },
-      { title: "COMP OFF", w: PAGE.width * 0.18 },
+      { title: "COMPENSATION", w: PAGE.width * 0.18 },
     ];
     let lx = PAGE.left;
     leaveCols.forEach((col, i) => {
@@ -1694,7 +1748,7 @@ export async function savePayslipAsPdf(
       formatLeaveBalanceDisplay(emp["EL Balance"]),
       formatLeaveBalanceDisplay(emp["CL Balance"]),
       formatLeaveBalanceDisplay(emp["SL Balance"]),
-      formatLeaveBalanceDisplay(emp["Comp Off"]),
+      formatLeaveBalanceDisplay(emp["Compensation"] ?? emp["Comp Off"]),
     ];
     lx = PAGE.left;
     leaveCols.forEach((col, i) => {
@@ -1744,7 +1798,7 @@ export async function savePayslipAsPdf(
     const headerBandH = sectionHeaderH;
     const yTableStart = y;
     const tableBottomLimit = contentZoneTop();
-    const tableRowH = calcTableRowHeight(yTableStart, maxRows, headerBandH);
+    const tableRowH = calcTableRowHeight(yTableStart, totalBodyRows, headerBandH);
     const totalsRowH = LAYOUT.totalsH;
 
     const drawMergedHeader = (
@@ -1792,25 +1846,14 @@ export async function savePayslipAsPdf(
 
     const dataStartY = y;
     let drawnDataRows = 0;
-    for (let i = 0; i < maxRows; i++) {
+    for (let i = 0; i < totalBodyRows; i++) {
       if (y + tableRowH > tableBottomLimit - totalsRowH) break;
-      const er = earningRows[i];
-      const dr = deductionRows[i];
-      drawSalaryTableRow(
-        doc,
-        y,
-        tableRowH,
-        i,
-        tableGeom,
-        er ? { earn: er, ded: dr } : { ded: dr },
-      );
-      y += tableRowH;
-      drawnDataRows++;
-    }
-
-    for (let e = 0; e < LAYOUT.tableEmptyRowsAfter; e++) {
-      if (y + tableRowH > tableBottomLimit - totalsRowH) break;
-      drawSalaryTableRow(doc, y, tableRowH, maxRows + e, tableGeom, {});
+      const er = i < earningRows.length ? earningRows[i] : undefined;
+      const dr = i < deductionRows.length ? deductionRows[i] : undefined;
+      drawSalaryTableRow(doc, y, tableRowH, i, tableGeom, {
+        earn: er,
+        ded: dr,
+      });
       y += tableRowH;
       drawnDataRows++;
     }

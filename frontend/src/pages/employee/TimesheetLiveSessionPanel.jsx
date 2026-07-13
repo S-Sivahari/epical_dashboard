@@ -26,6 +26,9 @@ export function LiveSessionTimer({
   activeTask,
   pausedTasks,
   serverTimeSkew,
+  backendElapsedMs,
+  backendElapsedLastFetch,
+  useTaskTime = true,
   compact = false,
   inline = false,
 }) {
@@ -33,20 +36,41 @@ export function LiveSessionTimer({
 
   useEffect(() => {
     const tick = () => {
-      let pausedMs = 0
       const now = Date.now() + (serverTimeSkew || 0)
+      const currentTask = activeTask || pausedTasks?.[0] || null
 
-      if (activeTask) {
-        pausedMs += activeTask.totalPausedMs || 0
-      } else if (pausedTasks?.[0]) {
-        const task = pausedTasks[0]
-        pausedMs += task.totalPausedMs || 0
-        if (task.pausedAt) {
-          pausedMs += Math.max(0, now - new Date(task.pausedAt).getTime())
+      if (
+        useTaskTime &&
+        backendElapsedMs != null &&
+        backendElapsedLastFetch &&
+        currentTask
+      ) {
+        const anchor = backendElapsedLastFetch.getTime()
+        const liveMs = Math.max(0, backendElapsedMs + (now - anchor))
+        const totalSeconds = Math.floor(liveMs / 1000)
+        const h = Math.floor(totalSeconds / 3600)
+        const m = Math.floor((totalSeconds % 3600) / 60)
+        const s = totalSeconds % 60
+        setElapsed(
+          `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`,
+        )
+        return
+      }
+
+      const anchorTime =
+        useTaskTime && currentTask?.startedAt
+          ? currentTask.startedAt
+          : checkInTime
+
+      let pausedMs = 0
+      if (currentTask) {
+        pausedMs += currentTask.totalPausedMs || 0
+        if (!activeTask && currentTask.pausedAt) {
+          pausedMs += Math.max(0, now - new Date(currentTask.pausedAt).getTime())
         }
       }
 
-      const elapsedMs = Math.max(0, now - checkInTime.getTime() - pausedMs)
+      const elapsedMs = Math.max(0, now - anchorTime.getTime() - pausedMs)
       const totalSeconds = Math.floor(elapsedMs / 1000)
       const h = Math.floor(totalSeconds / 3600)
       const m = Math.floor((totalSeconds % 3600) / 60)
@@ -59,7 +83,15 @@ export function LiveSessionTimer({
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [checkInTime, activeTask, pausedTasks, serverTimeSkew])
+  }, [
+    checkInTime,
+    activeTask,
+    pausedTasks,
+    serverTimeSkew,
+    backendElapsedMs,
+    backendElapsedLastFetch,
+    useTaskTime,
+  ])
 
   const sinceLabel = checkInTime.toLocaleTimeString([], {
     hour: '2-digit',
@@ -102,6 +134,8 @@ export function TimesheetLiveSessionPanel({
   pausedTasks,
   currentWorkTask,
   serverTimeSkew,
+  backendElapsedMs,
+  backendElapsedLastFetch,
   checkoutReview,
   submitting,
   onPause,
@@ -180,6 +214,8 @@ export function TimesheetLiveSessionPanel({
               activeTask={activeTask}
               pausedTasks={pausedTasks}
               serverTimeSkew={serverTimeSkew}
+              backendElapsedMs={backendElapsedMs}
+              backendElapsedLastFetch={backendElapsedLastFetch}
               compact
             />
           </div>

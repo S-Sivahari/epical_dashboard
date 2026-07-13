@@ -51,6 +51,18 @@ export async function adjustEmployeeLeaveBalance(
   return response.data as EmployeeLeaveSummary
 }
 
+export async function adjustEmployeeLeaveBalances(
+  employeeId: string,
+  adjustments: Partial<
+    Record<'Casual Leave' | 'Sick Leave' | 'Earned Leave' | 'Compensation Leave', number>
+  >,
+) {
+  const response = await api.patch(`/leaves/employee/${employeeId}/balance-adjustments`, {
+    adjustments,
+  })
+  return response.data as EmployeeLeaveSummary
+}
+
 export async function getYearLeaveBalances(year?: number) {
   const response = await api.get('/leaves/year-balances', {
     params: year !== undefined ? { year } : undefined,

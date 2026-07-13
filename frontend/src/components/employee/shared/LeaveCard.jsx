@@ -59,8 +59,8 @@ export function LeaveCard({
         </div>
         <ul className="admin-leaves-balance-card__meta">
           {isLop ? (
-            <li>
-              <span>Taken:</span> <strong>{used}</strong> {dayLabel(used)}
+            <li className="admin-leaves-balance-card__meta-month">
+              <span>Availed this month:</span> <strong>{used}</strong> {dayLabel(used)}
             </li>
           ) : (
             <>

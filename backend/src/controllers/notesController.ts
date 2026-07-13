@@ -5,8 +5,11 @@ import * as notesService from '../services/notesService';
 import * as notesEmailService from '../services/notesEmailService';
 import * as notesDelegationService from '../services/notesDelegationService';
 import {
+  assertEmployeeCanAccessNotesForDate,
   assertEmployeeCanMutateNotesForBlockId,
   assertEmployeeCanMutateNotesForDate,
+  assertEmployeeCanCopyLatestNotesForDate,
+  assertEmployeeCanReadNotesForDate,
   getNotesAccessPayload,
   isNotesAdmin,
 } from '../utils/notesAccessHelper';
@@ -127,6 +130,10 @@ export const notesController = {
 
   search: async (req: Request, res: Response): Promise<void> => {
     try {
+      if (!isNotesAdmin(req)) {
+        res.status(403).json({ error: 'Notes search is not available for employees' });
+        return;
+      }
       const result = await notesService.searchNotes({
         q: paramStr(req.query.q),
         from: paramStr(req.query.from),
@@ -161,6 +168,15 @@ export const notesController = {
         res.status(400).json({ error: 'from and to query parameters are required (yyyy-MM-dd).' });
         return;
       }
+      if (!isNotesAdmin(req)) {
+        const today = new Date();
+        const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        if (from !== todayKey || to !== todayKey) {
+          res.status(403).json({ error: 'You can only view daily notes for today on your assigned day' });
+          return;
+        }
+        await assertEmployeeCanAccessNotesForDate(req, todayKey);
+      }
       const items = await notesService.listDailyBlocksInRange(from, to);
       res.json(items);
     } catch (err) {
@@ -171,6 +187,9 @@ export const notesController = {
   getByDate: async (req: Request, res: Response): Promise<void> => {
     try {
       const date = paramStr(req.params.date);
+      if (!isNotesAdmin(req)) {
+        await assertEmployeeCanReadNotesForDate(req, date);
+      }
       const item = await notesService.getDailyBlockByDate(date);
       if (!item) {
         res.status(404).json({ error: 'Daily block not found' });
@@ -182,6 +201,23 @@ export const notesController = {
     }
   },
 
+  getLatestBefore: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const beforeDate = paramStr(req.params.date);
+      if (!isNotesAdmin(req)) {
+        await assertEmployeeCanCopyLatestNotesForDate(req, beforeDate);
+      }
+      const item = await notesService.getLatestDailyBlockWithNotesBefore(beforeDate);
+      if (!item) {
+        res.status(404).json({ error: 'No earlier daily notes found to copy' });
+        return;
+      }
+      res.json(item);
+    } catch (err) {
+      handleError(res, err, 'Failed to load latest daily notes');
+    }
+  },
+
   getById: async (req: Request, res: Response): Promise<void> => {
     try {
       const id = paramStr(req.params.id);
@@ -189,6 +225,9 @@ export const notesController = {
       if (!item) {
         res.status(404).json({ error: 'Daily block not found' });
         return;
+      }
+      if (!isNotesAdmin(req)) {
+        await assertEmployeeCanReadNotesForDate(req, String(item.date));
       }
       res.json(item);
     } catch (err) {

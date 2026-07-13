@@ -4,6 +4,7 @@ import { Briefcase, CircuitBoard, NotebookPen } from 'lucide-react'
 import { CompanyLogo } from '@components/auth/CompanyLogo'
 import { ROUTES } from '@constants/routes'
 import { useAuthStore } from '@store/authStore'
+import { useEmployeeNotesAccess } from '@hooks/useEmployeeNotesAccess'
 import { canAccessProjectAnalysis } from '@/utils/projectAnalysisAccess'
 import { cn } from '@/utils/cn'
 
@@ -19,6 +20,7 @@ export function ProjectAnalysisLayout() {
   const isHydrated = useAuthStore((s) => s.isHydrated)
   const role = useAuthStore((s) => s.role)
   const allowed = useMemo(() => canAccessProjectAnalysis(role), [role])
+  const { showNotesNav } = useEmployeeNotesAccess()
   const base = resolveProjectAnalysisBase(pathname)
   const isEmployeePortal = base === ROUTES.EMPLOYEE_PROJECT_ANALYSIS
 
@@ -50,10 +52,17 @@ export function ProjectAnalysisLayout() {
         icon: NotebookPen,
         end: false,
       })
+    } else if (showNotesNav) {
+      items.push({
+        to: ROUTES.EMPLOYEE_PROJECT_ANALYSIS_NOTES,
+        label: 'Daily Notes',
+        icon: NotebookPen,
+        end: false,
+      })
     }
 
     return items
-  }, [base, isEmployeePortal])
+  }, [base, isEmployeePortal, showNotesNav])
 
   if (!isHydrated) {
     return null

@@ -1,7 +1,11 @@
 import { getDB } from '../config/db'
 import type { Company, Employee, SalaryStructure } from './payslipGenerator'
 import { buildDeductionsData, buildEarningsData } from './payslipGenerator'
-import { enrichPayrollEmployeeFromDb, enrichPayrollEmployeeLeaveBalances } from './payslipEmployeeEnrichment'
+import {
+  enrichPayrollEmployeeFromDb,
+  enrichPayrollEmployeeLeaveBalances,
+} from './payslipEmployeeEnrichment'
+import { formatPayslipPersonName } from '../utils/personName'
 
 const MONTH_PATTERNS: { re: RegExp; month: number }[] = [
   { re: /\bjanuary\b/i, month: 1 },
@@ -190,15 +194,15 @@ function collectComponentAmounts(
     map[e.name] = round2((map[e.name] ?? 0) + e.amount)
   }
   for (const d of deductions) {
-    if (d.name === 'Loss of Pay') continue
+    if (d.name === 'Loss of Pay' || d.name === 'LOP Deduction') continue
     map[d.name] = round2((map[d.name] ?? 0) + d.amount)
   }
 
   const lopDays = parseFloat(String(emp['LOP Days'] ?? 0)) || 0
   const lopAmt =
-    parseFloat(String(emp['Loss of Pay'] ?? emp['LOP Deduction'] ?? 0)) || 0
+    parseFloat(String(emp['LOP Deduction'] ?? emp['Loss of Pay'] ?? 0)) || 0
   if (lopAmt > 0 || lopDays > 0) {
-    map['Loss of Pay'] = round2(lopAmt)
+    map['LOP Deduction'] = round2(lopAmt)
   }
 
   return map
@@ -355,6 +359,9 @@ export async function prepareEmployeeForPayslip(
   )
   enriched['_componentYtd'] = ytdMap
   enriched['_payPeriod'] = period
+
+  const name = formatPayslipPersonName(enriched['Name'])
+  if (name) enriched['Name'] = name
 
   return enriched
 }

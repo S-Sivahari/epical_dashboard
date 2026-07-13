@@ -1,6 +1,22 @@
 import { NotesDelegationModel, type NotesDelegationActor } from '../models/NotesDelegation';
 import { getDB } from '../config/db';
 import { assertDateKey, enumerateDateKeys } from '../utils/notesSearchUtils';
+import {
+  cancelDelegationNotifications,
+  notifyDelegationAssigned,
+} from './notesDelegationNotificationService';
+
+function todayDateKey(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function skipMorningReminderForDate(date: string): boolean {
+  return date === todayDateKey();
+}
 
 function assertValidDateKey(date: string): string {
   return assertDateKey(date, 'date');
@@ -67,6 +83,13 @@ export async function listDelegationsForEmployee(employeeId: string, from?: stri
   return items.map((item) => serializeDelegation(item as unknown as Record<string, unknown>));
 }
 
+async function replaceExistingDelegationForDate(date: string) {
+  const existing = await NotesDelegationModel.findOne({ date }).lean();
+  if (!existing) return;
+  await cancelDelegationNotifications(String(existing._id), String(existing.employeeId));
+  await NotesDelegationModel.deleteOne({ _id: existing._id });
+}
+
 export async function createNotesDelegationsForRange(input: {
   from: string;
   to: string;
@@ -78,15 +101,8 @@ export async function createNotesDelegationsForRange(input: {
   const dates = enumerateDateKeys(from, to);
   const employee = await resolveEmployeeName(input.employeeId);
 
-  const existing = await NotesDelegationModel.find({ date: { $in: dates } })
-    .select('date employeeName')
-    .lean();
-  if (existing.length > 0) {
-    const taken = existing.map((item) => String(item.date)).join(', ');
-    throw Object.assign(
-      new Error(`Notes already assigned for: ${taken}`),
-      { status: 409 },
-    );
+  for (const date of dates) {
+    await replaceExistingDelegationForDate(date);
   }
 
   try {
@@ -96,11 +112,24 @@ export async function createNotesDelegationsForRange(input: {
         employeeId: employee.id,
         employeeName: employee.name,
         assignedBy: input.assignedBy,
+        ...(skipMorningReminderForDate(date) ? { morningNotifiedAt: new Date() } : {}),
       })),
     );
-    return created.map((item) =>
+    const serialized = created.map((item) =>
       serializeDelegation(item.toObject() as unknown as Record<string, unknown>),
     );
+    await Promise.all(
+      serialized.map((item) =>
+        notifyDelegationAssigned({
+          _id: item._id,
+          date: item.date,
+          employeeId: item.employeeId,
+          employeeName: item.employeeName,
+          assignedBy: item.assignedBy,
+        }),
+      ),
+    );
+    return serialized;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '';
     if (message.includes('duplicate key')) {
@@ -121,14 +150,25 @@ export async function createNotesDelegation(input: {
   const date = assertValidDateKey(input.date);
   const employee = await resolveEmployeeName(input.employeeId);
 
+  await replaceExistingDelegationForDate(date);
+
   try {
     const created = await NotesDelegationModel.create({
       date,
       employeeId: employee.id,
       employeeName: employee.name,
       assignedBy: input.assignedBy,
+      ...(skipMorningReminderForDate(date) ? { morningNotifiedAt: new Date() } : {}),
     });
-    return serializeDelegation(created.toObject() as unknown as Record<string, unknown>);
+    const serialized = serializeDelegation(created.toObject() as unknown as Record<string, unknown>);
+    await notifyDelegationAssigned({
+      _id: serialized._id,
+      date: serialized.date,
+      employeeId: serialized.employeeId,
+      employeeName: serialized.employeeName,
+      assignedBy: serialized.assignedBy,
+    });
+    return serialized;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '';
     if (message.includes('duplicate key')) {
@@ -146,7 +186,9 @@ export async function deleteNotesDelegation(id: string) {
   if (!removed) {
     throw Object.assign(new Error('Delegation not found'), { status: 404 });
   }
-  return serializeDelegation(removed as unknown as Record<string, unknown>);
+  const serialized = serializeDelegation(removed as unknown as Record<string, unknown>);
+  await cancelDelegationNotifications(serialized._id, serialized.employeeId);
+  return serialized;
 }
 
 export async function isEmployeeDelegatedForDate(employeeId: string, date: string): Promise<boolean> {

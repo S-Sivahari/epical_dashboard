@@ -44,7 +44,7 @@ export const env = {
 
   // Auto-Checkout defaults (HH:mm 24-hour format)
   DEFAULT_REMINDER_TIME: process.env.DEFAULT_REMINDER_TIME || '21:00',
-  DEFAULT_AUTO_CHECKOUT_TIME: process.env.DEFAULT_AUTO_CHECKOUT_TIME || '00:00',
+  DEFAULT_AUTO_CHECKOUT_TIME: process.env.DEFAULT_AUTO_CHECKOUT_TIME || '23:59',
 
   enableEmailNotifications: process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true',
   smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com',

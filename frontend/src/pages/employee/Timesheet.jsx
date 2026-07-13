@@ -9,7 +9,7 @@ import { Textarea } from '@components/employee/ui/textarea'
 import { DataTable } from '@components/employee/shared/DataTable'
 import { DateRangePicker } from '@components/employee/shared/DateRangePicker'
 import { useTimesheetStore } from '@store/employee/timesheetStore'
-import { formatSessionDuration, formatDurationFromMs, formatHoursAsDuration } from '@utils/durationFormat'
+import { formatSessionDuration, formatDurationFromMs, formatHoursDecimalAsDuration, msToFlooredChartHours } from '@utils/durationFormat'
 import { useToast } from '@components/employee/shared/ToastProvider'
 import { formatDateKey, getPresetDateRange, getWeekRange, isDateInRange } from '@pages/employee/lib/dateFilters'
 import { TimesheetCheckInDialog } from '@pages/employee/TimesheetCheckInDialog'
@@ -22,8 +22,11 @@ import {
 } from '@components/employee/ui/dialog'
 import {
   WORK_BREAK_OPTIONS,
-  computeNetAttendanceMs,
+  buildGrossAttendanceByDate,
+  computeGrossAttendanceMs,
   formatBreakCountdown,
+  segmentGrossAttendanceMs,
+  segmentNetAttendanceMs,
 } from '@utils/workBreaks'
 import { EmployeePageLoading } from '@components/employee/layout/EmployeePageLoading'
 
@@ -69,10 +72,6 @@ const historyColumns = [
 const CHART_HEIGHT = 260
 const HISTORY_VISIBLE_ROW_LIMIT = 10
 
-function hoursFromMs(ms) {
-  return Math.round((ms / 3600000) * 10) / 10
-}
-
 function getDayKey(date) {
   return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]
 }
@@ -82,17 +81,8 @@ function formatTimeLabel(iso) {
   return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
-function segmentHours(seg, checkedIn, liveNow) {
-  if (typeof seg.hours === 'number' && seg.checkOutTime) {
-    return seg.hours
-  }
-  const isOpen = checkedIn && !seg.checkOutTime
-  return hoursFromMs(
-    computeNetAttendanceMs(seg.checkInTime, seg.checkOutTime, {
-      now: isOpen ? liveNow : undefined,
-      breaks: seg.breaks,
-    }),
-  )
+function segmentChartHours(seg, grossByDate, checkedIn, liveNow) {
+  return msToFlooredChartHours(segmentNetAttendanceMs(seg, grossByDate, checkedIn, liveNow))
 }
 
 function isSessionApprovedByAdmin(session) {
@@ -189,8 +179,14 @@ export default function Timesheet() {
   useEffect(() => {
     if (!initialized || !checkedIn) return undefined
     const sync = () => void useTimesheetStore.getState().syncAttendanceWithBackend()
-    const id = setInterval(sync, 30000)
-    return () => clearInterval(id)
+    const refreshElapsed = () => void useTimesheetStore.getState().fetchBackendElapsedData()
+    refreshElapsed()
+    const syncId = setInterval(sync, 30000)
+    const elapsedId = setInterval(refreshElapsed, 15000)
+    return () => {
+      clearInterval(syncId)
+      clearInterval(elapsedId)
+    }
   }, [initialized, checkedIn])
 
   useEffect(() => {
@@ -215,7 +211,10 @@ export default function Timesheet() {
   )
 
   const taskStatusCounts = useMemo(() => {
-    const total = assignedTasks.length
+    const uniqueProjectIds = new Set(
+      assignedTasks.map((t) => t.projectId || t.projectName).filter(Boolean),
+    )
+    const total = uniqueProjectIds.size
     const inProgress = assignedTasks.filter(
       (t) =>
         t.status === 'in_progress' ||
@@ -252,21 +251,6 @@ export default function Timesheet() {
     : 0
   const canEndBreak = activeBreak?.canEnd ?? activeBreakMinRemainingMs <= 0
   const onBreak = Boolean(activeBreak)
-
-  useEffect(() => {
-    if (!checkedIn || !activeBreak?.endsAt || !canEndBreak) return undefined
-    const endsAt = new Date(activeBreak.endsAt).getTime()
-    if (endsAt <= liveNow) {
-      void endBreak().catch(() => {})
-      return undefined
-    }
-    const id = window.setInterval(() => {
-      if (Date.now() + (serverTimeSkew || 0) >= endsAt) {
-        void endBreak().catch(() => {})
-      }
-    }, 1000)
-    return () => window.clearInterval(id)
-  }, [checkedIn, activeBreak?.endsAt, canEndBreak, liveNow, endBreak, serverTimeSkew])
 
   useEffect(() => {
     if (checkedIn && currentWorkTask) {
@@ -454,16 +438,19 @@ export default function Timesheet() {
   const weeklyHours = useMemo(() => {
     const byDay = {}
     const chartDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    const grossByDate = buildGrossAttendanceByDate(attendanceHistory, checkedIn, liveNow, {
+      inRange: (date) => isDateInRange(date, weekRange.start, weekRange.end),
+    })
 
     attendanceHistory.forEach((seg) => {
       if (!isDateInRange(seg.date, weekRange.start, weekRange.end)) return
       const key = getDayKey(new Date(`${seg.date}T12:00:00`))
-      byDay[key] = (byDay[key] || 0) + segmentHours(seg, checkedIn, liveNow)
+      byDay[key] = (byDay[key] || 0) + segmentChartHours(seg, grossByDate, checkedIn, liveNow)
     })
 
     return chartDays.map((day) => ({
       day,
-      hours: Math.round((byDay[day] || 0) * 10) / 10,
+      hours: byDay[day] || 0,
       target: 8,
     }))
   }, [attendanceHistory, checkedIn, liveNow, weekRange])
@@ -472,16 +459,13 @@ export default function Timesheet() {
   const todayKey = formatDateKey(new Date())
 
   const todayHoursMs = useMemo(() => {
+    const grossByDate = buildGrossAttendanceByDate(attendanceHistory, checkedIn, liveNow, {
+      inRange: (date) => date === todayKey,
+    })
     let totalMs = 0
     attendanceHistory.forEach((seg) => {
-      if (seg.date === todayKey) {
-        const isOpen = checkedIn && !seg.checkOutTime
-        totalMs += computeNetAttendanceMs(
-          seg.checkInTime,
-          seg.checkOutTime,
-          isOpen ? liveNow : undefined,
-        )
-      }
+      if (seg.date !== todayKey) return
+      totalMs += segmentNetAttendanceMs(seg, grossByDate, checkedIn, liveNow)
     })
     return totalMs
   }, [attendanceHistory, checkedIn, liveNow, todayKey])
@@ -539,9 +523,9 @@ export default function Timesheet() {
             audience="employee"
             className="project-analysis-launch-btn--hero emp-timesheet-hero-stat emp-timesheet-hero-stat--launch"
           />
-          <div className="emp-timesheet-hero-metrics" aria-label="Project task counts">
+          <div className="emp-timesheet-hero-metrics" aria-label="Assigned project counts">
           <div className="emp-timesheet-hero-stat">
-            <span className="emp-timesheet-hero-stat-label">Total</span>
+            <span className="emp-timesheet-hero-stat-label">Projects</span>
             <span className="emp-timesheet-hero-stat-value">{taskStatusCounts.total}</span>
           </div>
           <div className="emp-timesheet-hero-stat emp-timesheet-hero-stat--blue">
@@ -653,11 +637,6 @@ export default function Timesheet() {
                       <p className="emp-timesheet-break-active-time">
                         {formatBreakCountdown(activeBreakRemainingMs)} remaining
                       </p>
-                      {!canEndBreak ? (
-                        <p className="emp-timesheet-break-active-min text-xs text-muted-foreground mt-0.5">
-                          Return to work in {formatBreakCountdown(activeBreakMinRemainingMs)}
-                        </p>
-                      ) : null}
                     </div>
                     <Button
                       type="button"
@@ -734,7 +713,7 @@ export default function Timesheet() {
               </div>
               <div className="emp-timesheet-chart-stat">
                 <span className="emp-timesheet-chart-stat-label">Week</span>
-                <span className="emp-timesheet-chart-stat-value">{formatHoursAsDuration(totalWeekly)}</span>
+                <span className="emp-timesheet-chart-stat-value">{formatHoursDecimalAsDuration(totalWeekly)}</span>
               </div>
             </div>
           </div>

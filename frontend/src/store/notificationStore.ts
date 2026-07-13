@@ -100,6 +100,7 @@ export interface NotificationData {
     | 'TicketSubmitted' | 'TicketStatusUpdated' | 'TicketCommentAdded'
     | 'CellReviewRequested' | 'CellReviewApproved' | 'CellReviewRejected'
     | 'CellCreatedUnassigned' | 'CellAssigned'
+    | 'NotesDelegationAssigned' | 'NotesDelegationMorning'
   title: string
   message: string
   relatedData: {
@@ -131,6 +132,9 @@ export interface NotificationData {
     reviewOutcome?: string
     returnToStage?: string
     resolvedByName?: string
+    notesDelegationId?: string
+    notesDate?: string
+    notesNotificationKind?: 'assigned' | 'morning'
   }
   isRead: boolean
   createdAt: string

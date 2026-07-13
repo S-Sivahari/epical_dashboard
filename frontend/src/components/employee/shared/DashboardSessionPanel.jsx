@@ -46,6 +46,8 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
   const activeTask = useTimesheetStore((s) => s.activeTask)
   const pausedTasks = useTimesheetStore((s) => s.pausedTasks)
   const serverTimeSkew = useTimesheetStore((s) => s.serverTimeSkew)
+  const backendElapsedMs = useTimesheetStore((s) => s.backendElapsedMs)
+  const backendElapsedLastFetch = useTimesheetStore((s) => s.backendElapsedLastFetch)
   const hydrate = useTimesheetStore((s) => s.hydrate)
   const checkOut = useTimesheetStore((s) => s.checkOut)
   const completeTask = useTimesheetStore((s) => s.completeTask)
@@ -211,6 +213,8 @@ export function DashboardSessionPanel({ className, fill = false, compact = false
               activeTask={activeTask}
               pausedTasks={pausedTasks}
               serverTimeSkew={serverTimeSkew}
+              backendElapsedMs={backendElapsedMs}
+              backendElapsedLastFetch={backendElapsedLastFetch}
               inline
             />
           </p>

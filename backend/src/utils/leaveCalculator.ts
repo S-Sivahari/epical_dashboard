@@ -51,10 +51,27 @@ export function isoDateFromRef(refDate = new Date()): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Casual leave must be applied before the leave date; same-day start dates are LOP. */
-export function isCasualSameDayLeave(fromDate: string, refDate = new Date()): boolean {
+/** Calendar date yyyy-MM-dd from when the leave request was submitted. */
+export function isoDateFromAppliedAt(appliedAt: Date | string): string {
+  if (typeof appliedAt === 'string') {
+    const trimmed = appliedAt.trim();
+    if (trimmed.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+      return trimmed.slice(0, 10);
+    }
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) return isoDateFromRef(parsed);
+    return isoDateFromRef();
+  }
+  return isoDateFromRef(appliedAt);
+}
+
+/** Casual leave submitted on the same calendar day as the leave start date is LOP. */
+export function isCasualSameDayLeave(
+  fromDate: string,
+  appliedAt: Date | string = new Date(),
+): boolean {
   if (!fromDate || fromDate.length < 10) return false;
-  return fromDate.slice(0, 10) === isoDateFromRef(refDate);
+  return fromDate.slice(0, 10) === isoDateFromAppliedAt(appliedAt);
 }
 
 function resolveCompensationLeaveCredits(options?: LeaveBalanceOptions): number {
@@ -193,17 +210,63 @@ export function calculateEarnedLeaveAllocation(
   );
 }
 
+export function getLeaveBalanceAdjustmentStep(_type?: string): number {
+  return EARNED_LEAVE_ACCRUAL_PER_MONTH;
+}
+
+export function assertLeaveBalanceStep(
+  type: string,
+  value: number,
+  label: 'adjustment' | 'total' = 'adjustment',
+): void {
+  const step = getLeaveBalanceAdjustmentStep(type);
+  const ratio = value / step;
+  if (!Number.isFinite(value) || Math.abs(ratio - Math.round(ratio)) > 1e-9) {
+    throw new Error(`${type} ${label} must be in multiples of ${step}`);
+  }
+}
+
 function paidLeaveDays(leave: LeaveRequest): number {
   const lop = Number(leave.lopDays ?? 0) || 0;
   return Math.max(0, leave.days - lop);
 }
 
-function paidCasualDays(leave: LeaveRequest): number {
-  return paidLeaveDays(leave);
+function paidCasualDays(
+  leave: LeaveRequest,
+  employeeLeaves?: LeaveRequest[],
+  joinedAt?: string,
+  options?: LeaveBalanceOptions,
+): number {
+  const lop =
+    leave.type === 'Casual Leave' && employeeLeaves
+      ? resolveCasualLeaveLopDays(leave, employeeLeaves, joinedAt, options)
+      : Number(leave.lopDays ?? 0) || 0;
+  return Math.max(0, leave.days - lop);
 }
 
 function paidSickDays(leave: LeaveRequest): number {
   return paidLeaveDays(leave);
+}
+
+/** LOP days for casual leave — based on application date, not approval date. */
+export function resolveCasualLeaveLopDays(
+  leave: LeaveRequest,
+  employeeLeaves: LeaveRequest[],
+  joinedAt?: string,
+  options?: LeaveBalanceOptions,
+): number {
+  if (leave.type !== 'Casual Leave') return Number(leave.lopDays ?? 0) || 0;
+  const appliedAt = leave.createdAt ?? leave.updatedAt;
+  if (!leave.from || !appliedAt) return Number(leave.lopDays ?? 0) || 0;
+  return computeCasualLeaveLopForRequest(
+    leave.days,
+    employeeLeaves,
+    joinedAt,
+    options,
+    leave.id,
+    leave.from,
+    appliedAt,
+  ).lopDays;
 }
 
 function isLeaveInCurrentMonth(leave: LeaveRequest, calendarMonth: string): boolean {
@@ -239,6 +302,8 @@ export function casualCreditUsedThisMonth(
   employeeLeaves: LeaveRequest[],
   refDate = new Date(),
   excludeLeaveId?: string,
+  joinedAt?: string,
+  options?: LeaveBalanceOptions,
 ): number {
   const calendarYear = String(refDate.getFullYear());
   return employeeLeaves.reduce((sum, leave) => {
@@ -247,14 +312,10 @@ export function casualCreditUsedThisMonth(
     if (excludeLeaveId && leave.id === excludeLeaveId) return sum;
     if (typeof leave.from !== 'string' || leave.from.length < 4) return sum;
     if (leaveYear(leave.from) !== calendarYear) return sum;
-    if (leave.status === 'Approved') {
-      return sum + paidCasualDays(leave);
+    if (leave.status === 'Approved' || leave.status === 'Pending') {
+      return sum + paidCasualDays(leave, employeeLeaves, joinedAt, options);
     }
-    const lop = Number(leave.lopDays ?? NaN);
-    if (!Number.isNaN(lop)) {
-      return sum + Math.max(0, leave.days - lop);
-    }
-    return sum + leave.days;
+    return sum;
   }, 0);
 }
 
@@ -290,9 +351,11 @@ export function computeCasualLeaveLopForRequest(
   options?: LeaveBalanceOptions,
   excludeLeaveId?: string,
   fromDate?: string,
+  appliedAt?: Date | string,
 ): { paidDays: number; lopDays: number } {
   const refDate = options?.refDate ?? new Date();
-  if (fromDate && isCasualSameDayLeave(fromDate, refDate)) {
+  const applied = appliedAt ?? new Date();
+  if (fromDate && isCasualSameDayLeave(fromDate, applied)) {
     return { paidDays: 0, lopDays: requestedDays };
   }
   const compensationCredits = resolveCompensationLeaveCredits(options);
@@ -304,7 +367,13 @@ export function computeCasualLeaveLopForRequest(
     options?.earnedLeaveMonthEndAccrual ?? true,
   );
   const casualTotal = totals['Casual Leave'];
-  const consumed = casualCreditUsedThisMonth(employeeLeaves, refDate, excludeLeaveId);
+  const consumed = casualCreditUsedThisMonth(
+    employeeLeaves,
+    refDate,
+    excludeLeaveId,
+    joinedAt,
+    options,
+  );
   const remaining = Math.max(0, casualTotal - consumed);
   const paidDays = Math.min(requestedDays, remaining);
   const lopDays = Math.max(0, requestedDays - paidDays);
@@ -359,33 +428,30 @@ export function calculateMonthlyLopSummary(
 
     if (leave.type === 'Casual Leave' || leave.type === 'Sick Leave') {
       if (leave.status === 'Approved') {
-        approvedLopDays += Number(leave.lopDays ?? 0) || 0;
+        approvedLopDays +=
+          leave.type === 'Casual Leave'
+            ? resolveCasualLeaveLopDays(leave, employeeLeaves, joinedAt, options)
+            : Number(leave.lopDays ?? 0) || 0;
         continue;
       }
 
       if (leave.status === 'Pending') {
-        const stored = Number(leave.lopDays ?? NaN);
-        if (!Number.isNaN(stored)) {
-          pendingLopDays += stored;
-        } else if (leave.type === 'Casual Leave') {
-          const { lopDays } = computeCasualLeaveLopForRequest(
-            leave.days,
-            employeeLeaves,
-            joinedAt,
-            options,
-            leave.id,
-            leave.from,
-          );
-          pendingLopDays += lopDays;
+        if (leave.type === 'Casual Leave') {
+          pendingLopDays += resolveCasualLeaveLopDays(leave, employeeLeaves, joinedAt, options);
         } else {
-          const { lopDays } = computeSickLeaveLopForRequest(
-            leave.days,
-            employeeLeaves,
-            joinedAt,
-            options,
-            leave.id,
-          );
-          pendingLopDays += lopDays;
+          const stored = Number(leave.lopDays ?? NaN);
+          if (!Number.isNaN(stored)) {
+            pendingLopDays += stored;
+          } else {
+            const { lopDays } = computeSickLeaveLopForRequest(
+              leave.days,
+              employeeLeaves,
+              joinedAt,
+              options,
+              leave.id,
+            );
+            pendingLopDays += lopDays;
+          }
         }
       }
       continue;
@@ -425,33 +491,30 @@ export function calculateYearlyLopSummary(
 
     if (leave.type === 'Casual Leave' || leave.type === 'Sick Leave') {
       if (leave.status === 'Approved') {
-        approvedLopDays += Number(leave.lopDays ?? 0) || 0;
+        approvedLopDays +=
+          leave.type === 'Casual Leave'
+            ? resolveCasualLeaveLopDays(leave, employeeLeaves, joinedAt, options)
+            : Number(leave.lopDays ?? 0) || 0;
         continue;
       }
 
       if (leave.status === 'Pending') {
-        const stored = Number(leave.lopDays ?? NaN);
-        if (!Number.isNaN(stored)) {
-          pendingLopDays += stored;
-        } else if (leave.type === 'Casual Leave') {
-          const { lopDays } = computeCasualLeaveLopForRequest(
-            leave.days,
-            employeeLeaves,
-            joinedAt,
-            options,
-            leave.id,
-            leave.from,
-          );
-          pendingLopDays += lopDays;
+        if (leave.type === 'Casual Leave') {
+          pendingLopDays += resolveCasualLeaveLopDays(leave, employeeLeaves, joinedAt, options);
         } else {
-          const { lopDays } = computeSickLeaveLopForRequest(
-            leave.days,
-            employeeLeaves,
-            joinedAt,
-            options,
-            leave.id,
-          );
-          pendingLopDays += lopDays;
+          const stored = Number(leave.lopDays ?? NaN);
+          if (!Number.isNaN(stored)) {
+            pendingLopDays += stored;
+          } else {
+            const { lopDays } = computeSickLeaveLopForRequest(
+              leave.days,
+              employeeLeaves,
+              joinedAt,
+              options,
+              leave.id,
+            );
+            pendingLopDays += lopDays;
+          }
         }
       }
     }
@@ -525,7 +588,7 @@ export function calculateBalances(
 
     const debitDays =
       leave.type === 'Casual Leave'
-        ? paidCasualDays(leave)
+        ? paidCasualDays(leave, employeeLeaves, joinedAt, options)
         : leave.type === 'Sick Leave'
           ? paidSickDays(leave)
           : leave.days;

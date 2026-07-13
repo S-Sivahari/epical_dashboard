@@ -205,6 +205,43 @@ export const leaveController = {
     }
   },
 
+  // PATCH /api/leaves/employee/:employeeId/balance-adjustments (Admin only, batch)
+  adjustEmployeeBalances: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user || !isAdminRole(req.user.role)) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
+        return;
+      }
+
+      const employeeId = Array.isArray(req.params.employeeId)
+        ? req.params.employeeId[0]
+        : req.params.employeeId;
+
+      if (!employeeId) {
+        res.status(400).json({ error: 'employeeId is required' });
+        return;
+      }
+
+      const { adjustments } = req.body as {
+        adjustments?: Partial<
+          Record<'Casual Leave' | 'Sick Leave' | 'Earned Leave' | 'Compensation Leave', number>
+        >;
+      };
+
+      if (!adjustments || typeof adjustments !== 'object') {
+        res.status(400).json({ error: 'adjustments object is required' });
+        return;
+      }
+
+      const summary = await leaveService.adjustEmployeeLeaveBalances(employeeId, adjustments);
+      res.json(summary);
+    } catch (error: unknown) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Failed to adjust leave balances',
+      });
+    }
+  },
+
   // GET /api/leaves/year-balances?year=2026 (Admin only)
   getYearBalances: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -222,6 +259,7 @@ export const leaveController = {
       const data = await leaveService.getAllEmployeesYearLeaveBalances(year);
       res.json(data);
     } catch (error: unknown) {
+      console.error('[leave] getYearBalances failed:', error);
       res.status(400).json({
         error: error instanceof Error ? error.message : 'Failed to fetch year leave balances',
       });

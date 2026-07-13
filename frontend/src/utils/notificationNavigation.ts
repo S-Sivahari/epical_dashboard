@@ -70,6 +70,9 @@ export function getNotificationRoute(notification: NotificationData): string | n
       return relatedData?.projectId
         ? ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECT_WORKSPACE(relatedData.projectId)
         : ROUTES.EMPLOYEE_PROJECT_ANALYSIS_PROJECTS
+    case 'NotesDelegationAssigned':
+    case 'NotesDelegationMorning':
+      return ROUTES.EMPLOYEE_PROJECT_ANALYSIS_NOTES
     default:
       return null
   }

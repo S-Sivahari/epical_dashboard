@@ -8,7 +8,7 @@ import {
 } from '@/services/notesService'
 import type { DailyNoteBlock, NoteProjectOption } from '@/types/notes'
 import type { Employee } from '@/types'
-import { matchExistingEntry, parseNotepadText, serializeBlockToNotepadText, isNotepadProjectHeaderLine } from '@/utils/notepadDocument'
+import { matchExistingEntry, parseNotepadText, serializeBlockToNotepadText } from '@/utils/notepadDocument'
 import { plainTextToNoteHtml } from '@/utils/notesPlainText'
 
 type Props = {
@@ -19,20 +19,6 @@ type Props = {
   onCancel: () => void
   onError: (message: string) => void
 }
-
-const EDITOR_HINT = `Type directly in the notepad. Use a project heading (e.g. APOLLO:), employee name(s) separated by /, then note lines starting with --.
-
-Example:
-APOLLO:
-charan a
--- Work update line one
--- Work update line two
-
-GANICPV1:
-Raghu/Vishnu
--- Shared team update
-
-Delete a project block or employee section by removing its lines.`
 
 export function DailyNotesInlineEditor({
   block,
@@ -53,16 +39,6 @@ export function DailyNotesInlineEditor({
   const [saving, setSaving] = useState(false)
   const [warnings, setWarnings] = useState<string[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const highlightRef = useRef<HTMLPreElement>(null)
-
-  const highlightedLines = useMemo(() => text.replace(/\r\n/g, '\n').split('\n'), [text])
-
-  const syncHighlightScroll = () => {
-    if (textareaRef.current && highlightRef.current) {
-      highlightRef.current.scrollTop = textareaRef.current.scrollTop
-      highlightRef.current.scrollLeft = textareaRef.current.scrollLeft
-    }
-  }
 
   useEffect(() => {
     setText(initialText)
@@ -126,36 +102,17 @@ export function DailyNotesInlineEditor({
   return (
     <div className="notes-notepad-inline-editor">
       <p className="notes-notepad-inline-editor__hint">
-        Click in the notepad and type. Remove projects or employees by deleting their lines. Add new
-        sections using a project heading, employee name(s), and <code>--</code> note lines.
+        Type project headings (e.g. <code>APOLLO:</code>), employee names, then note lines starting with{' '}
+        <code>--</code>.
       </p>
 
-      <div className="notes-notepad-inline-editor__surface">
-        <pre ref={highlightRef} className="notes-notepad-inline-editor__highlight" aria-hidden>
-          {highlightedLines.map((line, index) => {
-            const isProject = isNotepadProjectHeaderLine(line)
-            return (
-              <span
-                key={index}
-                className={isProject ? 'notes-notepad-inline-editor__project-line' : undefined}
-                style={isProject ? { color: '#dc2626', fontWeight: 700 } : undefined}
-              >
-                {line}
-                {index < highlightedLines.length - 1 ? '\n' : ''}
-              </span>
-            )
-          })}
-        </pre>
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onScroll={syncHighlightScroll}
-          className="notes-notepad-inline-editor__textarea"
-          placeholder={EDITOR_HINT}
-          spellCheck
-        />
-      </div>
+      <textarea
+        ref={textareaRef}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        className="notes-notepad-inline-editor__textarea--solo"
+        spellCheck
+      />
 
       {warnings.length > 0 ? (
         <ul className="notes-notepad-inline-editor__warnings">

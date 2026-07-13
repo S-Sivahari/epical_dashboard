@@ -36,7 +36,7 @@ export function isBalanceActive(balance) {
 export function formatBalanceAmount(value) {
   const n = Number(value)
   if (!Number.isFinite(n)) return '0'
-  return n
+  return Number.isInteger(n) ? String(n) : n.toFixed(1)
 }
 
 export function getBalanceRemainingTone(remaining) {

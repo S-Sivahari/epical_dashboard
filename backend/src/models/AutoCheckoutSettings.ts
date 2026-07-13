@@ -11,7 +11,7 @@ export interface AutoCheckoutSettings extends Document {
 const AutoCheckoutSettingsSchema = new Schema<AutoCheckoutSettings>(
   {
     reminderTime: { type: String, default: '21:00' },
-    autoCheckoutTime: { type: String, default: '00:00' },
+    autoCheckoutTime: { type: String, default: '23:59' },
     enabled: { type: Boolean, default: true },
   },
   { timestamps: true }

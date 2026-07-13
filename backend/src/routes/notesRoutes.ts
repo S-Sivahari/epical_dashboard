@@ -17,6 +17,7 @@ router.get('/', notesController.listInRange);
 router.get('/search', notesController.search);
 router.get('/search/options', notesController.searchOptions);
 router.get('/by-date/:date', notesController.getByDate);
+router.get('/latest-before/:date', notesController.getLatestBefore);
 router.get('/projects', notesController.listProjects);
 router.get('/employees', notesController.listEmployees);
 router.get('/projects/:projectId/employees', notesController.listProjectEmployees);

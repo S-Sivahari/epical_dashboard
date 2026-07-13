@@ -11,6 +11,7 @@ export interface NotesDelegationDocument extends Document {
   employeeId: string;
   employeeName: string;
   assignedBy: NotesDelegationActor;
+  morningNotifiedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,6 +26,7 @@ const notesDelegationSchema = new Schema<NotesDelegationDocument>(
       name: { type: String, required: true },
       email: { type: String, trim: true },
     },
+    morningNotifiedAt: { type: Date, required: false },
   },
   { timestamps: true },
 );

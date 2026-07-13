@@ -32,6 +32,20 @@ export function sanitizeExportPart(value: string, fallback = 'export'): string {
   return (cleaned || fallback).slice(0, 72)
 }
 
+/** Title-case each word, then slugify for payslip PDF file names (employee name segment). */
+export function sanitizeExportPersonName(value: string, fallback = 'employee'): string {
+  const titled = String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (match) => match.toUpperCase())
+  const cleaned = titled
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9_-]+/g, '')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+  return (cleaned || fallback).slice(0, 72)
+}
+
 /** Base name without extension: category_part1_part2_dd-mm-yyyy */
 export function buildExportFileName(
   category: string,
@@ -97,18 +111,25 @@ function monthYearSlugFromPayMonth(payMonth?: string | null, payPeriodKey?: stri
   return sanitizeExportPart(trimmed, 'period')
 }
 
+function monthYearTitleSlugFromPayMonth(payMonth?: string | null, payPeriodKey?: string | null): string {
+  const slug = monthYearSlugFromPayMonth(payMonth, payPeriodKey)
+  const match = slug.match(/^([a-z]+)_(\d{4})$/i)
+  if (match) {
+    const month = match[1]
+    const year = match[2]
+    return `${month.charAt(0).toUpperCase()}${month.slice(1)}_${year}`
+  }
+  return slug.charAt(0).toUpperCase() + slug.slice(1)
+}
+
 export function formatPayslipDownloadFileName(
   employeeName: string,
   payMonth?: string | null,
   payPeriodKey?: string | null,
-  exportDate = new Date(),
 ): string {
-  return buildExportFileNameWithExtension(
-    'payslip',
-    'pdf',
-    [sanitizeExportPart(employeeName, 'employee'), monthYearSlugFromPayMonth(payMonth, payPeriodKey)],
-    exportDate,
-  )
+  const namePart = sanitizeExportPersonName(employeeName, 'Employee')
+  const periodPart = monthYearTitleSlugFromPayMonth(payMonth, payPeriodKey)
+  return `Payslip_${namePart}_${periodPart}.pdf`
 }
 
 export function formatAllPayslipsDownloadFileName(

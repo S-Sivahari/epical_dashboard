@@ -2,6 +2,11 @@ import { Collection, ObjectId, Filter, Document } from 'mongodb';
 import { getDB } from '../config/db';
 import { Employee, CreateEmployeePayload, UpdateEmployeePayload, EmployeeActivityEntry } from '../models/Employee';
 import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
+import { EmployeeDailyBreakModel } from '../models/EmployeeDailyBreak';
+import { TimesheetModel } from '../models/Timesheet';
+import { resolveIdentityTokensForAttendance } from '../utils/attendanceQueries';
+import { computeProjectSessionWorkedMs, computeUsedBreakMs, DAILY_STANDARD_BREAK_MS } from '../utils/workBreaks';
+import { formatDurationFromMs } from '../utils/durationFormat';
 import * as emailService from './emailService';
 import { ensureUserAccountForEmployee, getAdminLoginEmail, getEmployeeOfficialEmail, normalizeLoginEmail, syncPortalAdminForEmployee } from '../utils/employeeAuth';
 import { assertPersonalAndCompanyEmailsDiffer } from '../utils/employeeLoginRules';
@@ -916,16 +921,29 @@ export type DailyActivityLogEntry = {
   checkOutType: 'manual' | 'auto' | null;
 };
 
-function formatWorkedDuration(checkInTime: Date, checkOutTime: Date): string {
-  const diffMs = checkOutTime.getTime() - checkInTime.getTime();
-  if (diffMs <= 0) return '0m';
-  const totalMinutes = Math.floor(diffMs / (1000 * 60));
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
-  if (hours > 0) return `${hours}h`;
-  return `${minutes}m`;
+function formatWorkedMs(diffMs: number): string {
+  return formatDurationFromMs(diffMs);
 }
+
+type ActivityAttendanceRow = {
+  _id: unknown;
+  employeeId?: string;
+  date?: string;
+  employeeName?: string;
+  checkInTime: Date;
+  checkOutTime?: Date | null;
+  autoCheckedOut?: boolean;
+  sessionStatus?: string;
+  morningBreakAt?: Date | null;
+  lunchBreakAt?: Date | null;
+  eveningBreakAt?: Date | null;
+  morningBreakMs?: number | null;
+  lunchBreakMs?: number | null;
+  eveningBreakMs?: number | null;
+  activeBreakType?: string | null;
+  activeBreakStartedAt?: Date | null;
+  activeBreakEndsAt?: Date | null;
+};
 
 function isAutoCheckOut(attendance: {
   autoCheckedOut?: boolean;
@@ -947,8 +965,99 @@ export async function getDailyActivityLog(dateStr: string): Promise<DailyActivit
   const attendances = await EmployeeAttendanceModel.find({
     checkInTime: { $gte: start, $lte: end },
   })
-    .select({ employeeName: 1, checkInTime: 1, checkOutTime: 1, autoCheckedOut: 1, sessionStatus: 1 })
+    .select({
+      employeeId: 1,
+      date: 1,
+      employeeName: 1,
+      checkInTime: 1,
+      checkOutTime: 1,
+      autoCheckedOut: 1,
+      sessionStatus: 1,
+      morningBreakAt: 1,
+      lunchBreakAt: 1,
+      eveningBreakAt: 1,
+      morningBreakMs: 1,
+      lunchBreakMs: 1,
+      eveningBreakMs: 1,
+      activeBreakType: 1,
+      activeBreakStartedAt: 1,
+      activeBreakEndsAt: 1,
+    })
     .lean();
+
+  const employeeDayKeys = new Set<string>();
+  for (const row of attendances) {
+    if (row.employeeId && row.date) {
+      employeeDayKeys.add(`${row.employeeId}:${row.date}`);
+    }
+  }
+
+  const dailyBreakByKey = new Map<string, { projectBreakDeductedMs: number }>();
+  if (employeeDayKeys.size > 0) {
+    const dailyPairs = Array.from(employeeDayKeys).map((key) => {
+      const [employeeId, date] = key.split(':');
+      return { employeeId, date };
+    });
+    const dailyRows = await EmployeeDailyBreakModel.find({
+      $or: dailyPairs.map(({ employeeId, date }) => ({ employeeId, date })),
+    })
+      .select({ employeeId: 1, date: 1, projectBreakDeductedMs: 1 })
+      .lean();
+
+    for (const daily of dailyRows) {
+      dailyBreakByKey.set(`${daily.employeeId}:${daily.date}`, {
+        projectBreakDeductedMs: daily.projectBreakDeductedMs ?? 0,
+      });
+    }
+  }
+
+  const sessionsByEmployeeDay = new Map<string, ActivityAttendanceRow[]>();
+  for (const row of attendances) {
+    if (!row.employeeId || !row.date) continue;
+    const key = `${row.employeeId}:${row.date}`;
+    const list = sessionsByEmployeeDay.get(key) ?? [];
+    list.push(row as ActivityAttendanceRow);
+    sessionsByEmployeeDay.set(key, list);
+  }
+
+  const lastCheckoutIdByEmployeeDay = new Map<string, string>();
+  for (const [key, sessions] of sessionsByEmployeeDay) {
+    let last: ActivityAttendanceRow | null = null;
+    for (const session of sessions) {
+      if (!session.checkOutTime) continue;
+      const checkOut = new Date(session.checkOutTime);
+      if (Number.isNaN(checkOut.getTime())) continue;
+      if (!last || checkOut.getTime() > new Date(last.checkOutTime!).getTime()) {
+        last = session;
+      }
+    }
+    if (last?._id) {
+      lastCheckoutIdByEmployeeDay.set(key, String(last._id));
+    }
+  }
+
+  const checkoutTimes = attendances
+    .map((row) => (row.checkOutTime ? new Date(row.checkOutTime) : null))
+    .filter((value): value is Date => value != null && !Number.isNaN(value.getTime()));
+
+  const sessionHoursByCheckoutKey = new Map<string, number>();
+  if (checkoutTimes.length > 0) {
+    const checkoutTimesheets = await TimesheetModel.find({
+      logoutTime: { $in: checkoutTimes },
+      totalHours: { $gt: 0 },
+    })
+      .select({ employeeId: 1, employee: 1, logoutTime: 1, totalHours: 1 })
+      .lean();
+
+    for (const row of checkoutTimesheets) {
+      if (!row.logoutTime || row.totalHours == null) continue;
+      const key = `${row.employeeId ?? row.employee ?? ''}:${new Date(row.logoutTime).toISOString()}`;
+      const hoursMs = Number(row.totalHours) * 3600000;
+      sessionHoursByCheckoutKey.set(key, Math.max(sessionHoursByCheckoutKey.get(key) ?? 0, hoursMs));
+    }
+  }
+
+  const identityTokensByEmployeeId = new Map<string, string[]>();
 
   for (const attendance of attendances) {
     const userName = (attendance.employeeName as string) || 'Employee';
@@ -965,10 +1074,47 @@ export async function getDailyActivityLog(dateStr: string): Promise<DailyActivit
           : 'manual'
         : null;
 
-    const worked =
-      checkOut != null && !Number.isNaN(checkOut.getTime())
-        ? formatWorkedDuration(checkIn, checkOut)
-        : null;
+    let worked: string | null = null;
+    if (checkOut != null && !Number.isNaN(checkOut.getTime()) && attendance.employeeId && attendance.date) {
+      let identityTokens = identityTokensByEmployeeId.get(attendance.employeeId);
+      if (!identityTokens) {
+        identityTokens = await resolveIdentityTokensForAttendance({
+          employeeId: attendance.employeeId,
+          employeeName: attendance.employeeName as string | undefined,
+        });
+        identityTokensByEmployeeId.set(attendance.employeeId, identityTokens);
+      }
+
+      let workedMs = 0;
+      for (const token of identityTokens) {
+        const storedMs = sessionHoursByCheckoutKey.get(`${token}:${checkOut.toISOString()}`);
+        if (storedMs != null) {
+          workedMs = Math.max(workedMs, storedMs);
+        }
+      }
+
+      if (workedMs <= 0) {
+        const dayKey = `${attendance.employeeId}:${attendance.date}`;
+        const sessionBreakMs = computeUsedBreakMs(attendance as ActivityAttendanceRow, checkOut);
+        let additionalBreakMs = 0;
+        if (sessionBreakMs === 0) {
+          const daily = dailyBreakByKey.get(dayKey);
+          if ((daily?.projectBreakDeductedMs ?? 0) > 0) {
+            additionalBreakMs = Math.min(DAILY_STANDARD_BREAK_MS, daily?.projectBreakDeductedMs ?? 0);
+          } else if (lastCheckoutIdByEmployeeDay.get(dayKey) === attendanceId) {
+            additionalBreakMs = DAILY_STANDARD_BREAK_MS;
+          }
+        }
+        workedMs = computeProjectSessionWorkedMs(
+          checkIn,
+          checkOut,
+          attendance as ActivityAttendanceRow,
+          additionalBreakMs,
+        );
+      }
+
+      worked = formatWorkedMs(workedMs);
+    }
 
     const sortAt =
       checkOut != null && !Number.isNaN(checkOut.getTime()) ? checkOut.getTime() : checkIn.getTime();

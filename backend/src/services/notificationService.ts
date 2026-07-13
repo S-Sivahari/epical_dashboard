@@ -532,6 +532,9 @@ function resolveNotificationActionUrl(notification: any): string {
         return emailService.frontendUrl(`${prefix}/projects/${related.projectId}`);
       }
       return emailService.frontendUrl(recipientType === 'Admin' ? '/admin/projects' : '/employee/projects');
+    case 'NotesDelegationAssigned':
+    case 'NotesDelegationMorning':
+      return emailService.frontendUrl('/employee/project-analysis/notes');
     default:
       return emailService.frontendUrl();
   }

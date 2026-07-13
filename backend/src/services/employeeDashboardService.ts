@@ -124,7 +124,7 @@ export async function getEmployeeDashboardBundle(userId: string, userEmail?: str
       .sort({ checkInTime: -1 })
       .lean(),
     TimesheetModel.find(sessionMatch)
-      .select('date loginTime logoutTime overriddenHours totalHours')
+      .select('date loginTime logoutTime overriddenHours totalHours totalPausedMs')
       .sort({ loginTime: -1 })
       .lean(),
     getAssignedProjectsForUser(

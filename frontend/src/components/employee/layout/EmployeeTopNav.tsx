@@ -1,12 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { useMemo } from 'react'
-import {
-  EMPLOYEE_NAV_ITEMS,
-  EMPLOYEE_NOTES_NAV_ITEM,
-  isEmployeeNavActive,
-} from '@constants/employeeNavigation'
+import { EMPLOYEE_NAV_ITEMS, isEmployeeNavActive } from '@constants/employeeNavigation'
 import { useNotificationCounts } from '@hooks/useNotificationCounts'
-import { useEmployeeNotesAccess } from '@hooks/useEmployeeNotesAccess'
 import { resolveNavNotificationCount } from '@utils/notificationCategories'
 import { NotificationBadge } from '@components/ui/NotificationBadge'
 import { cn } from '@/utils/cn'
@@ -14,16 +8,6 @@ import { cn } from '@/utils/cn'
 export function EmployeeTopNav() {
   const { pathname } = useLocation()
   const { counts: notificationCounts } = useNotificationCounts()
-  const { showNotesNav } = useEmployeeNotesAccess()
-
-  const navItems = useMemo(() => {
-    if (!showNotesNav) return EMPLOYEE_NAV_ITEMS
-    const items = [...EMPLOYEE_NAV_ITEMS]
-    const timesheetIndex = items.findIndex((item) => item.to === '/employee/timesheet')
-    const insertAt = timesheetIndex >= 0 ? timesheetIndex + 1 : 2
-    items.splice(insertAt, 0, EMPLOYEE_NOTES_NAV_ITEM)
-    return items
-  }, [showNotesNav])
 
   return (
     <nav
@@ -31,7 +15,7 @@ export function EmployeeTopNav() {
       aria-label="Employee navigation"
     >
       <div className="admin-top-nav-spread">
-        {navItems.map((item) => {
+        {EMPLOYEE_NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const active = isEmployeeNavActive(pathname, item.to, item.end)
           const notificationCount = resolveNavNotificationCount({

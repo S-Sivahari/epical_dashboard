@@ -81,10 +81,22 @@ export async function propagateEmployeeProfileChanges(
     const { AssignedTaskModel } = await import('../models/AssignedTask');
     const { TimesheetModel } = await import('../models/Timesheet');
     const { EmployeeAttendanceModel } = await import('../models/EmployeeAttendance');
+    const { buildAssignmentIdentityTokens } = await import('../utils/assignedTaskSync');
+
+    const identityTokens = buildAssignmentIdentityTokens(
+      { id: dbId, name: displayName, employeeId: String(after.employeeId || '') },
+      after,
+    );
 
     await Promise.all([
-      AssignedTaskModel.updateMany({ employeeId: dbId }, { $set: { employeeName: displayName } }),
-      TimesheetModel.updateMany({ employeeId: dbId }, { $set: { employee: displayName } }),
+      AssignedTaskModel.updateMany(
+        { $or: [{ employeeId: dbId }, { employeeId: { $in: identityTokens } }] },
+        { $set: { employeeName: displayName } },
+      ),
+      TimesheetModel.updateMany(
+        { $or: [{ employeeId: dbId }, { employeeId: { $in: identityTokens } }, { employee: buildDisplayName(before) }] },
+        { $set: { employee: displayName, employeeId: String(after.employeeId || dbId) } },
+      ),
       EmployeeAttendanceModel.updateMany({ employeeId: dbId }, { $set: { employeeName: displayName } }),
     ]);
   }

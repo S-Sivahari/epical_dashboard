@@ -1,5 +1,5 @@
 import { parseISO } from 'date-fns'
-import { getMondayOfWeek, toDateKey } from '@/utils/notesWeek'
+import { getSundayOfWeek, toDateKey } from '@/utils/notesWeek'
 
 export type NotesSearchFilters = {
   q: string
@@ -25,7 +25,7 @@ export function readWeekViewFromParams(params: URLSearchParams): Date | null {
   const week = params.get('week')
   if (!week) return null
   try {
-    return getMondayOfWeek(parseISO(week))
+    return getSundayOfWeek(parseISO(week))
   } catch {
     return null
   }
@@ -38,7 +38,7 @@ export function hasActiveNotesSearch(filters: NotesSearchFilters): boolean {
 export function writeNotesSearchToParams(
   params: URLSearchParams,
   filters: NotesSearchFilters,
-  weekViewMonday: Date,
+  weekViewSunday: Date,
 ) {
   const setOrDelete = (key: string, value: string) => {
     if (value) params.set(key, value)
@@ -54,8 +54,8 @@ export function writeNotesSearchToParams(
   params.delete('employeeId')
   params.delete('status')
 
-  const currentMonday = toDateKey(getMondayOfWeek(new Date()))
-  const viewMonday = toDateKey(weekViewMonday)
-  if (viewMonday !== currentMonday) params.set('week', viewMonday)
+  const currentSunday = toDateKey(getSundayOfWeek(new Date()))
+  const viewSunday = toDateKey(weekViewSunday)
+  if (viewSunday !== currentSunday) params.set('week', viewSunday)
   else params.delete('week')
 }

@@ -8,6 +8,8 @@ export function DashboardActiveTimer({ className, variant = 'hero' }) {
   // hero | commandBar | compact
   const { checkedIn, checkInTime, activeTask, pausedTasks, serverTimeSkew, initialized } =
     useTimesheetStore()
+  const backendElapsedMs = useTimesheetStore((s) => s.backendElapsedMs)
+  const backendElapsedLastFetch = useTimesheetStore((s) => s.backendElapsedLastFetch)
 
   if (!initialized || !checkedIn || !checkInTime) return null
 
@@ -41,6 +43,8 @@ export function DashboardActiveTimer({ className, variant = 'hero' }) {
             activeTask={activeTask}
             pausedTasks={pausedTasks}
             serverTimeSkew={serverTimeSkew}
+            backendElapsedMs={backendElapsedMs}
+            backendElapsedLastFetch={backendElapsedLastFetch}
             inline
           />
         </span>
@@ -78,6 +82,8 @@ export function DashboardActiveTimer({ className, variant = 'hero' }) {
             activeTask={activeTask}
             pausedTasks={pausedTasks}
             serverTimeSkew={serverTimeSkew}
+            backendElapsedMs={backendElapsedMs}
+            backendElapsedLastFetch={backendElapsedLastFetch}
             inline
           />
         </span>
@@ -105,6 +111,8 @@ export function DashboardActiveTimer({ className, variant = 'hero' }) {
         activeTask={activeTask}
         pausedTasks={pausedTasks}
         serverTimeSkew={serverTimeSkew}
+        backendElapsedMs={backendElapsedMs}
+        backendElapsedLastFetch={backendElapsedLastFetch}
         inline
       />
     </Link>

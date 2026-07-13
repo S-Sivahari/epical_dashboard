@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom'
-import { format, parseISO, subDays } from 'date-fns'
-import { NotebookPen, Plus } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
+import { Copy, NotebookPen, Plus } from 'lucide-react'
 import { PageWrapper } from '@components/layout/PageWrapper'
 import { Button } from '@components/ui/Button'
+import { Modal } from '@components/ui/Modal'
 import { DailyNotesEmailModal } from '@components/notes/DailyNotesEmailModal'
 import { DailyNotesNotepad } from '@components/notes/DailyNotesNotepad'
 import { NotesDashboardToolbar } from '@components/notes/NotesDashboardToolbar'
@@ -13,7 +14,11 @@ import { ROUTES } from '@/constants/routes'
 import { isProjectAnalysisAdminPath } from '@pages/admin/Projects/projectPortal'
 import { NotesDelegationPanel } from '@components/notes/NotesDelegationPanel'
 import {
+  createChildBlock,
+  deleteChildBlock,
   deleteDailyBlock,
+  getDailyBlockByDate,
+  getLatestDailyBlockBefore,
   getOrCreateDailyBlock,
   getNotesAccess,
   listDailyBlocksInRange,
@@ -36,9 +41,11 @@ import {
 } from '@/utils/notesSearchParams'
 import {
   formatWeekRangeLabel,
-  getMondayOfWeek,
-  getWorkingWeekdays,
-  isCurrentWorkingWeek,
+  findLatestBlockWithNotesBefore,
+  getSundayOfWeek,
+  getCalendarWeekDays,
+  isCurrentCalendarWeek,
+  isFutureNotesDay,
   isPastNotesDay,
   shiftWeek,
   toDateKey,
@@ -55,8 +62,8 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   const [searchParams, setSearchParams] = useSearchParams()
   const legacyDateKey = searchParams.get('focus')
 
-  const [weekMonday, setWeekMonday] = useState(
-    () => readWeekViewFromParams(searchParams) ?? getMondayOfWeek(new Date()),
+  const [weekSunday, setWeekSunday] = useState(
+    () => readWeekViewFromParams(searchParams) ?? getSundayOfWeek(new Date()),
   )
   const [blocksByDate, setBlocksByDate] = useState<Record<string, DailyNoteBlock>>({})
   const [projects, setProjects] = useState<NoteProjectOption[]>([])
@@ -80,24 +87,17 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   const normalizedBlockSignatures = useRef<Set<string>>(new Set())
   const [delegatedDateKeys, setDelegatedDateKeys] = useState<ReadonlySet<string>>(new Set())
   const [autoOpenAddNoteFor, setAutoOpenAddNoteFor] = useState<string | null>(null)
+  const [copyLatestConfirmOpen, setCopyLatestConfirmOpen] = useState(false)
 
   const isEmployeeView = variant === 'employee'
-  const inProjectManagement = !isEmployeeView && isProjectAnalysisAdminPath(pathname)
+  const inProjectManagement =
+    isEmployeeView || (!isEmployeeView && isProjectAnalysisAdminPath(pathname))
 
-  const showSearchResults = hasActiveNotesSearch(searchFilters)
-  const weekdays = useMemo(() => getWorkingWeekdays(weekMonday), [weekMonday])
-  const weekLabel = useMemo(() => formatWeekRangeLabel(weekMonday), [weekMonday])
-  const isCurrentWeek = useMemo(() => isCurrentWorkingWeek(weekMonday), [weekMonday])
-
-  // Last 10 calendar days ending today (no future dates)
-  const last10Days = useMemo(() => {
-    const days: Date[] = []
-    const today = new Date()
-    for (let i = 9; i >= 0; i--) {
-      days.push(subDays(today, i))
-    }
-    return days
-  }, [])
+  const showSearchResults = !isEmployeeView && hasActiveNotesSearch(searchFilters)
+  const weekdays = useMemo(() => getCalendarWeekDays(weekSunday), [weekSunday])
+  const weekLabel = useMemo(() => formatWeekRangeLabel(weekSunday), [weekSunday])
+  const isCurrentWeek = useMemo(() => isCurrentCalendarWeek(weekSunday), [weekSunday])
+  const todayDateKey = toDateKey(new Date())
 
   const syncUrl = useCallback(
     (filters: NotesSearchFilters, weekView: Date) => {
@@ -110,11 +110,23 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
     [setSearchParams],
   )
 
-  const loadDays = useCallback(async () => {
-    const from = toDateKey(last10Days[0])
-    const to = toDateKey(last10Days[last10Days.length - 1])
+  const loadWeek = useCallback(async () => {
     setLoading(true)
     try {
+      if (isEmployeeView) {
+        const map: Record<string, DailyNoteBlock> = {}
+        try {
+          const block = await getDailyBlockByDate(todayDateKey)
+          map[todayDateKey] = block
+        } catch {
+          // No block for today yet — employee can create one when assigned.
+        }
+        setBlocksByDate(map)
+        return
+      }
+
+      const from = toDateKey(weekdays[0])
+      const to = toDateKey(weekdays[weekdays.length - 1])
       const items = await listDailyBlocksInRange(from, to)
       const map: Record<string, DailyNoteBlock> = {}
       items.forEach((item) => {
@@ -125,12 +137,12 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
       setNotice({
         kind: 'error',
         title: 'Failed to load notes',
-        details: ['Could not load notes for the past 10 days.'],
+        details: ['Could not load notes for this week.'],
       })
     } finally {
       setLoading(false)
     }
-  }, [last10Days])
+  }, [isEmployeeView, todayDateKey, weekdays])
 
   const runSearch = useCallback(async (filters: NotesSearchFilters, page: number) => {
     if (!hasActiveNotesSearch(filters)) {
@@ -161,17 +173,15 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   }, [])
 
   useEffect(() => {
-    void loadDays()
-  }, [loadDays])
+    void loadWeek()
+  }, [loadWeek])
 
   useEffect(() => {
     if (!isEmployeeView) return
-    const from = toDateKey(last10Days[0])
-    const to = toDateKey(last10Days[last10Days.length - 1])
-    void getNotesAccess({ from, to })
+    void getNotesAccess({ from: todayDateKey, to: todayDateKey })
       .then((access) => setDelegatedDateKeys(new Set(access.delegatedDates)))
       .catch(() => setDelegatedDateKeys(new Set()))
-  }, [isEmployeeView, last10Days])
+  }, [isEmployeeView, todayDateKey])
 
   useEffect(() => {
     if (loading || normalizingBlocks) return
@@ -205,8 +215,8 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   }, [blocksByDate, loading, normalizingBlocks])
 
   useEffect(() => {
-    syncUrl(searchFilters, weekMonday)
-  }, [searchFilters, weekMonday, syncUrl])
+    syncUrl(searchFilters, weekSunday)
+  }, [searchFilters, weekSunday, syncUrl])
 
   useEffect(() => {
     void runSearch(searchFilters, searchPage)
@@ -249,19 +259,27 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
     setSearchPage(1)
   }, [])
 
-  const handleWeekChange = (nextMonday: Date) => {
-    setWeekMonday(nextMonday)
+  const handleWeekChange = (nextSunday: Date) => {
+    setWeekSunday(nextSunday)
     setSelectedDateKey(null)
   }
 
   const canEditDate = useCallback(
-    (dateKey: string) => !isEmployeeView || delegatedDateKeys.has(dateKey),
-    [delegatedDateKeys, isEmployeeView],
+    (dateKey: string) =>
+      !isEmployeeView ||
+      (dateKey === todayDateKey && delegatedDateKeys.has(todayDateKey)),
+    [delegatedDateKeys, isEmployeeView, todayDateKey],
+  )
+
+  const isEmployeeDaySelectable = useCallback(
+    (dateKey: string) =>
+      !isEmployeeView || (dateKey === todayDateKey && delegatedDateKeys.has(todayDateKey)),
+    [delegatedDateKeys, isEmployeeView, todayDateKey],
   )
 
   const handleOpenSearchResult = (result: NoteSearchResult) => {
-    const monday = getMondayOfWeek(new Date(result.date))
-    setWeekMonday(monday)
+    const sunday = getSundayOfWeek(new Date(result.date))
+    setWeekSunday(sunday)
     setSelectedDateKey(result.date)
     setHighlightDateKey(result.date)
     setSearchFilters(EMPTY_NOTES_SEARCH)
@@ -269,6 +287,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   }
 
   const handleSelectDate = async (dateKey: string) => {
+    if (isFutureNotesDay(dateKey)) return
     setSelectedDateKey(dateKey)
     setHighlightDateKey(dateKey)
     if (blocksByDate[dateKey] || !canEditDate(dateKey) || isPastNotesDay(dateKey)) return
@@ -292,7 +311,7 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
     try {
       const today = new Date()
       const todayDateKey = toDateKey(today)
-      setWeekMonday(getMondayOfWeek(today))
+      setWeekSunday(getSundayOfWeek(today))
 
       const block = await getOrCreateDailyBlock(todayDateKey)
       setBlocksByDate((prev) => ({ ...prev, [todayDateKey]: block }))
@@ -324,31 +343,141 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
   }
 
   useEffect(() => {
-    const keys = last10Days.map((day) => toDateKey(day))
+    if (!isEmployeeView) return
+    setWeekSunday(getSundayOfWeek(new Date()))
+    setSelectedDateKey(todayDateKey)
+  }, [isEmployeeView, todayDateKey])
+
+  useEffect(() => {
+    if (isEmployeeView) {
+      if (delegatedDateKeys.has(todayDateKey)) {
+        setSelectedDateKey(todayDateKey)
+      }
+      return
+    }
+
+    const keys = weekdays.map((day) => toDateKey(day))
     if (selectedDateKey && keys.includes(selectedDateKey)) return
 
-    const todayKey = toDateKey(new Date())
-    if (highlightDateKey && keys.includes(highlightDateKey)) {
+    if (highlightDateKey && keys.includes(highlightDateKey) && !isFutureNotesDay(highlightDateKey)) {
       setSelectedDateKey(highlightDateKey)
       return
     }
-    // Default to today (always the last entry in last10Days)
-    setSelectedDateKey(todayKey)
-  }, [last10Days, selectedDateKey, highlightDateKey])
+    if (keys.includes(todayDateKey) && !isFutureNotesDay(todayDateKey)) {
+      setSelectedDateKey(todayDateKey)
+      return
+    }
+    const latestOpenable = [...weekdays]
+      .reverse()
+      .map((day) => toDateKey(day))
+      .find((key) => !isFutureNotesDay(key))
+    setSelectedDateKey(latestOpenable ?? keys[0] ?? null)
+  }, [weekdays, selectedDateKey, highlightDateKey, todayDateKey, isEmployeeView, delegatedDateKeys])
 
   const selectedDay = useMemo(() => {
     if (!selectedDateKey) return null
     return {
-      date: last10Days.find((d) => toDateKey(d) === selectedDateKey) ?? new Date(selectedDateKey),
+      date: weekdays.find((d) => toDateKey(d) === selectedDateKey) ?? new Date(selectedDateKey),
       dateKey: selectedDateKey,
       block: blocksByDate[selectedDateKey] ?? null,
     }
-  }, [last10Days, selectedDateKey, blocksByDate])
+  }, [weekdays, selectedDateKey, blocksByDate])
 
-  const todayDateKey = toDateKey(new Date())
   const canAddToday =
     !busy &&
+    isCurrentWeek &&
     (!isEmployeeView || delegatedDateKeys.has(todayDateKey))
+
+  const todayHasNotes = useMemo(() => {
+    const block = blocksByDate[todayDateKey]
+    return (block?.childBlocks.filter((child) => !child.archived).length ?? 0) > 0
+  }, [blocksByDate, todayDateKey])
+
+  const executeCopyLatestNotes = async () => {
+    if (!isCurrentWeek || isFutureNotesDay(todayDateKey)) return
+    setBusy(true)
+    try {
+      let sourceBlock = findLatestBlockWithNotesBefore(todayDateKey, blocksByDate)
+      if (!sourceBlock) {
+        try {
+          sourceBlock = await getLatestDailyBlockBefore(todayDateKey)
+        } catch (err: unknown) {
+          const axiosErr = err as { response?: { status?: number; data?: { error?: string } } }
+          if (axiosErr.response?.status === 404) {
+            setNotice({
+              kind: 'error',
+              title: 'Nothing to copy',
+              details: ['No earlier daily notes were found to copy.'],
+            })
+            return
+          }
+          const message = axiosErr.response?.data?.error || 'Could not load the latest notes'
+          setNotice({ kind: 'error', title: 'Copy failed', details: [message] })
+          return
+        }
+      }
+
+      const sourceDateKey = sourceBlock.date
+      const sourceEntries = sourceBlock.childBlocks
+        .filter((child) => !child.archived)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+      if (sourceEntries.length === 0) {
+        setNotice({
+          kind: 'error',
+          title: 'Nothing to copy',
+          details: ['No earlier daily notes were found to copy.'],
+        })
+        return
+      }
+
+      let todayBlock = blocksByDate[todayDateKey] ?? (await getOrCreateDailyBlock(todayDateKey))
+      const existingEntries = todayBlock.childBlocks.filter((child) => !child.archived)
+      for (const entry of existingEntries) {
+        todayBlock = await deleteChildBlock(todayBlock._id, entry._id)
+      }
+
+      for (const entry of sourceEntries) {
+        todayBlock = await createChildBlock(todayBlock._id, {
+          title: entry.title,
+          projectId: entry.projectId,
+          employeeIds: entry.employeeIds,
+          description: entry.description,
+          includeInEmail: entry.includeInEmail,
+        })
+      }
+
+      setBlocksByDate((prev) => ({
+        ...prev,
+        [todayDateKey]: todayBlock,
+        [sourceDateKey]: sourceBlock,
+      }))
+      setSelectedDateKey(todayDateKey)
+      setHighlightDateKey(todayDateKey)
+      const sourceLabel = format(parseISO(sourceDateKey), 'EEE dd MMM yyyy')
+      setNotice({
+        kind: 'success',
+        title: 'Notes copied',
+        details: [
+          `Replaced today's notes with ${sourceEntries.length} note(s) from ${sourceLabel}. Review and edit before sending.`,
+        ],
+      })
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } }
+      const message = axiosErr.response?.data?.error || 'Failed to copy the latest notes'
+      setNotice({ kind: 'error', title: 'Copy failed', details: [message] })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleCopyLatestNotes = () => {
+    if (!isCurrentWeek || isFutureNotesDay(todayDateKey)) return
+    if (todayHasNotes) {
+      setCopyLatestConfirmOpen(true)
+      return
+    }
+    void executeCopyLatestNotes()
+  }
 
   const handleDeleteBlock = useCallback(async (dateKey: string, blockId: string) => {
     try {
@@ -388,15 +517,26 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
                 </div>
               </div>
 
-              <Button
-                type="button"
-                variant="primary"
-                icon={<Plus className="h-4 w-4" />}
-                disabled={!canAddToday}
-                onClick={handleAddTodayNotes}
-              >
-                Add today&apos;s notes
-              </Button>
+              <div className="admin-notes-header__actions">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  icon={<Copy className="h-4 w-4" />}
+                  disabled={busy || !isCurrentWeek}
+                  onClick={handleCopyLatestNotes}
+                >
+                  Copy latest
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  icon={<Plus className="h-4 w-4" />}
+                  disabled={!canAddToday}
+                  onClick={handleAddTodayNotes}
+                >
+                  Add today&apos;s notes
+                </Button>
+              </div>
             </header>
           ) : null}
 
@@ -405,22 +545,35 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
               weekLabel={weekLabel}
               isCurrentWeek={isCurrentWeek}
               filters={searchFilters}
-              onWeekPrevious={() => handleWeekChange(shiftWeek(weekMonday, -1))}
-              onWeekNext={() => handleWeekChange(shiftWeek(weekMonday, 1))}
-              onWeekCurrent={() => handleWeekChange(getMondayOfWeek(new Date()))}
+              onWeekPrevious={() => handleWeekChange(shiftWeek(weekSunday, -1))}
+              onWeekNext={() => handleWeekChange(shiftWeek(weekSunday, 1))}
+              onWeekCurrent={() => handleWeekChange(getSundayOfWeek(new Date()))}
               onFiltersChange={handleFiltersChange}
               onQueryChange={handleQueryChange}
+              hideSearch={isEmployeeView}
+              hideWeekNav={isEmployeeView}
               trailingAction={
                 inProjectManagement ? (
-                  <Button
-                    type="button"
-                    variant="primary"
-                    icon={<Plus className="h-4 w-4" />}
-                    disabled={!canAddToday}
-                    onClick={handleAddTodayNotes}
-                  >
-                    Add today&apos;s notes
-                  </Button>
+                  <div className="notes-toolbar__trailing-actions">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      icon={<Copy className="h-4 w-4" />}
+                      disabled={busy || !isCurrentWeek}
+                      onClick={handleCopyLatestNotes}
+                    >
+                      Copy latest
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      icon={<Plus className="h-4 w-4" />}
+                      disabled={!canAddToday}
+                      onClick={handleAddTodayNotes}
+                    >
+                      Add today&apos;s notes
+                    </Button>
+                  </div>
                 ) : null
               }
             />
@@ -456,17 +609,26 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
               ) : (
                 <div className="notes-date-bar-layout">
                   <nav className="notes-date-bar" aria-label="Select day">
-                    {last10Days.map((date) => {
+                    {weekdays.map((date) => {
                       const dateKey = toDateKey(date)
                       const block = blocksByDate[dateKey] ?? null
                       const noteCount = block?.childBlocks.filter((child) => !child.archived).length ?? 0
                       const isActive = selectedDateKey === dateKey
+                      const isFuture = isFutureNotesDay(dateKey)
+                      const isDisabled = isEmployeeView
+                        ? !isEmployeeDaySelectable(dateKey)
+                        : isFuture
                       return (
                         <button
                           key={dateKey}
                           type="button"
-                          className={cn('notes-date-bar__chip', isActive && 'is-active')}
+                          className={cn(
+                            'notes-date-bar__chip',
+                            isActive && 'is-active',
+                            isDisabled && 'is-future',
+                          )}
                           aria-pressed={isActive}
+                          disabled={isDisabled}
                           onClick={() => void handleSelectDate(dateKey)}
                         >
                           <span className="notes-date-bar__weekday">{format(date, 'EEE')}</span>
@@ -509,6 +671,11 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
                             setAutoOpenAddNoteFor(null)
                           }
                         }}
+                        onCopyLatest={
+                          selectedDay.dateKey === todayDateKey && isCurrentWeek
+                            ? handleCopyLatestNotes
+                            : undefined
+                        }
                       />
                     ) : (
                       <p className="notes-notepad-pad__no-block">Select a day to view notes.</p>
@@ -549,6 +716,38 @@ export function AdminNotesPage({ variant = 'admin' }: DailyNotesPageProps) {
           }}
         />
       ) : null}
+
+      <Modal
+        isOpen={copyLatestConfirmOpen}
+        onClose={() => {
+          if (!busy) setCopyLatestConfirmOpen(false)
+        }}
+        title="Replace today's notes?"
+        size="md"
+      >
+        <p className="mb-4 text-sm leading-relaxed text-slate-600">
+          Today already has notes. Copying from the latest available day will{' '}
+          <strong>replace all of today&apos;s notes</strong> with those entries. You can edit them
+          before sending.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" disabled={busy} onClick={() => setCopyLatestConfirmOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            disabled={busy}
+            loading={busy}
+            onClick={() => {
+              setCopyLatestConfirmOpen(false)
+              void executeCopyLatestNotes()
+            }}
+          >
+            Replace with latest
+          </Button>
+        </div>
+      </Modal>
     </PageWrapper>
   )
 }
@@ -557,8 +756,8 @@ export function AdminNotesDayRedirect() {
   const { dateKey = '' } = useParams<{ dateKey: string }>()
   if (!dateKey) return <Navigate to={ROUTES.NOTES} replace />
   try {
-    const monday = toDateKey(getMondayOfWeek(parseISO(dateKey)))
-    return <Navigate to={`${ROUTES.NOTES}?week=${monday}&focus=${dateKey}`} replace />
+    const sunday = toDateKey(getSundayOfWeek(parseISO(dateKey)))
+    return <Navigate to={`${ROUTES.NOTES}?week=${sunday}&focus=${dateKey}`} replace />
   } catch {
     return <Navigate to={ROUTES.NOTES} replace />
   }

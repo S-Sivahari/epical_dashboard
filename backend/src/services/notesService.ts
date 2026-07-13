@@ -359,6 +359,22 @@ export async function getDailyBlockByDate(date: string) {
   return serializeDailyBlock(doc as Record<string, unknown>);
 }
 
+/** Most recent daily block (strictly before `beforeDate`) that has at least one active note. */
+export async function getLatestDailyBlockWithNotesBefore(beforeDate: string) {
+  const beforeKey = assertDateKey(beforeDate);
+  const doc = await DailyNoteBlockModel.findOne({
+    date: { $lt: beforeKey },
+    archived: { $ne: true },
+    childBlocks: {
+      $elemMatch: { archived: { $ne: true } },
+    },
+  })
+    .sort({ date: -1 })
+    .lean();
+  if (!doc) return null;
+  return serializeDailyBlock(doc as Record<string, unknown>);
+}
+
 export async function getDailyBlockById(id: string) {
   if (!Types.ObjectId.isValid(id)) return null;
   const doc = await DailyNoteBlockModel.findById(id).lean();

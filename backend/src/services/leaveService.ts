@@ -21,6 +21,7 @@ import {
   LEAVE_ALLOCATIONS,
   resolveLeaveBalanceKey,
   sumPendingLeaveDays,
+  assertLeaveBalanceStep,
 } from '../utils/leaveCalculator';
 import type { Employee } from '../models/Employee';
 import * as notificationService from './notificationService';
@@ -242,6 +243,7 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
       balanceOptions,
       undefined,
       payload.from,
+      new Date(),
     );
     lopDays = split.lopDays;
   } else if (leaveBalance && leaveBalance.remaining < requestedDays) {
@@ -421,7 +423,7 @@ export async function getEmployeeLeaveSummary(employeeId: string): Promise<Emplo
 
   const pendingByType: Record<string, number> = {};
   leaves.forEach((leave) => {
-    if (leave.status === 'Pending' && leave.from.startsWith(currentYear)) {
+    if (leave.status === 'Pending' && leaveFromYearKey(leave) === currentYear) {
       pendingByType[leave.type] = (pendingByType[leave.type] || 0) + leave.days;
     }
   });
@@ -485,6 +487,7 @@ export async function updateEmployeeLeaveAllocations(
     if (Number.isNaN(value) || value < 0) {
       throw new Error(`${type} allotment must be a non-negative number`);
     }
+    assertLeaveBalanceStep(type, value, 'total');
     next[type] = value;
   }
 
@@ -529,6 +532,7 @@ export async function adjustEmployeeLeaveBalance(
   if (Number.isNaN(step) || step === 0) {
     throw new Error('Adjustment delta must be a non-zero number');
   }
+  assertLeaveBalanceStep(type, step, 'adjustment');
 
   const employee = await findEmployeeDoc(employeeId);
   if (!employee?.id) {
@@ -571,6 +575,106 @@ export async function adjustEmployeeLeaveBalance(
     delete yearAdjustments[type];
   } else {
     yearAdjustments[type] = nextAdjustment;
+  }
+
+  if (Object.keys(yearAdjustments).length === 0) {
+    delete adjustmentsByYear[year];
+  } else {
+    adjustmentsByYear[year] = yearAdjustments;
+  }
+
+  const updatePayload =
+    Object.keys(adjustmentsByYear).length === 0
+      ? { $unset: { leaveBalanceAdjustments: '' }, $set: { updatedAt: new Date() } }
+      : { $set: { leaveBalanceAdjustments: adjustmentsByYear, updatedAt: new Date() } };
+
+  await getDB()
+    .collection('employees')
+    .updateOne({ id: String(employee.id) }, updatePayload);
+
+  return getEmployeeLeaveSummary(employeeId);
+}
+
+export async function adjustEmployeeLeaveBalances(
+  employeeId: string,
+  adjustments: Partial<Record<BalanceAdjustmentType, number>>,
+  refDate = new Date(),
+): Promise<EmployeeLeaveSummary> {
+  const entries = (
+    Object.entries(adjustments) as [BalanceAdjustmentType, number | undefined][]
+  ).filter(([, delta]) => delta !== undefined && delta !== null && Number(delta) !== 0) as [
+    BalanceAdjustmentType,
+    number,
+  ][];
+
+  if (entries.length === 0) {
+    throw new Error('At least one balance adjustment is required');
+  }
+
+  for (const [type, delta] of entries) {
+    const step = Number(delta);
+    if (Number.isNaN(step)) {
+      throw new Error('Adjustment delta must be a number');
+    }
+    assertLeaveBalanceStep(type, step, 'adjustment');
+  }
+
+  const employee = await findEmployeeDoc(employeeId);
+  if (!employee?.id) {
+    throw new Error('Employee not found');
+  }
+
+  const year = String(refDate.getFullYear());
+  const adjustmentsByYear: Record<string, Record<string, number>> = {
+    ...(employee.leaveBalanceAdjustments ?? {}),
+  };
+  const yearAdjustments: Record<string, number> = { ...(adjustmentsByYear[year] ?? {}) };
+
+  const provisionalAdjustments: Record<string, number> = { ...yearAdjustments };
+  for (const [type, delta] of entries) {
+    const current = Number(provisionalAdjustments[type] ?? 0) || 0;
+    const next = current + Number(delta);
+    if (next === 0) {
+      delete provisionalAdjustments[type];
+    } else {
+      provisionalAdjustments[type] = next;
+    }
+  }
+
+  const compCredits = await getCompensationLeaveCreditsForYear(String(employee.id), refDate.getFullYear());
+  const leaves = await getAllLeaves(employeeId);
+  const archivedEarned = await getArchivedEarnedLeavesForBalance(employeeId, refDate);
+  const balances = calculateBalances(
+    [...leaves, ...archivedEarned],
+    employee.joinedAt as string | undefined,
+    {
+      ...leaveBalanceOptions(employee, compCredits, refDate),
+      balanceUsedAdjustments: provisionalAdjustments,
+    },
+  );
+
+  for (const type of BALANCE_ADJUSTMENT_TYPES) {
+    const bucket = balances[type];
+    if (!bucket) continue;
+    if (bucket.used < 0) {
+      throw new Error('Used days cannot be negative');
+    }
+    if (bucket.remaining < 0) {
+      throw new Error('Remaining balance cannot be negative');
+    }
+    if (bucket.remaining > bucket.total) {
+      throw new Error('Remaining balance cannot exceed the total allotment');
+    }
+  }
+
+  for (const [type, delta] of entries) {
+    const current = Number(yearAdjustments[type] ?? 0) || 0;
+    const next = current + Number(delta);
+    if (next === 0) {
+      delete yearAdjustments[type];
+    } else {
+      yearAdjustments[type] = next;
+    }
   }
 
   if (Object.keys(yearAdjustments).length === 0) {
@@ -695,25 +799,99 @@ function employeeDisplayName(employee: Employee): string {
   );
 }
 
-async function getActiveEmployeesForBalanceReport(): Promise<Employee[]> {
-  const NO_BLOBS = { projection: { documents: 0, 'photo.data': 0 } };
-  const docs = await getDB()
-    .collection('employees')
-    .find({ status: { $ne: 'Archived' } }, NO_BLOBS)
-    .sort({ firstName: 1, lastName: 1 })
-    .toArray();
-  return docs as Employee[];
+function leaveFromYearKey(leave: LeaveRequest): string | null {
+  if (typeof leave.from !== 'string' || leave.from.length < 4) return null;
+  return leave.from.slice(0, 4);
 }
 
-async function computeEmployeeYearBalances(
+function leaveFromMonthKey(leave: LeaveRequest): string | null {
+  if (typeof leave.from !== 'string' || leave.from.length < 7) return null;
+  return leave.from.slice(0, 7);
+}
+
+function buildEmployeeTokenIndex(
+  employees: Employee[],
+  users: Array<{ id?: string; email?: string }>,
+): Map<string, string> {
+  const emailToUserId = new Map<string, string>();
+  for (const user of users) {
+    const email = user.email ? String(user.email).toLowerCase() : '';
+    if (email && user.id) {
+      emailToUserId.set(email, String(user.id));
+    }
+  }
+
+  const tokenToInternal = new Map<string, string>();
+  for (const employee of employees) {
+    const internalId = String(employee.id ?? '');
+    if (!internalId) continue;
+
+    const register = (token?: string | null) => {
+      if (!token) return;
+      const normalized = String(token).trim();
+      if (normalized) tokenToInternal.set(normalized, internalId);
+    };
+
+    register(internalId);
+    register(employee.employeeId);
+    if (employee.employeeId) {
+      register(String(employee.employeeId).toUpperCase());
+    }
+
+    for (const email of getEmployeeLoginEmails(employee as { email?: string; personalEmail?: string })) {
+      register(email);
+      register(emailToUserId.get(email.toLowerCase()));
+    }
+  }
+
+  return tokenToInternal;
+}
+
+function groupRecordsByInternalEmployeeId<T extends { employeeId?: string }>(
+  records: T[],
+  tokenToInternal: Map<string, string>,
+): Map<string, T[]> {
+  const grouped = new Map<string, T[]>();
+  for (const record of records) {
+    const token = String(record.employeeId ?? '').trim();
+    if (!token) continue;
+    const internalId = tokenToInternal.get(token);
+    if (!internalId) continue;
+    const list = grouped.get(internalId) ?? [];
+    list.push(record);
+    grouped.set(internalId, list);
+  }
+  return grouped;
+}
+
+function sumCompensationCreditsForTokens(
+  entries: Array<{ employeeId?: string; days?: number; appliedDate?: string }>,
+  tokens: Iterable<string>,
+  calendarYear: number,
+): number {
+  const tokenSet = new Set(Array.from(tokens, (token) => String(token)));
+  const yearPrefix = String(calendarYear);
+  let sum = 0;
+
+  for (const entry of entries) {
+    const entryEmployeeId = String(entry.employeeId ?? '');
+    if (!tokenSet.has(entryEmployeeId)) continue;
+    if (String(entry.appliedDate || '').slice(0, 4) !== yearPrefix) continue;
+    const days = Number(entry.days);
+    if (!Number.isNaN(days)) sum += days;
+  }
+
+  return sum;
+}
+
+function computeEmployeeYearBalancesFromData(
   employee: Employee,
   year: number,
-): Promise<LeaveTypeBalanceSummary[]> {
+  leaves: LeaveRequest[],
+  archivedEarned: LeaveRequest[],
+  compCredits: number,
+): LeaveTypeBalanceSummary[] {
   const refDate = resolveRefDateForCalendarYear(year);
-  const internalId = String(employee.id ?? '');
-  const leaves = await getAllLeaves(internalId);
-  const archivedEarned = await getArchivedEarnedLeavesForBalance(internalId, refDate);
-  const compCredits = await getCompensationLeaveCreditsForYear(internalId, year);
   const yearStr = String(year);
   const adjustments = employee.leaveBalanceAdjustments?.[yearStr] ?? {};
 
@@ -732,10 +910,10 @@ async function computeEmployeeYearBalances(
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   leaves.forEach((leave) => {
-    if (leave.status === 'Pending' && leave.from.startsWith(yearStr)) {
+    if (leave.status === 'Pending' && leaveFromYearKey(leave) === yearStr) {
       pendingByType[leave.type] = (pendingByType[leave.type] || 0) + leave.days;
     }
-    if (leave.status === 'Approved' && leave.from.startsWith(currentMonthStr)) {
+    if (leave.status === 'Approved' && leaveFromMonthKey(leave) === currentMonthStr) {
       const lopDays = Number((leave as { lopDays?: number }).lopDays ?? 0) || 0;
       const paidDays = Math.max(0, (Number(leave.days) || 0) - lopDays);
       usedThisMonthByType[leave.type] = (usedThisMonthByType[leave.type] || 0) + paidDays;
@@ -755,19 +933,15 @@ async function computeEmployeeYearBalances(
   });
 }
 
-async function computeEmployeeLopForBalanceView(
+function computeEmployeeLopForBalanceViewFromData(
   employee: Employee,
   calendarYear: number,
+  leaves: LeaveRequest[],
+  compCreditsYear: number,
+  compCreditsMonth: number,
   monthRefDate = new Date(),
-): Promise<{ lopDays: number; lopThisMonth: number; lopApproved: number; lopPending: number }> {
-  const internalId = String(employee.id ?? '');
-  const leaves = await getAllLeaves(internalId);
+): { lopDays: number; lopThisMonth: number; lopApproved: number; lopPending: number } {
   const yearRefDate = resolveRefDateForCalendarYear(calendarYear);
-  const compCreditsYear = await getCompensationLeaveCreditsForYear(internalId, calendarYear);
-  const compCreditsMonth = await getCompensationLeaveCreditsForYear(
-    internalId,
-    monthRefDate.getFullYear(),
-  );
 
   const yearly = calculateYearlyLopSummary(
     leaves,
@@ -787,6 +961,50 @@ async function computeEmployeeLopForBalanceView(
     lopApproved: yearly.approvedLopDays,
     lopPending: yearly.pendingLopDays,
   };
+}
+
+async function getActiveEmployeesForBalanceReport(): Promise<Employee[]> {
+  const NO_BLOBS = { projection: { documents: 0, 'photo.data': 0 } };
+  const docs = await getDB()
+    .collection('employees')
+    .find({ status: { $ne: 'Archived' } }, NO_BLOBS)
+    .sort({ firstName: 1, lastName: 1 })
+    .toArray();
+  return docs as Employee[];
+}
+
+async function computeEmployeeYearBalances(
+  employee: Employee,
+  year: number,
+): Promise<LeaveTypeBalanceSummary[]> {
+  const refDate = resolveRefDateForCalendarYear(year);
+  const internalId = String(employee.id ?? '');
+  const leaves = await getAllLeaves(internalId);
+  const archivedEarned = await getArchivedEarnedLeavesForBalance(internalId, refDate);
+  const compCredits = await getCompensationLeaveCreditsForYear(internalId, year);
+  return computeEmployeeYearBalancesFromData(employee, year, leaves, archivedEarned, compCredits);
+}
+
+async function computeEmployeeLopForBalanceView(
+  employee: Employee,
+  calendarYear: number,
+  monthRefDate = new Date(),
+): Promise<{ lopDays: number; lopThisMonth: number; lopApproved: number; lopPending: number }> {
+  const internalId = String(employee.id ?? '');
+  const leaves = await getAllLeaves(internalId);
+  const compCreditsYear = await getCompensationLeaveCreditsForYear(internalId, calendarYear);
+  const compCreditsMonth = await getCompensationLeaveCreditsForYear(
+    internalId,
+    monthRefDate.getFullYear(),
+  );
+  return computeEmployeeLopForBalanceViewFromData(
+    employee,
+    calendarYear,
+    leaves,
+    compCreditsYear,
+    compCreditsMonth,
+    monthRefDate,
+  );
 }
 
 function buildYearLeaveBalanceRow(
@@ -816,14 +1034,80 @@ export async function getAllEmployeesYearLeaveBalances(
     throw new Error('Invalid calendar year');
   }
 
+  const monthRefDate = new Date();
   const employees = await getActiveEmployeesForBalanceReport();
+  const [allLeaves, archivedEarnedLeaves, compensationEntries, users] = await Promise.all([
+    getLeaveCol().find({}).toArray(),
+    getDB()
+      .collection('leave_archives')
+      .find({
+        type: 'Earned Leave',
+        status: 'Approved',
+        from: { $regex: `^${calendarYear}` },
+      })
+      .toArray(),
+    compensationCol().find({ status: 'Active' }).toArray(),
+    getDB()
+      .collection('users')
+      .find({}, { projection: { id: 1, email: 1 } })
+      .toArray(),
+  ]);
+
+  const tokenToInternal = buildEmployeeTokenIndex(employees, users as Array<{ id?: string; email?: string }>);
+  const leavesByEmployee = groupRecordsByInternalEmployeeId(allLeaves as LeaveRequest[], tokenToInternal);
+  const archivedByEmployee = groupRecordsByInternalEmployeeId(
+    archivedEarnedLeaves as LeaveRequest[],
+    tokenToInternal,
+  );
+  const tokensByInternal = new Map<string, string[]>();
+  for (const [token, internalId] of tokenToInternal) {
+    const list = tokensByInternal.get(internalId) ?? [];
+    list.push(token);
+    tokensByInternal.set(internalId, list);
+  }
+
   const rows: YearLeaveBalanceRow[] = [];
 
   for (const employee of employees) {
     if (!employee.id) continue;
-    const balances = await computeEmployeeYearBalances(employee, calendarYear);
-    const lop = await computeEmployeeLopForBalanceView(employee, calendarYear);
-    rows.push(buildYearLeaveBalanceRow(employee, calendarYear, balances, lop));
+    const internalId = String(employee.id);
+    try {
+      const leaves = leavesByEmployee.get(internalId) ?? [];
+      const archivedEarned = archivedByEmployee.get(internalId) ?? [];
+      const employeeTokens = tokensByInternal.get(internalId) ?? [internalId];
+      const compCreditsYear = sumCompensationCreditsForTokens(
+        compensationEntries as Array<{ employeeId?: string; days?: number; appliedDate?: string }>,
+        employeeTokens,
+        calendarYear,
+      );
+      const compCreditsMonth = sumCompensationCreditsForTokens(
+        compensationEntries as Array<{ employeeId?: string; days?: number; appliedDate?: string }>,
+        employeeTokens,
+        monthRefDate.getFullYear(),
+      );
+
+      const balances = computeEmployeeYearBalancesFromData(
+        employee,
+        calendarYear,
+        leaves,
+        archivedEarned,
+        compCreditsYear,
+      );
+      const lop = computeEmployeeLopForBalanceViewFromData(
+        employee,
+        calendarYear,
+        leaves,
+        compCreditsYear,
+        compCreditsMonth,
+        monthRefDate,
+      );
+      rows.push(buildYearLeaveBalanceRow(employee, calendarYear, balances, lop));
+    } catch (error) {
+      console.error(
+        `[leave] year balance row failed for employee ${employee.id}:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
   }
 
   return { year: calendarYear, employees: rows };
@@ -900,6 +1184,7 @@ export async function updateEmployeeYearLeaveBalances(
       if (Number.isNaN(total) || total < 0) {
         throw new Error(`${update.type} total must be a non-negative number`);
       }
+      assertLeaveBalanceStep(update.type, total, 'total');
       allocationPayload[update.type as 'Casual Leave' | 'Sick Leave' | 'Earned Leave'] = total;
 
       const previousTotal =
@@ -1085,6 +1370,7 @@ export async function updateLeaveStatus(
         balanceOptions,
         leave.id,
         leave.from,
+        leave.createdAt ?? leave.updatedAt,
       );
       updateDoc.lopDays = split.lopDays;
     } else {

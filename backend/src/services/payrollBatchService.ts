@@ -19,6 +19,7 @@ import {
   sendPayslipToEmployee,
 } from './employeePayslipService'
 import { parsePayPeriodFromCompany, prepareEmployeeForPayslip } from './payrollYtdService'
+import { formatPayslipPersonName } from '../utils/personName'
 import type { EmployeePayslipRecord } from './employeePayslipService'
 import {
   upsertPayslipPdf,
@@ -320,7 +321,7 @@ export async function processPayrollUpload(
 
     for (const emp of employeesToAdd) {
       const empId = String(emp['Emp ID'] || 'Unknown')
-      const name = String(emp['Name'] || '')
+      const name = formatPayslipPersonName(emp['Name'])
       try {
         const fileName = payslipFileNameForEmpId(empId)
         const prepared = await prepareEmployeeForPayslip(company, structure, emp, appendBatchId)
@@ -398,7 +399,7 @@ export async function processPayrollUpload(
 
   for (const emp of employees) {
     const empId = String(emp['Emp ID'] || 'Unknown')
-    const name = String(emp['Name'] || '')
+    const name = formatPayslipPersonName(emp['Name'])
     try {
       const fileName = payslipFileNameForEmpId(empId)
       const prepared = await prepareEmployeeForPayslip(company, structure, emp, id)

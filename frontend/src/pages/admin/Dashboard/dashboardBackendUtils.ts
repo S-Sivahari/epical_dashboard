@@ -15,7 +15,7 @@ export function formatRequestedAgo(value?: string): string {
   const date = safeParseDate(value)
   if (!date) return 'Recently'
   const days = differenceInCalendarDays(new Date(), date)
-  if (days <= 0) return 'Today'
+  if (days <= 0) return ''
   if (days === 1) return 'Yesterday'
   if (days < 7) return `${days}d ago`
   if (days < 14) return '1w ago'
@@ -54,33 +54,24 @@ export function formatEmployeesAddedThisMonth(count: number): string {
 
 export function buildPendingApprovals(
   leaves: LeaveRequest[],
-  pendingDocs: DocumentRequestRecord[],
+  _pendingDocs: DocumentRequestRecord[] = [],
 ): PendingApprovalTask[] {
   const tasks: PendingApprovalTask[] = []
 
   leaves
     .filter((l) => l.status === 'Pending')
     .forEach((l) => {
-      const daysLabel = l.days === 1 ? '1 Day' : `${l.days} Days`
+      const daysLabel = l.days === 1 ? '1 day' : `${l.days} days`
       tasks.push({
         id: `leave-${l.id}`,
-        title: `Review Leave Request: ${l.employeeName} (${daysLabel})`,
+        title: `${l.employeeName} (${daysLabel})`,
         requestedAgo: formatRequestedAgo(l.createdAt),
         kind: 'leave',
         sourceId: l.id,
+        leaveType: l.type,
       })
     })
 
-  pendingDocs.forEach((doc) => {
-    tasks.push({
-      id: `doc-${doc.id}`,
-      title: `Document Verification: ${doc.documentName} — ${doc.employeeName}`,
-      requestedAgo: formatRequestedAgo(doc.requestedAt),
-      kind: 'document',
-      sourceId: doc.id,
-      hasFulfillmentFile: !!doc.hasFulfillmentFile,
-    })
-  })
-
-  return tasks.slice(0, 12)
+  // Dashboard queue shows pending leaves only (max 4). Documents use the Documents KPI card.
+  return tasks.slice(0, 4)
 }

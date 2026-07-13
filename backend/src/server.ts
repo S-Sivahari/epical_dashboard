@@ -63,6 +63,10 @@ import {
   initLeaveMonthlyResetScheduler,
   stopLeaveMonthlyResetScheduler,
 } from './services/leaveMonthlyResetScheduler';
+import {
+  initNotesDelegationScheduler,
+  stopNotesDelegationScheduler,
+} from './services/notesDelegationScheduler';
 import { ensureFinancialYearSnapshotReset } from './services/payrollYtdService';
 import { ensureAttendanceIndexes } from './utils/ensureAttendanceIndexes';
 
@@ -470,6 +474,7 @@ export async function startServer() {
     initLeaveMonthlyResetScheduler().catch((err) =>
       console.error('⚠ Leave monthly reset scheduler failed (non-fatal):', err)
     );
+    initNotesDelegationScheduler();
 
     try {
       await ensureFinancialYearSnapshotReset();
@@ -489,6 +494,7 @@ process.on('SIGINT', async () => {
 
   stopScheduler();
   stopLeaveMonthlyResetScheduler();
+  stopNotesDelegationScheduler();
   await closeDB();
 
   process.exit(0);
