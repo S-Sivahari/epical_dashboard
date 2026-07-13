@@ -14,6 +14,8 @@ export interface AuthUser {
   designation: string
   joinedAt: string
   avatarUrl?: string
+  /** IANA timezones for the Ctrl+Left world-clock sidebar. */
+  preferredTimezones?: string[]
 }
 
 interface AuthState {

@@ -1166,6 +1166,22 @@ export const employeeTimesheetController = {
             assigned.timesheetId = timesheet._id as Types.ObjectId;
             await assigned.save({ session });
           }
+
+          const projectIdStr = resolvedProject._id.toString();
+          const projectNameStr = resolvedProject.projectName;
+          const existingPinned = String(attendance.checkedInProjectName || '').trim();
+          if (!existingPinned) {
+            attendance.checkedInProjectId = projectIdStr;
+            attendance.checkedInProjectName = projectNameStr;
+          } else if (
+            existingPinned !== projectNameStr &&
+            existingPinned !== 'Multiple' &&
+            String(attendance.checkedInProjectId || '') !== projectIdStr
+          ) {
+            attendance.checkedInProjectId = undefined;
+            attendance.checkedInProjectName = 'Multiple';
+          }
+          await attendance.save({ session });
         });
 
         void resumeProductiveSessionsForProjectEmployee(

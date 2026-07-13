@@ -175,7 +175,7 @@ export const employeePortalGuideSections = [
     linkLabel: 'Employee Guide',
     steps: [
       'Navigation wheel — hold Ctrl+Shift anywhere in the portal to open the radial menu. Tap Shift to move to the next section, or hold Shift to cycle quickly. Release Ctrl to jump to the highlighted page.',
-      'Quick panel — press Ctrl+Left Arrow to slide open a panel from the right with a live clock and timezone picker.',
+      'Quick panel — press Ctrl+Left Arrow to slide open world clocks from the right. Add multiple timezones; preferences save to your account.',
       'Close the quick panel with the × button, by clicking outside, or press Ctrl+Left Arrow again.',
     ],
     notes: [

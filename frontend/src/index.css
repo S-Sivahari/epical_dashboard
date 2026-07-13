@@ -7863,6 +7863,49 @@
   font-size: calc(0.875rem * var(--admin-projects-font-scale));
 }
 
+.admin-projects-view .projects-ts-table-wrap .ts-day-group-bracket-cell {
+  position: relative;
+  width: 1.25rem;
+  min-width: 1.25rem;
+  padding: 0.5rem 0.15rem !important;
+  vertical-align: top;
+}
+
+.admin-projects-view .projects-ts-table-wrap .ts-day-group-bracket-bar {
+  position: absolute;
+  top: 0.55rem;
+  bottom: 0.55rem;
+  left: 50%;
+  width: 11px;
+  transform: translateX(-50%);
+  border-top: 2.5px solid #2f6b45;
+  border-right: 2.5px solid #2f6b45;
+  border-bottom: 2.5px solid #2f6b45;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  pointer-events: none;
+}
+
+.admin-projects-view .projects-ts-table-wrap .ts-day-group-total-cell {
+  vertical-align: middle;
+}
+
+.admin-projects-view .projects-ts-table-wrap .ts-day-group-total {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  border-left: 2.5px solid #2f6b45;
+  padding-left: 0.75rem;
+}
+
+.admin-projects-view .projects-ts-table-wrap tr.ts-day-group-row {
+  background: rgba(38, 107, 28, 0.025);
+}
+
+.admin-projects-view .projects-ts-table-wrap tr.ts-day-group-row + tr.ts-day-group-row {
+  border-top-color: rgba(38, 107, 28, 0.08);
+}
+
 .admin-projects-view .projects-ts-filters {
   border-radius: calc(16px * var(--admin-projects-ui-scale, 0.8));
   border: 1px solid rgba(38, 107, 28, 0.14);

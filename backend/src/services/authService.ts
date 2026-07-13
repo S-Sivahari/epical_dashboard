@@ -206,6 +206,74 @@ export async function updateAdminDisplayName(
   return updated;
 }
 
+const MAX_PREFERRED_TIMEZONES = 12;
+
+function isValidIanaTimeZone(zone: string): boolean {
+  const candidates = [zone]
+  // City prefs may be stored as "Europe/Berlin::Munich" — validate the IANA prefix.
+  if (zone.includes('::')) {
+    candidates.unshift(zone.split('::')[0]!.trim())
+  }
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: candidate }).format(new Date())
+      return true
+    } catch {
+      /* try next */
+    }
+  }
+  return false
+}
+
+export function normalizePreferredTimezones(input: unknown): string[] {
+  if (!Array.isArray(input)) {
+    throw Object.assign(new Error('preferredTimezones must be an array'), { status: 400 });
+  }
+
+  const zones: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of input) {
+    const zone = String(raw ?? '').trim();
+    if (!zone || seen.has(zone)) continue;
+    if (!isValidIanaTimeZone(zone)) {
+      throw Object.assign(new Error(`Invalid timezone: ${zone}`), { status: 400 });
+    }
+    seen.add(zone);
+    zones.push(zone);
+    if (zones.length > MAX_PREFERRED_TIMEZONES) {
+      throw Object.assign(
+        new Error(`You can save at most ${MAX_PREFERRED_TIMEZONES} timezones`),
+        { status: 400 },
+      );
+    }
+  }
+
+  if (zones.length === 0) {
+    throw Object.assign(new Error('Add at least one timezone'), { status: 400 });
+  }
+
+  return zones;
+}
+
+export async function updatePreferredTimezones(
+  id: string,
+  preferredTimezones: unknown,
+): Promise<Omit<User, 'passwordHash'>> {
+  const zones = normalizePreferredTimezones(preferredTimezones);
+  const col = getUserCollection();
+  const user = await col.findOne({ id });
+  if (!user) throw Object.assign(new Error('User not found'), { status: 404 });
+
+  await col.updateOne(
+    { id },
+    { $set: { preferredTimezones: zones, updatedAt: new Date() } },
+  );
+  const updated = await getUserById(id);
+  if (!updated) throw Object.assign(new Error('User not found'), { status: 404 });
+  return updated;
+}
+
 export async function createUser(payload: CreateUserPayload): Promise<Omit<User, 'passwordHash'>> {
   const col = getUserCollection();
   const passwordHash = await bcrypt.hash(payload.password, 10);

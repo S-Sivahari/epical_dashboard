@@ -15,6 +15,8 @@ export interface User {
   joinedAt: string;
   avatarUrl?: string;
   employeeId?: string;
+  /** IANA timezones for the Ctrl+Left world-clock sidebar (order preserved). */
+  preferredTimezones?: string[];
   createdAt?: Date;
   updatedAt?: Date;
 }

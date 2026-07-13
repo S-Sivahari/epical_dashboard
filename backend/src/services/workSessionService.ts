@@ -3,6 +3,7 @@ import { TimesheetModel } from '../models/Timesheet';
 import { getDB } from '../config/db';
 import { buildAssignmentIdentityTokens } from '../utils/assignedTaskSync';
 import { computeUsedBreakMs, computeGrossAttendanceMs, DAILY_STANDARD_BREAK_MS } from '../utils/workBreaks';
+import { calendarDayBounds } from '../utils/istClock';
 import { computeSessionWorkedMs, resolveSessionWorkedMs, formatWorkedMsLabel, type WorkDayType } from './workingTimeService';
 
 export type WorkSessionRow = {
@@ -37,12 +38,66 @@ type EmployeeSessionContext = {
   displayName: string;
 };
 
+type TaskProjectRow = {
+  project?: string | null;
+  projectId?: { toString(): string } | string | null;
+  employee?: string | null;
+  employeeId?: string | null;
+  loginTime?: Date | string;
+  logoutTime?: Date | string | null;
+};
+
+/** Allow slight clock skew between attendance check-in and timesheet loginTime. */
+const PROJECT_MATCH_SLACK_MS = 60_000;
+
 function employeeDisplayNameFromRecord(employee: {
   firstName?: string;
   middleName?: string;
   lastName?: string;
 }): string {
   return [employee.firstName, employee.middleName, employee.lastName].filter(Boolean).join(' ').trim();
+}
+
+function taskMatchesIdentity(task: TaskProjectRow, tokens: Set<string>): boolean {
+  const employeeId = String(task.employeeId || '').trim();
+  const employeeName = String(task.employee || '').trim();
+  return (Boolean(employeeId) && tokens.has(employeeId)) || (Boolean(employeeName) && tokens.has(employeeName));
+}
+
+function taskOverlapsAttendanceWindow(
+  task: TaskProjectRow,
+  checkInTime: Date,
+  windowEnd: Date,
+): boolean {
+  const loginMs = new Date(task.loginTime as Date).getTime();
+  if (!Number.isFinite(loginMs)) return false;
+
+  const checkInMs = checkInTime.getTime();
+  const endMs = windowEnd.getTime();
+  if (loginMs < checkInMs - PROJECT_MATCH_SLACK_MS || loginMs > endMs + PROJECT_MATCH_SLACK_MS) {
+    return false;
+  }
+
+  const logout = task.logoutTime ? new Date(task.logoutTime).getTime() : null;
+  if (logout != null && Number.isFinite(logout) && logout < checkInMs - PROJECT_MATCH_SLACK_MS) {
+    return false;
+  }
+  return true;
+}
+
+function pinnedProjectsFromAttendance(attendance: {
+  checkedInProjectId?: string | null;
+  checkedInProjectName?: string | null;
+}): { names: string[]; projectId?: string } {
+  const name = String(attendance.checkedInProjectName || '').trim();
+  if (!name || name === '—') return { names: [] };
+  if (name === 'Multiple') {
+    return { names: ['Multiple'], projectId: attendance.checkedInProjectId ? String(attendance.checkedInProjectId) : undefined };
+  }
+  return {
+    names: [name],
+    projectId: attendance.checkedInProjectId ? String(attendance.checkedInProjectId) : undefined,
+  };
 }
 
 async function buildEmployeeContextMap(
@@ -81,7 +136,7 @@ async function buildEmployeeContextMap(
         identityTokens: employee
           ? buildAssignmentIdentityTokens(
               {
-                id: authUserId,
+                id: String(employee.id || authUserId),
                 name: displayName,
                 employeeId: officialEmployeeId,
                 email: typeof employee.email === 'string' ? employee.email : undefined,
@@ -238,9 +293,15 @@ async function projectsForAttendanceWindow(
     employeeName: string;
     checkInTime: Date;
     checkOutTime?: Date | null;
+    date?: string;
+    checkedInProjectId?: string | null;
+    checkedInProjectName?: string | null;
   },
   identityTokens: string[],
-): Promise<string[]> {
+): Promise<{ names: string[]; projectId?: string }> {
+  const pinned = pinnedProjectsFromAttendance(attendance);
+  if (pinned.names.length === 1 && pinned.names[0] !== 'Multiple') return pinned;
+
   const tokens = Array.from(
     new Set(
       [...identityTokens, attendance.employeeId, attendance.employeeName]
@@ -248,54 +309,68 @@ async function projectsForAttendanceWindow(
         .filter(Boolean),
     ),
   );
-  if (tokens.length === 0) return [];
+  if (tokens.length === 0) return { names: [] };
 
   const checkInTime = new Date(attendance.checkInTime);
   const windowEnd = attendance.checkOutTime ? new Date(attendance.checkOutTime) : new Date();
+  const dayKey = String(attendance.date || '').trim();
+  const dayBounds = dayKey.includes('-') ? calendarDayBounds(dayKey) : null;
+  const rangeStart = dayBounds
+    ? new Date(Math.min(checkInTime.getTime() - PROJECT_MATCH_SLACK_MS, dayBounds.start.getTime()))
+    : new Date(checkInTime.getTime() - PROJECT_MATCH_SLACK_MS);
+  const rangeEnd = dayBounds
+    ? new Date(Math.max(windowEnd.getTime() + PROJECT_MATCH_SLACK_MS, dayBounds.end.getTime()))
+    : new Date(windowEnd.getTime() + PROJECT_MATCH_SLACK_MS);
 
   const tasks = await TimesheetModel.find({
     $and: [
       {
         $or: [{ employeeId: { $in: tokens } }, { employee: { $in: tokens } }],
       },
-      { loginTime: { $gte: checkInTime, $lte: windowEnd } },
-      {
-        $or: [
-          { logoutTime: { $gte: checkInTime } },
-          { logoutTime: { $exists: false } },
-          { logoutTime: null },
-        ],
-      },
+      { loginTime: { $gte: rangeStart, $lte: rangeEnd } },
     ],
   })
-    .select({ project: 1 })
+    .select({ project: 1, projectId: 1, employee: 1, employeeId: 1, loginTime: 1, logoutTime: 1 })
     .sort({ loginTime: 1 })
     .lean();
 
-  return projectsFromTasksForWindow(tasks, checkInTime, windowEnd);
+  const tokenSet = new Set(tokens);
+  return projectsFromTasksForWindow(tasks, checkInTime, windowEnd, tokenSet);
 }
 
 function projectsFromTasksForWindow(
-  tasks: Array<{ project?: string | null; loginTime?: Date | string; logoutTime?: Date | string | null }>,
+  tasks: TaskProjectRow[],
   checkInTime: Date,
   windowEnd: Date,
-): string[] {
-  const checkInMs = checkInTime.getTime();
-  const endMs = windowEnd.getTime();
+  attendanceTokens?: Set<string>,
+): { names: string[]; projectId?: string } {
   const names: string[] = [];
   const seen = new Set<string>();
+  let projectId: string | undefined;
 
   for (const task of tasks) {
-    const loginMs = new Date(task.loginTime as Date).getTime();
-    if (!Number.isFinite(loginMs) || loginMs < checkInMs || loginMs > endMs) continue;
-    const logout = task.logoutTime ? new Date(task.logoutTime).getTime() : null;
-    if (logout != null && Number.isFinite(logout) && logout < checkInMs) continue;
+    if (attendanceTokens && !taskMatchesIdentity(task, attendanceTokens)) continue;
+    if (!taskOverlapsAttendanceWindow(task, checkInTime, windowEnd)) continue;
     const project = String(task.project || '').trim();
-    if (!project || seen.has(project)) continue;
+    if (!project || seen.has(project)) {
+      if (project && !projectId && task.projectId) {
+        projectId = String(task.projectId);
+      }
+      continue;
+    }
     seen.add(project);
     names.push(project);
+    if (!projectId && task.projectId) {
+      projectId = String(task.projectId);
+    }
   }
-  return names;
+  return { names, projectId };
+}
+
+function formatProjectLabel(names: string[]): string {
+  if (names.length === 1) return names[0];
+  if (names.length > 1) return 'Multiple';
+  return '—';
 }
 
 /** Batch-load timesheets once, then enrich many attendance rows in memory. */
@@ -321,6 +396,8 @@ export async function enrichAttendanceHistoryRows(
     activeBreakType?: 'morning' | 'lunch' | 'evening' | null;
     activeBreakStartedAt?: Date | null;
     activeBreakEndsAt?: Date | null;
+    checkedInProjectId?: string | null;
+    checkedInProjectName?: string | null;
   }>,
   identityTokens: string[] = [],
 ): Promise<WorkSessionRow[]> {
@@ -337,7 +414,7 @@ export async function enrichAttendanceHistoryRows(
     ),
   );
 
-  let tasks: Array<{ project?: string | null; loginTime?: Date | string; logoutTime?: Date | string | null }> = [];
+  let tasks: TaskProjectRow[] = [];
   if (tokens.length > 0) {
     const minCheckIn = Math.min(...records.map((r) => new Date(r.checkInTime).getTime()));
     const maxEnd = Math.max(
@@ -345,21 +422,41 @@ export async function enrichAttendanceHistoryRows(
         r.checkOutTime ? new Date(r.checkOutTime).getTime() : Date.now(),
       ),
     );
+    const dateKeys = records.map((r) => String(r.date || '').trim()).filter(Boolean);
+    let rangeStart = minCheckIn - PROJECT_MATCH_SLACK_MS;
+    let rangeEnd = maxEnd + PROJECT_MATCH_SLACK_MS;
+    for (const dateKey of dateKeys) {
+      if (!dateKey.includes('-')) continue;
+      const bounds = calendarDayBounds(dateKey);
+      rangeStart = Math.min(rangeStart, bounds.start.getTime());
+      rangeEnd = Math.max(rangeEnd, bounds.end.getTime());
+    }
+
     tasks = await TimesheetModel.find({
       $and: [
         { $or: [{ employeeId: { $in: tokens } }, { employee: { $in: tokens } }] },
-        { loginTime: { $gte: new Date(minCheckIn), $lte: new Date(maxEnd) } },
+        { loginTime: { $gte: new Date(rangeStart), $lte: new Date(rangeEnd) } },
       ],
     })
-      .select({ project: 1, loginTime: 1, logoutTime: 1 })
+      .select({ project: 1, projectId: 1, employee: 1, employeeId: 1, loginTime: 1, logoutTime: 1 })
       .sort({ loginTime: 1 })
       .lean();
   }
 
+  const sharedTokenSet = new Set(tokens);
+
   return records.map((attendance) => {
     const checkInTime = new Date(attendance.checkInTime);
     const windowEnd = attendance.checkOutTime ? new Date(attendance.checkOutTime) : new Date();
-    const projectNames = projectsFromTasksForWindow(tasks, checkInTime, windowEnd);
+    const pinned = pinnedProjectsFromAttendance(attendance);
+    let matched =
+      pinned.names.length === 1 && pinned.names[0] !== 'Multiple'
+        ? pinned
+        : projectsFromTasksForWindow(tasks, checkInTime, windowEnd, sharedTokenSet);
+    if (matched.names.length === 0 && pinned.names.length > 0) {
+      matched = pinned;
+    }
+    const projectNames = matched.names;
     const { displayWorkedMs, displayBreakMs } = resolveAttendanceHistoryMetrics(attendance);
     const breakMs = sessionBreakMs(attendance);
 
@@ -367,7 +464,8 @@ export async function enrichAttendanceHistoryRows(
       id: String(attendance._id),
       employeeId: attendance.employeeId,
       employeeName: attendance.employeeName,
-      project: projectNames.length === 1 ? projectNames[0] : projectNames.length > 1 ? 'Multiple' : '—',
+      project: formatProjectLabel(projectNames),
+      projectId: matched.projectId,
       projects: projectNames,
       date: attendance.date,
       loginTime: checkInTime.toISOString(),
@@ -483,10 +581,12 @@ export async function enrichAttendanceSessionRow(
     activeBreakType?: 'morning' | 'lunch' | 'evening' | null;
     activeBreakStartedAt?: Date | null;
     activeBreakEndsAt?: Date | null;
+    checkedInProjectId?: string | null;
+    checkedInProjectName?: string | null;
   },
   identityTokens: string[] = [],
 ): Promise<WorkSessionRow> {
-  const projectNames = await projectsForAttendanceWindow(attendance, identityTokens);
+  const matched = await projectsForAttendanceWindow(attendance, identityTokens);
   const { displayWorkedMs, displayBreakMs } = resolveAttendanceHistoryMetrics(attendance);
   const breakMs = sessionBreakMs(attendance);
 
@@ -494,8 +594,9 @@ export async function enrichAttendanceSessionRow(
     id: String(attendance._id),
     employeeId: attendance.employeeId,
     employeeName: attendance.employeeName,
-    project: projectNames.length === 1 ? projectNames[0] : projectNames.length > 1 ? 'Multiple' : '—',
-    projects: projectNames,
+    project: formatProjectLabel(matched.names),
+    projectId: matched.projectId,
+    projects: matched.names.filter((n) => n !== 'Multiple'),
     date: attendance.date,
     loginTime: new Date(attendance.checkInTime).toISOString(),
     logoutTime: attendance.checkOutTime ? new Date(attendance.checkOutTime).toISOString() : undefined,
@@ -516,8 +617,18 @@ export async function listWorkSessionsForAdmin(query: SessionQuery): Promise<Wor
 
   if (query.from || query.to) {
     const checkInTime: Record<string, Date> = {};
-    if (query.from) checkInTime.$gte = new Date(`${query.from}T00:00:00.000Z`);
-    if (query.to) checkInTime.$lte = new Date(`${query.to}T23:59:59.999Z`);
+    if (query.from) {
+      const fromKey = query.from;
+      checkInTime.$gte = fromKey.includes('-')
+        ? calendarDayBounds(fromKey).start
+        : new Date(`${fromKey}T00:00:00.000Z`);
+    }
+    if (query.to) {
+      const toKey = query.to;
+      checkInTime.$lte = toKey.includes('-')
+        ? calendarDayBounds(toKey).end
+        : new Date(`${toKey}T23:59:59.999Z`);
+    }
     match.checkInTime = checkInTime;
   }
 
@@ -551,39 +662,125 @@ export async function listWorkSessionsForAdmin(query: SessionQuery): Promise<Wor
       activeBreakType: 1,
       activeBreakStartedAt: 1,
       activeBreakEndsAt: 1,
+      checkedInProjectId: 1,
+      checkedInProjectName: 1,
     })
     .sort({ checkInTime: -1 })
     .limit(5000)
     .lean();
 
-  const rows: WorkSessionRow[] = [];
   const employeeContextMap = await buildEmployeeContextMap(attendances);
 
+  // Batch-load timesheets once for all attendances (avoids N+1 and identity gaps).
+  const allTokens = new Set<string>();
+  const attendanceTokenSets = new Map<string, Set<string>>();
   for (const attendance of attendances) {
     const context = employeeContextMap.get(attendance.employeeId);
-    const identityTokens = context?.identityTokens ?? [
-      attendance.employeeId,
-      attendance.employeeName,
-    ];
-    const row = await enrichAttendanceSessionRow(attendance, identityTokens);
-    row.employeeId = context?.officialEmployeeId ?? attendance.employeeId;
-    row.employeeName = context?.displayName ?? attendance.employeeName;
-    const loginWindow: Record<string, Date> = { $gte: attendance.checkInTime };
-    if (attendance.checkOutTime) {
-      loginWindow.$lte = attendance.checkOutTime;
+    const tokens = Array.from(
+      new Set(
+        [
+          ...(context?.identityTokens ?? []),
+          attendance.employeeId,
+          attendance.employeeName,
+          context?.officialEmployeeId,
+          context?.displayName,
+        ]
+          .map((value) => String(value || '').trim())
+          .filter(Boolean),
+      ),
+    );
+    const tokenSet = new Set(tokens);
+    attendanceTokenSets.set(String(attendance._id), tokenSet);
+    tokens.forEach((t) => allTokens.add(t));
+  }
+
+  let tasks: TaskProjectRow[] = [];
+  if (attendances.length > 0 && allTokens.size > 0) {
+    const minCheckIn = Math.min(...attendances.map((r) => new Date(r.checkInTime).getTime()));
+    const maxEnd = Math.max(
+      ...attendances.map((r) =>
+        r.checkOutTime ? new Date(r.checkOutTime).getTime() : Date.now(),
+      ),
+    );
+    let rangeStart = minCheckIn - PROJECT_MATCH_SLACK_MS;
+    let rangeEnd = maxEnd + PROJECT_MATCH_SLACK_MS;
+    for (const attendance of attendances) {
+      const dateKey = String(attendance.date || '').trim();
+      if (!dateKey.includes('-')) continue;
+      const bounds = calendarDayBounds(dateKey);
+      rangeStart = Math.min(rangeStart, bounds.start.getTime());
+      rangeEnd = Math.max(rangeEnd, bounds.end.getTime());
     }
-    const tasks = await TimesheetModel.find({
-      loginTime: loginWindow,
-      $or: [{ employeeId: { $in: identityTokens } }, { employee: { $in: identityTokens } }],
+
+    tasks = await TimesheetModel.find({
+      $and: [
+        { $or: [{ employeeId: { $in: [...allTokens] } }, { employee: { $in: [...allTokens] } }] },
+        { loginTime: { $gte: new Date(rangeStart), $lte: new Date(rangeEnd) } },
+      ],
     })
-      .select({ projectId: 1 })
+      .select({ project: 1, projectId: 1, employee: 1, employeeId: 1, loginTime: 1, logoutTime: 1 })
       .sort({ loginTime: 1 })
-      .limit(1)
       .lean();
-    if (tasks[0]?.projectId) {
-      row.projectId = String(tasks[0].projectId);
+  }
+
+  const rows: WorkSessionRow[] = [];
+  for (const attendance of attendances) {
+    const context = employeeContextMap.get(attendance.employeeId);
+    const tokenSet =
+      attendanceTokenSets.get(String(attendance._id)) ??
+      new Set([attendance.employeeId, attendance.employeeName].filter(Boolean));
+
+    const checkInTime = new Date(attendance.checkInTime);
+    const windowEnd = attendance.checkOutTime ? new Date(attendance.checkOutTime) : new Date();
+    const pinned = pinnedProjectsFromAttendance(attendance);
+    let matched =
+      pinned.names.length === 1 && pinned.names[0] !== 'Multiple'
+        ? pinned
+        : projectsFromTasksForWindow(tasks, checkInTime, windowEnd, tokenSet);
+    if (matched.names.length === 0 && pinned.names.length > 0) {
+      matched = pinned;
     }
-    rows.push(row);
+
+    const { displayWorkedMs, displayBreakMs } = resolveAttendanceHistoryMetrics(attendance);
+    const breakMs = sessionBreakMs(attendance);
+
+    rows.push({
+      id: String(attendance._id),
+      employeeId: context?.officialEmployeeId ?? attendance.employeeId,
+      employeeName: context?.displayName ?? attendance.employeeName,
+      project: formatProjectLabel(matched.names),
+      projectId: matched.projectId,
+      projects: matched.names.filter((n) => n !== 'Multiple'),
+      date: attendance.date,
+      loginTime: checkInTime.toISOString(),
+      logoutTime: attendance.checkOutTime
+        ? new Date(attendance.checkOutTime).toISOString()
+        : undefined,
+      breakMs,
+      displayBreakMs,
+      displayWorkedMs,
+      defaultBreakDeductedMs: attendance.defaultBreakDeductedMs ?? 0,
+      workDayType: attendance.workDayType ?? (attendance.autoCheckedOut ? 'full_day' : null),
+      sessionStatus: attendance.checkOutTime
+        ? (attendance.sessionStatus ?? 'Completed')
+        : (attendance.sessionStatus ?? 'Active'),
+      autoCheckedOut: attendance.autoCheckedOut ?? false,
+    });
+
+    // Persist resolved project onto older attendance rows that never stored it.
+    const hasPinned = Boolean(String(attendance.checkedInProjectName || '').trim());
+    if (!hasPinned && matched.names.length > 0) {
+      const projectLabel = formatProjectLabel(matched.names);
+      void EmployeeAttendanceModel.updateOne(
+        { _id: attendance._id },
+        {
+          $set: {
+            checkedInProjectName: projectLabel,
+            ...(matched.projectId ? { checkedInProjectId: matched.projectId } : {}),
+          },
+        },
+      ).catch(() => undefined);
+    }
   }
 
   return rows;

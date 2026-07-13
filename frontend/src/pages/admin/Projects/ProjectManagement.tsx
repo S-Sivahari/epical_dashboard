@@ -221,6 +221,89 @@ function formatWorkSessionDuration(session: Pick<WorkSessionLog, 'displayWorkedM
   return '—'
 }
 
+type WorkSessionDayGroupMeta = {
+  groupKey: string
+  isMultiSessionDay: boolean
+  isFirstInDayGroup: boolean
+  isLastInDayGroup: boolean
+  dayGroupSize: number
+  dayGroupIndex: number
+  dayTotalWorkedMs: number
+  dayTotalBreakMs: number
+}
+
+type WorkSessionWithGroup = WorkSessionLog & { dayGroup: WorkSessionDayGroupMeta }
+
+function sortWorkSessionsByEmployee(
+  sessions: WorkSessionLog[],
+  employees: Employee[],
+): WorkSessionLog[] {
+  return [...sessions].sort((a, b) => {
+    const aKey = resolveTimesheetEmployeeKey(a, employees)
+    const bKey = resolveTimesheetEmployeeKey(b, employees)
+    const nameCmp = aKey.name.localeCompare(bKey.name, undefined, { sensitivity: 'base' })
+    if (nameCmp !== 0) return nameCmp
+    const dateCmp = String(a.date || '').localeCompare(String(b.date || ''))
+    if (dateCmp !== 0) return dateCmp
+    return new Date(a.loginTime).getTime() - new Date(b.loginTime).getTime()
+  })
+}
+
+function attachWorkSessionDayGroups(
+  sessions: WorkSessionLog[],
+  employees: Employee[],
+): WorkSessionWithGroup[] {
+  const sorted = sortWorkSessionsByEmployee(sessions, employees)
+  const groupSizes = new Map<string, number>()
+  const groupWorked = new Map<string, number>()
+  const groupBreak = new Map<string, number>()
+
+  for (const session of sorted) {
+    const { key } = resolveTimesheetEmployeeKey(session, employees)
+    const groupKey = `${key}::${session.date}`
+    groupSizes.set(groupKey, (groupSizes.get(groupKey) || 0) + 1)
+
+    const worked =
+      typeof session.displayWorkedMs === 'number' && session.displayWorkedMs >= 0
+        ? session.displayWorkedMs
+        : 0
+    const breakMs =
+      typeof session.displayBreakMs === 'number' && session.displayBreakMs > 0
+        ? session.displayBreakMs
+        : session.breakMs || 0
+    groupWorked.set(groupKey, (groupWorked.get(groupKey) || 0) + worked)
+    groupBreak.set(groupKey, (groupBreak.get(groupKey) || 0) + breakMs)
+  }
+
+  const seen = new Map<string, number>()
+  return sorted.map((session) => {
+    const { key } = resolveTimesheetEmployeeKey(session, employees)
+    const groupKey = `${key}::${session.date}`
+    const dayGroupSize = groupSizes.get(groupKey) || 1
+    const dayGroupIndex = seen.get(groupKey) || 0
+    seen.set(groupKey, dayGroupIndex + 1)
+    return {
+      ...session,
+      dayGroup: {
+        groupKey,
+        isMultiSessionDay: dayGroupSize > 1,
+        isFirstInDayGroup: dayGroupIndex === 0,
+        isLastInDayGroup: dayGroupIndex === dayGroupSize - 1,
+        dayGroupSize,
+        dayGroupIndex,
+        dayTotalWorkedMs: groupWorked.get(groupKey) || 0,
+        dayTotalBreakMs: groupBreak.get(groupKey) || 0,
+      },
+    }
+  })
+}
+
+function formatDayGroupTotals(dayGroup: WorkSessionDayGroupMeta): string {
+  const worked = formatDurationFromMs(dayGroup.dayTotalWorkedMs)
+  const brk = formatDurationFromMs(dayGroup.dayTotalBreakMs)
+  return `${worked} / ${brk} brk`
+}
+
 function employeeDisplayName(e: Employee): string {
   return `${e.firstName} ${e.lastName || ''}`.trim()
 }
@@ -2187,7 +2270,7 @@ export function ProjectManagement() {
 
   // ── Work sessions filtering (one row per check-in / check-out) ──
   const filteredWorkSessions = useMemo(() => {
-    return workSessions.filter((s) => {
+    const filtered = workSessions.filter((s) => {
       const logDate = new Date(s.date)
       const startDate = new Date(tsStartDate)
       startDate.setHours(0, 0, 0, 0)
@@ -2210,6 +2293,7 @@ export function ProjectManagement() {
 
       return matchSearch && matchEmployee && matchProject
     })
+    return attachWorkSessionDayGroups(filtered, employees)
   }, [
     workSessions,
     tsStartDate,
@@ -2217,6 +2301,7 @@ export function ProjectManagement() {
     tsSearch,
     tsEmployeeFilters,
     tsProjectFilters,
+    employees,
   ])
 
   // ── Timesheets Filtering Implementation (task logs for analytics) ──
@@ -2323,6 +2408,57 @@ export function ProjectManagement() {
   const indexOfLastTimesheet = timesheetsCurrentPage * timesheetsPerPage
   const indexOfFirstTimesheet = indexOfLastTimesheet - timesheetsPerPage
   const currentTimesheets = filteredWorkSessions.slice(indexOfFirstTimesheet, indexOfLastTimesheet)
+
+  /** Page-local rowspan so one ] bracket covers every visible session in a multi-session day. */
+  const currentTimesheetDayLayout = useMemo(() => {
+    type LayoutCell = {
+      isMulti: boolean
+      showSpanCell: boolean
+      rowSpan: number
+      dayGroup: WorkSessionDayGroupMeta | null
+    }
+    const layout: LayoutCell[] = currentTimesheets.map(() => ({
+      isMulti: false,
+      showSpanCell: false,
+      rowSpan: 1,
+      dayGroup: null,
+    }))
+
+    let i = 0
+    while (i < currentTimesheets.length) {
+      const session = currentTimesheets[i]
+      if (!session.dayGroup.isMultiSessionDay) {
+        i += 1
+        continue
+      }
+      const groupKey = session.dayGroup.groupKey
+      let end = i + 1
+      while (
+        end < currentTimesheets.length &&
+        currentTimesheets[end].dayGroup.groupKey === groupKey &&
+        currentTimesheets[end].dayGroup.isMultiSessionDay
+      ) {
+        end += 1
+      }
+      const rowSpan = end - i
+      layout[i] = {
+        isMulti: true,
+        showSpanCell: true,
+        rowSpan,
+        dayGroup: session.dayGroup,
+      }
+      for (let k = i + 1; k < end; k += 1) {
+        layout[k] = {
+          isMulti: true,
+          showSpanCell: false,
+          rowSpan: 0,
+          dayGroup: session.dayGroup,
+        }
+      }
+      i = end
+    }
+    return layout
+  }, [currentTimesheets])
 
   // Track previous timesheets filters to only reset page when they actually change
   const prevTsFiltersRef = useRef({
@@ -2583,20 +2719,47 @@ export function ProjectManagement() {
     sheet.getCell(currentRow, 5).value = 'Logout Time'
     sheet.getCell(currentRow, 6).value = 'Break'
     sheet.getCell(currentRow, 7).value = 'Worked'
-    styleTableHeader(currentRow, 7, 'FF0284C7') // Sky-600
+    sheet.getCell(currentRow, 8).value = 'Day Group'
+    sheet.getCell(currentRow, 9).value = 'Day Total (Worked / Break)'
+    styleTableHeader(currentRow, 9, 'FF0284C7') // Sky-600
     currentRow++
 
     filteredWorkSessions.forEach((s, idx) => {
       const { key, name } = resolveTimesheetEmployeeKey(s, employees)
+      const projectLabel =
+        s.project && s.project !== '—'
+          ? s.project
+          : s.projects?.length === 1
+            ? s.projects[0]
+            : s.projects?.length > 1
+              ? 'Multiple'
+              : '—'
       sheet.getCell(currentRow, 1).value = name
       sheet.getCell(currentRow, 2).value = key
-      sheet.getCell(currentRow, 3).value = s.project
+      sheet.getCell(currentRow, 3).value = projectLabel
       sheet.getCell(currentRow, 4).value = formatDateTime(s.loginTime)
       sheet.getCell(currentRow, 5).value = s.logoutTime ? formatDateTime(s.logoutTime) : '—'
       sheet.getCell(currentRow, 6).value = formatBreakTime(s)
       sheet.getCell(currentRow, 7).value = formatWorkSessionDuration(s)
+      sheet.getCell(currentRow, 8).value = s.dayGroup.isMultiSessionDay
+        ? `] ${s.dayGroup.dayGroupIndex + 1}/${s.dayGroup.dayGroupSize}`
+        : ''
+      sheet.getCell(currentRow, 9).value =
+        s.dayGroup.isMultiSessionDay && s.dayGroup.isLastInDayGroup
+          ? formatDayGroupTotals(s.dayGroup)
+          : ''
 
-      styleDataRow(currentRow, 7, idx % 2 === 0, ['left', 'center', 'left', 'center', 'center', 'center', 'center'])
+      styleDataRow(currentRow, 9, idx % 2 === 0, [
+        'left',
+        'center',
+        'left',
+        'center',
+        'center',
+        'center',
+        'center',
+        'center',
+        'left',
+      ])
       currentRow++
     })
 
@@ -2636,7 +2799,7 @@ export function ProjectManagement() {
 
     const buffer = await workbook.xlsx.writeBuffer()
     downloadExcelBuffer(buffer, timesheetReportFileName(tsStartDate, tsEndDate, 'xlsx'))
-  }, [filteredTimesheets, tsStartDate, tsEndDate, employees])
+  }, [filteredTimesheets, filteredWorkSessions, tsStartDate, tsEndDate, employees])
 
   const handleExportPDF = useCallback(async () => {
     if (!filteredTimesheets.length) {
@@ -2828,17 +2991,33 @@ export function ProjectManagement() {
     // ── Detailed time logs ──
     cursorY = addSectionTitle('Detailed Time Logs', cursorY)
 
-    const tableHeaders = ['Employee', 'Project', 'Login Time', 'Logout Time', 'Break', 'Duration']
+    const tableHeaders = ['Employee', 'Project', 'Login Time', 'Logout Time', 'Break', 'Duration', 'Day Total']
 
     const tableRows = filteredWorkSessions.map((s) => {
       const { key, name } = resolveTimesheetEmployeeKey(s, employees)
+      const projectLabel =
+        s.project && s.project !== '—'
+          ? s.project
+          : s.projects?.length === 1
+            ? s.projects[0]
+            : s.projects?.length > 1
+              ? 'Multiple'
+              : '—'
+      const dayMarker = s.dayGroup.isMultiSessionDay
+        ? s.dayGroup.isLastInDayGroup
+          ? ']'
+          : '|'
+        : ''
       return [
-        `${name} (${key})`,
-        s.project,
+        `${dayMarker ? `${dayMarker} ` : ''}${name} (${key})`,
+        projectLabel,
         formatDateTime(s.loginTime),
         s.logoutTime ? formatDateTime(s.logoutTime) : '—',
         formatBreakTime(s),
         formatWorkSessionDuration(s),
+        s.dayGroup.isMultiSessionDay && s.dayGroup.isLastInDayGroup
+          ? formatDayGroupTotals(s.dayGroup)
+          : '',
       ]
     })
 
@@ -2849,13 +3028,26 @@ export function ProjectManagement() {
       startY: cursorY,
       styles: { ...tableTheme.styles, cellPadding: 4 },
       columnStyles: {
-        0: { cellWidth: contentWidth * 0.20 },
-        1: { cellWidth: contentWidth * 0.18 },
-        2: { cellWidth: contentWidth * 0.18 },
-        3: { cellWidth: contentWidth * 0.18 },
+        0: { cellWidth: contentWidth * 0.22 },
+        1: { cellWidth: contentWidth * 0.16 },
+        2: { cellWidth: contentWidth * 0.15 },
+        3: { cellWidth: contentWidth * 0.15 },
         4: { cellWidth: contentWidth * 0.08, halign: 'right' },
         5: { cellWidth: contentWidth * 0.08, halign: 'right' },
-        6: { cellWidth: contentWidth * 0.10, halign: 'center' },
+        6: { cellWidth: contentWidth * 0.16, halign: 'left' },
+      },
+      didParseCell: (data) => {
+        if (data.section !== 'body') return
+        const session = filteredWorkSessions[data.row.index]
+        if (!session?.dayGroup.isMultiSessionDay) return
+        data.cell.styles.fillColor = [236, 253, 245]
+        if (data.column.index === 0 && session.dayGroup.isLastInDayGroup) {
+          data.cell.styles.fontStyle = 'bold'
+        }
+        if (data.column.index === 6 && session.dayGroup.isLastInDayGroup) {
+          data.cell.styles.fontStyle = 'bold'
+          data.cell.styles.textColor = [22, 101, 52]
+        }
       },
     })
 
@@ -2873,7 +3065,7 @@ export function ProjectManagement() {
     }
 
     doc.save(timesheetReportFileName(tsStartDate, tsEndDate, 'pdf'))
-  }, [filteredTimesheets, tsStartDate, tsEndDate, employees])
+  }, [filteredTimesheets, filteredWorkSessions, tsStartDate, tsEndDate, employees])
 
   const clearTimesheetFilters = useCallback(() => {
     const today = formatLocalDateString()
@@ -3494,27 +3686,29 @@ export function ProjectManagement() {
           {/* Timesheet log table */}
           <div className="projects-ts-table-wrap">
             <div className="overflow-x-auto timesheet-panel-scroll">
-              <table className="w-full min-w-[720px] border-collapse text-left">
+              <table className="w-full min-w-[760px] border-collapse text-left">
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-[rgba(38,107,28,0.12)]">
+                    <th className="w-8 px-2 py-3.5 font-bold" aria-label="Day group" />
                     <th className="px-5 py-3.5 font-bold">Employee</th>
                     <th className="px-5 py-3.5 font-bold">Project</th>
                     <th className="px-5 py-3.5 font-bold">Login Time</th>
                     <th className="px-5 py-3.5 font-bold">Logout Time</th>
                     <th className="px-5 py-3.5 font-bold">Break Time</th>
                     <th className="px-5 py-3.5 font-bold">Duration</th>
+                    <th className="px-5 py-3.5 font-bold">Day Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70 text-base">
                   {timesheetsLoading && currentTimesheets.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-5 py-12 text-center text-slate-600">
+                      <td colSpan={8} className="px-5 py-12 text-center text-slate-600">
                         <Spinner className="mx-auto text-[var(--emerald-dark)]" />
                         <p className="mt-3 text-sm font-medium">Loading timesheet logs…</p>
                       </td>
                     </tr>
                   ) : null}
-                  {currentTimesheets.map((t) => {
+                  {currentTimesheets.map((t, rowIndex) => {
                     const { key: displayEmployeeId, name: displayEmployeeName } =
                       resolveTimesheetEmployeeKey(t, employees)
                     const empInfo = employees.find(
@@ -3526,12 +3720,35 @@ export function ProjectManagement() {
                     )
                     const employeeColorKey =
                       empInfo?.id || empInfo?.employeeId || displayEmployeeId || displayEmployeeName
+                    const dayLayout = currentTimesheetDayLayout[rowIndex]
+                    const projectLabel =
+                      t.project && t.project !== '—'
+                        ? t.project
+                        : t.projects?.length === 1
+                          ? t.projects[0]
+                          : t.projects?.length > 1
+                            ? 'Multiple'
+                            : '—'
 
                     return (
                       <tr
                         key={t.id}
-                        className="group transition-colors"
+                        className={cn(
+                          'group transition-colors',
+                          dayLayout?.isMulti && 'ts-day-group-row',
+                        )}
                       >
+                        {dayLayout?.showSpanCell ? (
+                          <td
+                            rowSpan={dayLayout.rowSpan}
+                            className="ts-day-group-bracket-cell"
+                          >
+                            <span className="ts-day-group-bracket-bar" aria-hidden />
+                          </td>
+                        ) : dayLayout?.isMulti ? null : (
+                          <td className="w-8 px-2 py-0" />
+                        )}
+
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
                             <Avatar
@@ -3551,27 +3768,31 @@ export function ProjectManagement() {
                         </td>
 
                         <td className="px-5 py-4">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (t.projectId) {
-                                openAuditTrail(t.projectId, t.project)
-                              } else {
-                                const found = allProjects.find((p) => p.name === t.project)
-                                if (found) {
-                                  openAuditTrail(found.id, found.name)
+                          {projectLabel === '—' ? (
+                            <span className="text-base font-semibold text-slate-400">—</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (t.projectId) {
+                                  openAuditTrail(t.projectId, projectLabel)
                                 } else {
-                                  toast.error(`Could not find project: ${t.project}`)
+                                  const found = allProjects.find((p) => p.name === projectLabel)
+                                  if (found) {
+                                    openAuditTrail(found.id, found.name)
+                                  } else {
+                                    toast.error(`Could not find project: ${projectLabel}`)
+                                  }
                                 }
-                              }
-                            }}
-                            className="group/btn block max-w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(38,107,28,0.22)] rounded-md"
-                          >
-                            <p className="flex items-center gap-1 text-base font-bold text-ink transition-colors group-hover/btn:text-[var(--emerald-dark)]">
-                              <span className="truncate">{t.project}</span>
-                              <ArrowUpRight className="h-4 w-4 shrink-0 opacity-0 text-[var(--emerald-dark)] transition-all group-hover/btn:opacity-100" />
-                            </p>
-                          </button>
+                              }}
+                              className="group/btn block max-w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(38,107,28,0.22)] rounded-md"
+                            >
+                              <p className="flex items-center gap-1 text-base font-bold text-ink transition-colors group-hover/btn:text-[var(--emerald-dark)]">
+                                <span className="truncate">{projectLabel}</span>
+                                <ArrowUpRight className="h-4 w-4 shrink-0 opacity-0 text-[var(--emerald-dark)] transition-all group-hover/btn:opacity-100" />
+                              </p>
+                            </button>
+                          )}
                         </td>
 
                         <td className="whitespace-nowrap px-5 py-4">
@@ -3605,12 +3826,32 @@ export function ProjectManagement() {
                             </p>
                           )}
                         </td>
+
+                        {dayLayout?.showSpanCell ? (
+                          <td
+                            rowSpan={dayLayout.rowSpan}
+                            className="ts-day-group-total-cell whitespace-nowrap px-5 py-4 align-middle"
+                          >
+                            <div className="ts-day-group-total">
+                              <p className="font-mono text-sm font-bold text-ink">
+                                {formatDurationFromMs(dayLayout.dayGroup?.dayTotalWorkedMs || 0)}
+                              </p>
+                              <p className="text-[11px] font-semibold text-slate-500">
+                                Break {formatDurationFromMs(dayLayout.dayGroup?.dayTotalBreakMs || 0)}
+                              </p>
+                            </div>
+                          </td>
+                        ) : dayLayout?.isMulti ? null : (
+                          <td className="whitespace-nowrap px-5 py-4">
+                            <span className="text-slate-300">—</span>
+                          </td>
+                        )}
                       </tr>
                     )
                   })}
                   {filteredWorkSessions.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-sm font-semibold text-slate-600">
+                      <td colSpan={8} className="py-12 text-center text-sm font-semibold text-slate-600">
                         No work sessions correspond to selected range and filters.
                       </td>
                     </tr>
