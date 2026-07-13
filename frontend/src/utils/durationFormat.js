@@ -145,7 +145,7 @@ export function formatBreakDisplayLabel(ms, { isDefault = false } = {}) {
 }
 
 export function isDefaultBreakDeduction({ breakMs = 0, defaultBreakDeductedMs = 0, displayBreakMs = 0 } = {}) {
-  return defaultBreakDeductedMs > 0 && breakMs <= 0 && defaultBreakMs > 0
+  return defaultBreakDeductedMs > 0 && breakMs <= 0 && displayBreakMs > 0
 }
 
 /** Live header timer with days, hours, minutes, and seconds. e.g. "0d 0h 8m 45s". */
