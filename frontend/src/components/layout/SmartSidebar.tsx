@@ -1,6 +1,5 @@
 import {
   BookOpen,
-  Briefcase,
   CalendarCheck,
   Clock,
   CalendarDays,

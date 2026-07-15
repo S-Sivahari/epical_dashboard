@@ -13,11 +13,6 @@ export const employeeNavItems = [
     headerTitle: 'Timesheets',
   },
   {
-    to: '/employee/project-analysis/projects',
-    label: 'Projects',
-    headerTitle: 'Projects',
-  },
-  {
     to: '/employee/leave',
     label: 'Leave Request',
     headerTitle: 'Leave Request',
@@ -69,7 +64,6 @@ export const employeeNavGroups = [
     label: 'Work',
     items: [
       { to: '/employee/timesheet', label: 'Timesheets' },
-      { to: '/employee/project-analysis/projects', label: 'Projects' },
       { to: '/employee/leave', label: 'Leave Request' },
       { to: '/employee/calendar', label: 'Company Calendar' },
     ],

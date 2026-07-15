@@ -78,7 +78,7 @@ const metalRoutingAnalysisSchema = new Schema<MetalRoutingAnalysisDocument>(
 
 metalRoutingAnalysisSchema.index(
   { projectId: 1, signal: 1, fromCell: 1, toCell: 1 },
-  { unique: true, partialFilterExpression: { signal: { $type: 'string', $ne: '' } } },
+  { unique: true, partialFilterExpression: { signal: { $type: 'string', $gt: '' } } },
 );
 
 export const MetalRoutingAnalysisModel = model<MetalRoutingAnalysisDocument>(

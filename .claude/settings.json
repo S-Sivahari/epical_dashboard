@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -c /tmp/cookies.txt -w '\\\\nstatus:%{http_code}\\\\n' -X POST http://localhost:3000/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"admin@company.com\",\"password\":\"admin123\"}')"
+    ]
+  }
+}

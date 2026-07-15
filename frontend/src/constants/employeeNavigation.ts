@@ -1,7 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   BookOpen,
-  Briefcase,
   CalendarDays,
   CalendarOff,
   Clock,
@@ -47,12 +46,6 @@ export const EMPLOYEE_NAV_ITEMS: EmployeeNavItem[] = [
     label: 'Timesheets',
     navLabel: 'Timesheets',
     icon: Clock,
-  },
-  {
-    to: '/employee/project-analysis/projects',
-    label: 'Projects',
-    navLabel: 'Projects',
-    icon: Briefcase,
   },
   {
     to: '/employee/leave',

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
-import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
-import { ArrowLeft, Briefcase, CircuitBoard, NotebookPen } from 'lucide-react'
+import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
+import { Briefcase, CircuitBoard, NotebookPen } from 'lucide-react'
 import { CompanyLogo } from '@components/auth/CompanyLogo'
 import { ROUTES } from '@constants/routes'
 import { useAuthStore } from '@store/authStore'
@@ -88,16 +88,6 @@ export function ProjectAnalysisLayout() {
         </div>
 
         <div className="pm-cmd-bar__brand project-analysis-layout__brand">
-          {isEmployeePortal ? (
-            <Link
-              to={ROUTES.EMPLOYEE_TIMESHEET}
-              className="project-analysis-layout__back"
-              aria-label="Back to Timesheets"
-            >
-              <ArrowLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
-              <span>Timesheets</span>
-            </Link>
-          ) : null}
           <div className="pm-cmd-bar__logo-slot">
             <CompanyLogo
               className="project-analysis-layout__brand-logo pm-cmd-bar__logo"
