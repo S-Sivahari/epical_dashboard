@@ -42,7 +42,10 @@ import {
   sendReviewNotificationsFromCell,
   findNewlyPendingLayoutReviews,
   findNewlyPendingSchematicReview,
+  findNewlyResolvedLayoutReviews,
+  findNewlyResolvedSchematicReview,
   ensurePendingReviewNotifications,
+  ensureReviewResolvedNotifications,
 } from '../services/cellReviewNotificationService';
 import { notifyEmployeeCellAssigned } from '../services/cellAssignmentNotificationService';
 import { clearResponsesForCell, normalizeCellType } from '../services/projectTypeChecklistService';
@@ -1218,7 +1221,7 @@ export const projectWorkspaceController = {
 
       await reconcileCellProductiveTime(projectId, cellId, cell, actor);
 
-      void sendReviewNotificationsFromCell({
+      await sendReviewNotificationsFromCell({
         projectId,
         cellId,
         reviewId: review._id.toString(),
@@ -1327,6 +1330,24 @@ export const projectWorkspaceController = {
         });
       }
 
+      const resolvedEntries = findNewlyResolvedLayoutReviews(
+        prevWorkflow,
+        nextWorkflow,
+        rejectReturnTo === 'floor_plan' || rejectReturnTo === 'routing' ? rejectReturnTo : null,
+      );
+      if (resolvedEntries.length) {
+        await ensureReviewResolvedNotifications({
+          projectId,
+          cellId,
+          resolvedBy: actor.userId,
+          resolvedByName: actor.userName,
+          assignedEmployeeId: cell.assignedEmployeeId,
+          entries: resolvedEntries,
+        }).catch((notifyErr) => {
+          console.error('[workspace] review-resolve notification failed:', notifyErr);
+        });
+      }
+
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
       res.json(await toCellWithDuration(cell, meta));
     } catch (err) {
@@ -1394,18 +1415,42 @@ export const projectWorkspaceController = {
       await cell.save();
 
       const schematicPending = findNewlyPendingSchematicReview(prevWorkflow, result.workflow);
-      void ensurePendingReviewNotifications({
-        projectId,
-        cellId,
-        employeeName: cell.assignedEmployeeName || actor.userName,
-        initiatedBy: actor.userId,
-        initiatedByName: actor.userName,
-        assignedEmployeeId: cell.assignedEmployeeId,
-        authorRole: actor.role === 'Employee' ? 'Employee' : 'Admin',
-        entries: schematicPending ? [schematicPending] : [],
-      }).catch((notifyErr) => {
-        console.error('[workspace] schematic review-stage notification failed:', notifyErr);
-      });
+      if (schematicPending) {
+        await ensurePendingReviewNotifications({
+          projectId,
+          cellId,
+          employeeName: cell.assignedEmployeeName || actor.userName,
+          initiatedBy: actor.userId,
+          initiatedByName: actor.userName,
+          assignedEmployeeId: cell.assignedEmployeeId,
+          authorRole: actor.role === 'Employee' ? 'Employee' : 'Admin',
+          entries: [schematicPending],
+        }).catch((notifyErr) => {
+          console.error('[workspace] schematic review-stage notification failed:', notifyErr);
+        });
+      }
+
+      const schematicResolved = findNewlyResolvedSchematicReview(
+        prevWorkflow,
+        result.workflow,
+        rejectReturnTo === 'design' ||
+          rejectReturnTo === 'simulation' ||
+          rejectReturnTo === 'data_collection'
+          ? rejectReturnTo
+          : null,
+      );
+      if (schematicResolved) {
+        await ensureReviewResolvedNotifications({
+          projectId,
+          cellId,
+          resolvedBy: actor.userId,
+          resolvedByName: actor.userName,
+          assignedEmployeeId: cell.assignedEmployeeId,
+          entries: [schematicResolved],
+        }).catch((notifyErr) => {
+          console.error('[workspace] schematic review-resolve notification failed:', notifyErr);
+        });
+      }
 
       const meta = await computeDependencyMeta(new Types.ObjectId(projectId), cell);
       res.json(await toCellWithDuration(cell, meta));

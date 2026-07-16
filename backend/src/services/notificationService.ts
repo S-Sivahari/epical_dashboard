@@ -175,12 +175,13 @@ export async function notifyAllEmployees(
 }
 
 export async function createNotification(
-  payload: CreateNotificationPayload
+  payload: CreateNotificationPayload & { skipEmail?: boolean }
 ): Promise<Notification> {
   const col = getNotificationCol();
+  const { skipEmail, ...notificationPayload } = payload;
   const id = `N-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const notification: any = {
-    ...payload,
+    ...notificationPayload,
     id,
     isRead: false,
     createdAt: new Date(),
@@ -189,9 +190,11 @@ export async function createNotification(
   await col.insertOne(notification);
 
   // Trigger email notification asynchronously in the background so it doesn't block the API
-  triggerEmailNotification(notification).catch((err) => {
-    console.error('[Notification Service] Background email notification failed:', err);
-  });
+  if (!skipEmail) {
+    triggerEmailNotification(notification).catch((err) => {
+      console.error('[Notification Service] Background email notification failed:', err);
+    });
+  }
 
   return notification as Notification;
 }

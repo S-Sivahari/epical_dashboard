@@ -16,6 +16,13 @@ export type PendingReviewEntry = {
   stageAtRequest: string;
 };
 
+export type ResolvedReviewEntry = {
+  reviewPoint: 'r1' | 'r2' | 'schematic';
+  stageAtRequest: string;
+  outcome: 'approved' | 'rejected';
+  returnToStage?: string | null;
+};
+
 type StageLike = { stageKey: string; status: string };
 
 /** Detect layout review stages that newly entered pending_review. */
@@ -35,6 +42,35 @@ export function findNewlyPendingLayoutReviews(prev: StageLike[], next: StageLike
   return entries;
 }
 
+/** Detect layout review stages newly approved or rejected. */
+export function findNewlyResolvedLayoutReviews(
+  prev: StageLike[],
+  next: StageLike[],
+  rejectReturnTo?: string | null,
+): ResolvedReviewEntry[] {
+  const map: Array<{ key: string; reviewPoint: 'r1' | 'r2'; stageAtRequest: string }> = [
+    { key: 'review_1', reviewPoint: 'r1', stageAtRequest: 'drc_r1' },
+    { key: 'review_2', reviewPoint: 'r2', stageAtRequest: 'lvs_r2' },
+  ];
+  const entries: ResolvedReviewEntry[] = [];
+  for (const item of map) {
+    const prevStatus = prev.find((s) => s.stageKey === item.key)?.status;
+    const nextStatus = next.find((s) => s.stageKey === item.key)?.status;
+    if (
+      prevStatus !== nextStatus &&
+      (nextStatus === 'approved' || nextStatus === 'rejected')
+    ) {
+      entries.push({
+        reviewPoint: item.reviewPoint,
+        stageAtRequest: item.stageAtRequest,
+        outcome: nextStatus,
+        returnToStage: nextStatus === 'rejected' ? rejectReturnTo || null : null,
+      });
+    }
+  }
+  return entries;
+}
+
 /** Detect schematic review stage newly entering pending_review. */
 export function findNewlyPendingSchematicReview(
   prev: StageLike[],
@@ -44,6 +80,28 @@ export function findNewlyPendingSchematicReview(
   const nextStatus = next.find((s) => s.stageKey === 'schematic_review')?.status;
   if (prevStatus !== 'pending_review' && nextStatus === 'pending_review') {
     return { reviewPoint: 'schematic', stageAtRequest: 'schematic' };
+  }
+  return null;
+}
+
+/** Detect schematic review newly approved or rejected. */
+export function findNewlyResolvedSchematicReview(
+  prev: StageLike[],
+  next: StageLike[],
+  rejectReturnTo?: string | null,
+): ResolvedReviewEntry | null {
+  const prevStatus = prev.find((s) => s.stageKey === 'schematic_review')?.status;
+  const nextStatus = next.find((s) => s.stageKey === 'schematic_review')?.status;
+  if (
+    prevStatus !== nextStatus &&
+    (nextStatus === 'approved' || nextStatus === 'rejected')
+  ) {
+    return {
+      reviewPoint: 'schematic',
+      stageAtRequest: 'schematic',
+      outcome: nextStatus,
+      returnToStage: nextStatus === 'rejected' ? rejectReturnTo || null : null,
+    };
   }
   return null;
 }
@@ -122,6 +180,93 @@ export async function ensurePendingReviewNotifications(params: {
   }
 }
 
+/**
+ * When a review stage is approved/rejected (e.g. via workflow dropdown), close any open
+ * CellReview and notify the assigned employee (in-app + email).
+ */
+export async function ensureReviewResolvedNotifications(params: {
+  projectId: string;
+  cellId: string;
+  resolvedBy: string;
+  resolvedByName: string;
+  assignedEmployeeId?: string | null;
+  entries: ResolvedReviewEntry[];
+}): Promise<void> {
+  if (!params.entries.length) return;
+
+  for (const entry of params.entries) {
+    try {
+      let review =
+        entry.reviewPoint === 'schematic'
+          ? await CellReviewModel.findOne({
+              cellId: params.cellId,
+              status: 'open',
+              stageAtRequest: 'schematic',
+            })
+          : await CellReviewModel.findOne({
+              cellId: params.cellId,
+              status: 'open',
+              reviewPoint: entry.reviewPoint,
+            });
+
+      if (!review) {
+        // Still notify even if no open review document exists
+        review = await CellReviewModel.create({
+          projectId: new Types.ObjectId(params.projectId),
+          cellId: new Types.ObjectId(params.cellId),
+          stageAtRequest: entry.stageAtRequest,
+          ...(entry.reviewPoint === 'r1' || entry.reviewPoint === 'r2'
+            ? { reviewPoint: entry.reviewPoint }
+            : {}),
+          outcome: entry.outcome,
+          status: 'resolved',
+          returnToStage: entry.returnToStage || undefined,
+          initiatedBy: params.resolvedBy,
+          initiatedByName: params.resolvedByName,
+          assignedEmployeeId: params.assignedEmployeeId || undefined,
+          resolvedBy: params.resolvedBy,
+          resolvedByName: params.resolvedByName,
+          resolvedAt: new Date(),
+          messages: [
+            {
+              authorId: params.resolvedBy,
+              authorName: params.resolvedByName,
+              authorRole: 'Admin',
+              body: `${formatReviewPointLabel(entry.reviewPoint)} review ${entry.outcome}`,
+              at: new Date(),
+            },
+          ],
+        });
+      } else {
+        review.status = 'resolved';
+        review.outcome = entry.outcome;
+        review.returnToStage = entry.returnToStage || undefined;
+        review.resolvedBy = params.resolvedBy;
+        review.resolvedByName = params.resolvedByName;
+        review.resolvedAt = new Date();
+        await review.save();
+      }
+
+      await sendReviewNotificationsFromCell({
+        projectId: params.projectId,
+        cellId: params.cellId,
+        reviewId: review._id.toString(),
+        reviewPoint: entry.reviewPoint,
+        stageAtRequest: entry.stageAtRequest,
+        mode: 'resolved',
+        outcome: entry.outcome,
+        returnToStage: entry.returnToStage,
+        resolvedByName: params.resolvedByName,
+      });
+    } catch (err) {
+      console.error(
+        `[Cell Review] Failed to notify for ${entry.outcome} ${entry.reviewPoint} on cell ${params.cellId}:`,
+        err,
+      );
+    }
+  }
+}
+
 const STAGE_LABELS: Record<string, string> = {
   floor_plan: 'Floor Plan',
   drc_r1: 'DRC (R1)',
@@ -144,16 +289,28 @@ async function resolveEmployeeRecipient(assignedEmployeeId?: string | null) {
     { $or: [{ id: assigned }, { employeeId: assigned }] },
     { projection: { id: 1, employeeId: 1, firstName: 1, lastName: 1, email: 1, personalEmail: 1 } },
   );
-  if (!employee) return { recipientId: assigned, employeeName: 'Engineer', employeeEmail: '' };
+  if (employee) {
+    const employeeName = [employee.firstName, employee.lastName].filter(Boolean).join(' ').trim() || 'Engineer';
+    const employeeEmail = getEmployeeOfficialEmail(employee) || '';
+    return {
+      recipientId: String(employee.id || assigned),
+      employeeName,
+      employeeEmail,
+    };
+  }
 
-  const employeeName = [employee.firstName, employee.lastName].filter(Boolean).join(' ').trim() || 'Engineer';
-  const employeeEmail = getEmployeeOfficialEmail(employee) || '';
+  const user = await db.collection('users').findOne({
+    $or: [{ id: assigned }, { email: assigned }],
+  });
+  if (user) {
+    return {
+      recipientId: String(user.id || assigned),
+      employeeName: String(user.name || 'Engineer'),
+      employeeEmail: String(user.email || ''),
+    };
+  }
 
-  return {
-    recipientId: String(employee.id || assigned),
-    employeeName,
-    employeeEmail,
-  };
+  return { recipientId: assigned, employeeName: 'Engineer', employeeEmail: '' };
 }
 
 function formatReviewPointLabel(reviewPoint: string): string {
@@ -312,7 +469,12 @@ export async function notifyEmployeeCellReviewResolved(params: {
   projectName: string;
 }): Promise<void> {
   const recipient = await resolveEmployeeRecipient(params.assignedEmployeeId);
-  if (!recipient) return;
+  if (!recipient) {
+    console.warn(
+      `[Cell Review] No assigned employee to notify for ${params.outcome} on cell ${params.cellId}`,
+    );
+    return;
+  }
 
   const reviewLabel = formatReviewPointLabel(params.reviewPoint);
   const stage = stageLabel(params.stageAtRequest);
@@ -348,7 +510,38 @@ export async function notifyEmployeeCellReviewResolved(params: {
       employeeName: recipient.employeeName,
       employeeEmail: recipient.employeeEmail,
     },
+    skipEmail: true,
   });
+
+  // Explicit employee email for approve/reject
+  if (recipient.employeeEmail) {
+    try {
+      const sent = await emailService.sendCellReviewEmail({
+        recipientEmail: recipient.employeeEmail,
+        recipientName: recipient.employeeName,
+        projectId: params.projectId,
+        cellId: params.cellId,
+        projectName: params.projectName,
+        cellName: params.cellName,
+        reviewPoint: reviewLabel,
+        stageLabel: stage,
+        outcome: params.outcome,
+        returnToStage: params.returnToStage
+          ? stageLabel(params.returnToStage)
+          : undefined,
+        resolvedByName: params.resolvedByName,
+      });
+      console.log(
+        `[Cell Review] ${reviewLabel} ${params.outcome} email ${sent ? 'sent' : 'failed'} to ${recipient.employeeEmail}`,
+      );
+    } catch (error) {
+      console.error(`[Cell Review] Failed to send ${reviewLabel} ${params.outcome} email:`, error);
+    }
+  } else {
+    console.warn(
+      `[Cell Review] No email for employee ${recipient.recipientId}; in-app ${params.outcome} notification only`,
+    );
+  }
 }
 
 export async function sendReviewNotificationsFromCell(params: {
