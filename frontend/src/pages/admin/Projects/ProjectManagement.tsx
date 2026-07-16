@@ -152,6 +152,7 @@ interface WorkSessionLog {
   workDayType: 'half_day' | 'full_day' | null
   sessionStatus: string
   autoCheckedOut: boolean
+  workDescription?: string
 }
 
 
@@ -1828,6 +1829,10 @@ export function ProjectManagement() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const employeesRevision = useEmployeeStore((s) => s.employeesRevision)
 
+  // ── Timesheet export options (with / without work description) ──
+  const [exportFormatPending, setExportFormatPending] = useState<'excel' | 'pdf' | null>(null)
+  const [exportingTimesheet, setExportingTimesheet] = useState(false)
+
   // ── Project Audit Trail Modal States ────────────────────────────
   const [auditTrailModalOpen, setAuditTrailModalOpen] = useState(false)
   const [selectedAuditProjectId, setSelectedAuditProjectId] = useState<string | null>(null)
@@ -2495,12 +2500,13 @@ export function ProjectManagement() {
   }, [tsSearch, tsStartDate, tsEndDate, tsEmployeeFilters, tsProjectFilters, tsStatusFilters])
 
   // ── Export Implementations (Excel / PDF) ─────────────────────
-  const handleExportExcel = useCallback(async () => {
+  const handleExportExcel = useCallback(async (includeWorkDescription: boolean) => {
     if (!filteredTimesheets.length) {
       toast.error('No timesheet data available to export.')
       return
     }
 
+    const detailColCount = includeWorkDescription ? 10 : 9
     const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets, employees)
     const workbook = new ExcelJS.Workbook()
     const sheet = workbook.addWorksheet('Timesheet Report')
@@ -2513,7 +2519,7 @@ export function ProjectManagement() {
 
     // Helper to merge and style banner headers
     const addMainHeader = (r: number, text: string, bgColor: string, fontSize: number, height: number) => {
-      sheet.mergeCells(r, 1, r, 6)
+      sheet.mergeCells(r, 1, r, detailColCount)
       const cell = sheet.getCell(r, 1)
       cell.value = text
       cell.font = { name: 'Segoe UI', size: fontSize, bold: true, color: { argb: 'FFFFFFFF' } }
@@ -2530,7 +2536,7 @@ export function ProjectManagement() {
 
     // Helper to add section headers
     const addSectionHeader = (r: number, text: string, bgColor: string) => {
-      sheet.mergeCells(r, 1, r, 6)
+      sheet.mergeCells(r, 1, r, detailColCount)
       const cell = sheet.getCell(r, 1)
       cell.value = text
       cell.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FFFFFFFF' } }
@@ -2559,13 +2565,17 @@ export function ProjectManagement() {
 
     // Helper to style data cells
     const styleDataRow = (r: number, colCount: number, isEven: boolean, alignments: ('left' | 'center' | 'right')[]) => {
-      sheet.getRow(r).height = 20
+      sheet.getRow(r).height = includeWorkDescription ? 28 : 20
       const rowBg = isEven ? 'FFFFFFFF' : 'FFF9FAFB'
       for (let c = 1; c <= colCount; c++) {
         const cell = sheet.getCell(r, c)
         cell.font = { name: 'Segoe UI', size: 9, color: { argb: 'FF374151' } } // Slate-700
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } }
-        cell.alignment = { horizontal: alignments[c - 1] || 'left', vertical: 'middle' }
+        cell.alignment = {
+          horizontal: alignments[c - 1] || 'left',
+          vertical: 'middle',
+          wrapText: includeWorkDescription && c === detailColCount,
+        }
         cell.border = {
           top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
           bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
@@ -2721,7 +2731,10 @@ export function ProjectManagement() {
     sheet.getCell(currentRow, 7).value = 'Worked'
     sheet.getCell(currentRow, 8).value = 'Day Group'
     sheet.getCell(currentRow, 9).value = 'Day Total (Worked / Break)'
-    styleTableHeader(currentRow, 9, 'FF0284C7') // Sky-600
+    if (includeWorkDescription) {
+      sheet.getCell(currentRow, 10).value = 'Work Description'
+    }
+    styleTableHeader(currentRow, detailColCount, 'FF0284C7') // Sky-600
     currentRow++
 
     filteredWorkSessions.forEach((s, idx) => {
@@ -2748,8 +2761,11 @@ export function ProjectManagement() {
         s.dayGroup.isMultiSessionDay && s.dayGroup.isLastInDayGroup
           ? formatDayGroupTotals(s.dayGroup)
           : ''
+      if (includeWorkDescription) {
+        sheet.getCell(currentRow, 10).value = String(s.workDescription || '').trim() || '—'
+      }
 
-      styleDataRow(currentRow, 9, idx % 2 === 0, [
+      const alignments: ('left' | 'center' | 'right')[] = [
         'left',
         'center',
         'left',
@@ -2759,7 +2775,10 @@ export function ProjectManagement() {
         'center',
         'center',
         'left',
-      ])
+      ]
+      if (includeWorkDescription) alignments.push('left')
+
+      styleDataRow(currentRow, detailColCount, idx % 2 === 0, alignments)
       currentRow++
     })
 
@@ -2771,6 +2790,10 @@ export function ProjectManagement() {
       { width: 24 }, // Col 4 (Login / Summary right side labels)
       { width: 24 }, // Col 5 (Logout / Summary right side values)
       { width: 14 }, // Col 6 (Total Hours / merged right side values)
+      { width: 14 },
+      { width: 12 },
+      { width: 22 },
+      ...(includeWorkDescription ? [{ width: 40 }] : []),
     ]
 
     // Auto-adjust column widths programmatically based on content, avoiding merged headers
@@ -2793,7 +2816,7 @@ export function ProjectManagement() {
 
       const currentWidth = column.width || 12
       if (maxLen > 0) {
-        column.width = Math.max(maxLen + 4, currentWidth)
+        column.width = Math.min(Math.max(maxLen + 4, currentWidth), includeWorkDescription ? 48 : 40)
       }
     })
 
@@ -2801,7 +2824,7 @@ export function ProjectManagement() {
     downloadExcelBuffer(buffer, timesheetReportFileName(tsStartDate, tsEndDate, 'xlsx'))
   }, [filteredTimesheets, filteredWorkSessions, tsStartDate, tsEndDate, employees])
 
-  const handleExportPDF = useCallback(async () => {
+  const handleExportPDF = useCallback(async (includeWorkDescription: boolean) => {
     if (!filteredTimesheets.length) {
       toast.error('No timesheet data available to export.')
       return
@@ -2812,16 +2835,19 @@ export function ProjectManagement() {
     // Sort leaderboard alphabetically matching the A-Z requirement
     const sortedLeaderboard = [...leaderboard].sort((a, b) => a.name.localeCompare(b.name))
 
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt' })
-    const pageWidth = doc.internal.pageSize.width || 595
-    const pageHeight = doc.internal.pageSize.height || 842
+    const doc = new jsPDF({
+      orientation: includeWorkDescription ? 'landscape' : 'portrait',
+      unit: 'pt',
+    })
+    const pageWidth = doc.internal.pageSize.width || (includeWorkDescription ? 842 : 595)
+    const pageHeight = doc.internal.pageSize.height || (includeWorkDescription ? 595 : 842)
     const marginX = 36
     const contentWidth = pageWidth - marginX * 2
 
     const logo = await fetchExportLogo()
 
     const tableTheme = {
-      styles: { fontSize: 7.5, cellPadding: 4, overflow: 'linebreak' as const },
+      styles: { fontSize: includeWorkDescription ? 7 : 7.5, cellPadding: 4, overflow: 'linebreak' as const },
       headStyles: { fillColor: [30, 41, 59] as [number, number, number], fontStyle: 'bold' as const, textColor: [255, 255, 255] as [number, number, number] },
       alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
       theme: 'grid' as const,
@@ -2991,7 +3017,9 @@ export function ProjectManagement() {
     // ── Detailed time logs ──
     cursorY = addSectionTitle('Detailed Time Logs', cursorY)
 
-    const tableHeaders = ['Employee', 'Project', 'Login Time', 'Logout Time', 'Break', 'Duration', 'Day Total']
+    const tableHeaders = includeWorkDescription
+      ? ['Employee', 'Project', 'Login Time', 'Logout Time', 'Break', 'Duration', 'Day Total', 'Work Description']
+      : ['Employee', 'Project', 'Login Time', 'Logout Time', 'Break', 'Duration', 'Day Total']
 
     const tableRows = filteredWorkSessions.map((s) => {
       const { key, name } = resolveTimesheetEmployeeKey(s, employees)
@@ -3008,7 +3036,7 @@ export function ProjectManagement() {
           ? ']'
           : '|'
         : ''
-      return [
+      const row = [
         `${dayMarker ? `${dayMarker} ` : ''}${name} (${key})`,
         projectLabel,
         formatDateTime(s.loginTime),
@@ -3019,6 +3047,10 @@ export function ProjectManagement() {
           ? formatDayGroupTotals(s.dayGroup)
           : '',
       ]
+      if (includeWorkDescription) {
+        row.push(String(s.workDescription || '').trim() || '—')
+      }
+      return row
     })
 
     autoTable(doc, {
@@ -3027,15 +3059,26 @@ export function ProjectManagement() {
       body: tableRows,
       startY: cursorY,
       styles: { ...tableTheme.styles, cellPadding: 4 },
-      columnStyles: {
-        0: { cellWidth: contentWidth * 0.22 },
-        1: { cellWidth: contentWidth * 0.16 },
-        2: { cellWidth: contentWidth * 0.15 },
-        3: { cellWidth: contentWidth * 0.15 },
-        4: { cellWidth: contentWidth * 0.08, halign: 'right' },
-        5: { cellWidth: contentWidth * 0.08, halign: 'right' },
-        6: { cellWidth: contentWidth * 0.16, halign: 'left' },
-      },
+      columnStyles: includeWorkDescription
+        ? {
+            0: { cellWidth: contentWidth * 0.16 },
+            1: { cellWidth: contentWidth * 0.12 },
+            2: { cellWidth: contentWidth * 0.11 },
+            3: { cellWidth: contentWidth * 0.11 },
+            4: { cellWidth: contentWidth * 0.06, halign: 'right' },
+            5: { cellWidth: contentWidth * 0.06,halign: 'right' },
+            6: { cellWidth: contentWidth * 0.12,halign: 'left' },
+            7: { cellWidth: contentWidth * 0.26,halign: 'left' },
+          }
+        : {
+            0: { cellWidth: contentWidth * 0.22 },
+            1: { cellWidth: contentWidth * 0.16 },
+            2: { cellWidth: contentWidth * 0.15 },
+            3: { cellWidth: contentWidth * 0.15 },
+            4: { cellWidth: contentWidth * 0.08,halign: 'right' },
+            5: { cellWidth: contentWidth * 0.08,halign: 'right' },
+            6: { cellWidth: contentWidth * 0.16,halign: 'left' },
+          },
       didParseCell: (data) => {
         if (data.section !== 'body') return
         const session = filteredWorkSessions[data.row.index]
@@ -3066,6 +3109,33 @@ export function ProjectManagement() {
 
     doc.save(timesheetReportFileName(tsStartDate, tsEndDate, 'pdf'))
   }, [filteredTimesheets, filteredWorkSessions, tsStartDate, tsEndDate, employees])
+
+  const openTimesheetExport = useCallback((format: 'excel' | 'pdf') => {
+    if (!filteredTimesheets.length) {
+      toast.error('No timesheet data available to export.')
+      return
+    }
+    setExportFormatPending(format)
+  }, [filteredTimesheets.length])
+
+  const confirmTimesheetExport = useCallback(async (includeWorkDescription: boolean) => {
+    const format = exportFormatPending
+    if (!format) return
+    setExportingTimesheet(true)
+    try {
+      if (format === 'excel') {
+        await handleExportExcel(includeWorkDescription)
+      } else {
+        await handleExportPDF(includeWorkDescription)
+      }
+      setExportFormatPending(null)
+    } catch (err) {
+      console.error('[timesheet-export]', err)
+      toast.error('Failed to export timesheet report.')
+    } finally {
+      setExportingTimesheet(false)
+    }
+  }, [exportFormatPending, handleExportExcel, handleExportPDF])
 
   const clearTimesheetFilters = useCallback(() => {
     const today = formatLocalDateString()
@@ -3552,7 +3622,7 @@ export function ProjectManagement() {
                   <div className="flex w-full shrink-0 items-center justify-end gap-2.5 sm:ml-auto sm:w-auto">
                     <button
                       type="button"
-                      onClick={handleExportExcel}
+                      onClick={() => openTimesheetExport('excel')}
                       className="inline-flex h-11 min-w-[9.75rem] shrink-0 flex-row items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[rgba(38,107,28,0.25)] bg-white px-4 text-sm font-bold text-[var(--emerald-dark)] transition-all hover:bg-emerald-50"
                     >
                       <FileSpreadsheet className="h-4 w-4 shrink-0" />
@@ -3560,7 +3630,7 @@ export function ProjectManagement() {
                     </button>
                     <button
                       type="button"
-                      onClick={handleExportPDF}
+                      onClick={() => openTimesheetExport('pdf')}
                       className="inline-flex h-11 min-w-[9.75rem] shrink-0 flex-row items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 px-4 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md"
                     >
                       <FileDown className="h-4 w-4 shrink-0" />
@@ -4013,7 +4083,46 @@ export function ProjectManagement() {
         </form>
       </Modal>
 
-
+      <Modal
+        isOpen={exportFormatPending !== null}
+        title="Export Timesheet Report"
+        onClose={() => {
+          if (!exportingTimesheet) setExportFormatPending(null)
+        }}
+        size="sm"
+        modal
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Include check-in work description in the{' '}
+            {exportFormatPending === 'excel' ? 'Excel' : 'PDF'} export?
+          </p>
+          <p className="text-xs text-slate-500">
+            Choosing <strong>With check-in entry</strong> adds a Work Description column using the
+            text entered when the employee checked out.
+          </p>
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={exportingTimesheet}
+              onClick={() => void confirmTimesheetExport(false)}
+              className="rounded-xl font-bold"
+            >
+              Without check-in entry
+            </Button>
+            <Button
+              type="button"
+              loading={exportingTimesheet}
+              disabled={exportingTimesheet}
+              onClick={() => void confirmTimesheetExport(true)}
+              className="admin-dash-action-btn rounded-xl font-bold border-0"
+            >
+              With check-in entry
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Project Audit Trail Modal */}
       {selectedAuditProjectId && (

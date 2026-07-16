@@ -23,6 +23,8 @@ export type WorkSessionRow = {
   workDayType: 'half_day' | 'full_day' | null;
   sessionStatus: string;
   autoCheckedOut: boolean;
+  /** Checkout / task work description(s) from overlapping timesheet logs. */
+  workDescription?: string;
 };
 
 type SessionQuery = {
@@ -45,6 +47,7 @@ type TaskProjectRow = {
   employeeId?: string | null;
   loginTime?: Date | string;
   logoutTime?: Date | string | null;
+  task?: string | null;
 };
 
 /** Allow slight clock skew between attendance check-in and timesheet loginTime. */
@@ -298,9 +301,8 @@ async function projectsForAttendanceWindow(
     checkedInProjectName?: string | null;
   },
   identityTokens: string[],
-): Promise<{ names: string[]; projectId?: string }> {
+): Promise<{ names: string[]; projectId?: string; workDescription?: string }> {
   const pinned = pinnedProjectsFromAttendance(attendance);
-  if (pinned.names.length === 1 && pinned.names[0] !== 'Multiple') return pinned;
 
   const tokens = Array.from(
     new Set(
@@ -309,7 +311,9 @@ async function projectsForAttendanceWindow(
         .filter(Boolean),
     ),
   );
-  if (tokens.length === 0) return { names: [] };
+  if (tokens.length === 0) {
+    return { names: pinned.names, projectId: pinned.projectId, workDescription: '' };
+  }
 
   const checkInTime = new Date(attendance.checkInTime);
   const windowEnd = attendance.checkOutTime ? new Date(attendance.checkOutTime) : new Date();
@@ -330,12 +334,22 @@ async function projectsForAttendanceWindow(
       { loginTime: { $gte: rangeStart, $lte: rangeEnd } },
     ],
   })
-    .select({ project: 1, projectId: 1, employee: 1, employeeId: 1, loginTime: 1, logoutTime: 1 })
+    .select({ project: 1, projectId: 1, employee: 1, employeeId: 1, loginTime: 1, logoutTime: 1, task: 1 })
     .sort({ loginTime: 1 })
     .lean();
 
   const tokenSet = new Set(tokens);
-  return projectsFromTasksForWindow(tasks, checkInTime, windowEnd, tokenSet);
+  const workDescription = workDescriptionsFromTasksForWindow(tasks, checkInTime, windowEnd, tokenSet);
+
+  if (pinned.names.length === 1 && pinned.names[0] !== 'Multiple') {
+    return { ...pinned, workDescription };
+  }
+
+  const matched = projectsFromTasksForWindow(tasks, checkInTime, windowEnd, tokenSet);
+  if (matched.names.length === 0 && pinned.names.length > 0) {
+    return { ...pinned, workDescription };
+  }
+  return { ...matched, workDescription };
 }
 
 function projectsFromTasksForWindow(
@@ -365,6 +379,30 @@ function projectsFromTasksForWindow(
     }
   }
   return { names, projectId };
+}
+
+/** Collect checkout / task descriptions for timesheets overlapping an attendance window. */
+function workDescriptionsFromTasksForWindow(
+  tasks: TaskProjectRow[],
+  checkInTime: Date,
+  windowEnd: Date,
+  attendanceTokens?: Set<string>,
+): string {
+  const descriptions: string[] = [];
+  const seen = new Set<string>();
+
+  for (const task of tasks) {
+    if (attendanceTokens && !taskMatchesIdentity(task, attendanceTokens)) continue;
+    if (!taskOverlapsAttendanceWindow(task, checkInTime, windowEnd)) continue;
+    const text = String(task.task || '').trim();
+    if (!text) continue;
+    const key = text.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    descriptions.push(text);
+  }
+
+  return descriptions.join(' | ');
 }
 
 function formatProjectLabel(names: string[]): string {
@@ -438,7 +476,7 @@ export async function enrichAttendanceHistoryRows(
         { loginTime: { $gte: new Date(rangeStart), $lte: new Date(rangeEnd) } },
       ],
     })
-      .select({ project: 1, projectId: 1, employee: 1, employeeId: 1, loginTime: 1, logoutTime: 1 })
+      .select({ project: 1, projectId: 1, employee: 1, employeeId: 1, loginTime: 1, logoutTime: 1, task: 1 })
       .sort({ loginTime: 1 })
       .lean();
   }
@@ -459,6 +497,12 @@ export async function enrichAttendanceHistoryRows(
     const projectNames = matched.names;
     const { displayWorkedMs, displayBreakMs } = resolveAttendanceHistoryMetrics(attendance);
     const breakMs = sessionBreakMs(attendance);
+    const workDescription = workDescriptionsFromTasksForWindow(
+      tasks,
+      checkInTime,
+      windowEnd,
+      sharedTokenSet,
+    );
 
     return {
       id: String(attendance._id),
@@ -479,6 +523,7 @@ export async function enrichAttendanceHistoryRows(
         ? (attendance.sessionStatus ?? 'Completed')
         : (attendance.sessionStatus ?? 'Active'),
       autoCheckedOut: attendance.autoCheckedOut ?? false,
+      workDescription,
     };
   });
 }
@@ -609,6 +654,7 @@ export async function enrichAttendanceSessionRow(
       ? (attendance.sessionStatus ?? 'Completed')
       : (attendance.sessionStatus ?? 'Active'),
     autoCheckedOut: attendance.autoCheckedOut ?? false,
+    workDescription: matched.workDescription || '',
   };
 }
 
@@ -718,7 +764,7 @@ export async function listWorkSessionsForAdmin(query: SessionQuery): Promise<Wor
         { loginTime: { $gte: new Date(rangeStart), $lte: new Date(rangeEnd) } },
       ],
     })
-      .select({ project: 1, projectId: 1, employee: 1, employeeId: 1, loginTime: 1, logoutTime: 1 })
+      .select({ project: 1, projectId: 1, employee: 1, employeeId: 1, loginTime: 1, logoutTime: 1, task: 1 })
       .sort({ loginTime: 1 })
       .lean();
   }
@@ -743,6 +789,12 @@ export async function listWorkSessionsForAdmin(query: SessionQuery): Promise<Wor
 
     const { displayWorkedMs, displayBreakMs } = resolveAttendanceHistoryMetrics(attendance);
     const breakMs = sessionBreakMs(attendance);
+    const workDescription = workDescriptionsFromTasksForWindow(
+      tasks,
+      checkInTime,
+      windowEnd,
+      tokenSet,
+    );
 
     rows.push({
       id: String(attendance._id),
@@ -765,6 +817,7 @@ export async function listWorkSessionsForAdmin(query: SessionQuery): Promise<Wor
         ? (attendance.sessionStatus ?? 'Completed')
         : (attendance.sessionStatus ?? 'Active'),
       autoCheckedOut: attendance.autoCheckedOut ?? false,
+      workDescription,
     });
 
     // Persist resolved project onto older attendance rows that never stored it.
