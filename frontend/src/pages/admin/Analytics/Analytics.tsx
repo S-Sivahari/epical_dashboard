@@ -11,15 +11,17 @@ import {
 } from '@components/analytics/EmployeeComparisonChart'
 import { IndividualPerformancePanel } from '@components/analytics/IndividualPerformancePanel'
 import { useAnalyticsData } from '@/hooks/useAnalyticsData'
-import { fetchEmployeeAnalyticsReport, getPeriodLabel, type AnalyticsPeriodPreset } from '@/services/analyticsService'
+import { fetchEmployeeAnalyticsReport, getMonthRange, getPeriodLabel, type AnalyticsPeriodPreset } from '@/services/analyticsService'
 import { exportEmployeeAnalyticsReport } from '@/utils/exportEmployeeAnalyticsReport'
 import { formatHoursAsDuration } from '@/utils/durationFormat'
+import { formatDateKey } from '@/pages/admin/Dashboard/dashboardChartUtils'
 import { useAuthStore } from '@store/authStore'
 import { FileText, Loader2, RotateCcw, Users } from 'lucide-react'
 
 const now = new Date()
 const DEFAULT_YEAR = now.getFullYear()
 const DEFAULT_MONTH = now.getMonth() + 1
+const DEFAULT_MONTH_RANGE = getMonthRange(DEFAULT_YEAR, DEFAULT_MONTH)
 
 function ChartPlaceholder({ message = '', loading }: { message?: string; loading?: boolean }) {
   return (
@@ -60,21 +62,29 @@ export function Analytics({ embedded = false }: { embedded?: boolean }) {
   const [periodPreset, setPeriodPreset] = useState<AnalyticsPeriodPreset>('month')
   const [year, setYear] = useState(DEFAULT_YEAR)
   const [month, setMonth] = useState(DEFAULT_MONTH)
+  const [customFrom, setCustomFrom] = useState(DEFAULT_MONTH_RANGE.from)
+  const [customTo, setCustomTo] = useState(formatDateKey(now))
   const [exporting, setExporting] = useState(false)
 
   const isAllEmployees = selectedEmployeeId === 'all'
+  const customRange =
+    periodPreset === 'custom' ? { from: customFrom, to: customTo } : null
 
   const filtersActive =
     selectedEmployeeId !== 'all' ||
     periodPreset !== 'month' ||
     year !== DEFAULT_YEAR ||
-    month !== DEFAULT_MONTH
+    month !== DEFAULT_MONTH ||
+    (periodPreset === 'custom' &&
+      (customFrom !== DEFAULT_MONTH_RANGE.from || customTo !== formatDateKey(new Date())))
 
   function clearFilters() {
     setSelectedEmployeeId('all')
     setPeriodPreset('month')
     setYear(DEFAULT_YEAR)
     setMonth(DEFAULT_MONTH)
+    setCustomFrom(DEFAULT_MONTH_RANGE.from)
+    setCustomTo(formatDateKey(new Date()))
   }
 
   const {
@@ -87,9 +97,9 @@ export function Analytics({ embedded = false }: { embedded?: boolean }) {
     comparisonSummary,
     individualPerformance,
     hasData,
-  } = useAnalyticsData(selectedEmployeeId, periodPreset, year, month)
+  } = useAnalyticsData(selectedEmployeeId, periodPreset, year, month, customFrom, customTo)
 
-  const periodLabel = getPeriodLabel(periodPreset, year, month)
+  const periodLabel = getPeriodLabel(periodPreset, year, month, customRange)
   const selectedEmployee = employees.find((e) => e.id === selectedEmployeeId)
 
   const heroKpis = isAllEmployees
@@ -122,6 +132,7 @@ export function Analytics({ embedded = false }: { embedded?: boolean }) {
         year,
         month,
         employees,
+        customRange,
       })
       await exportEmployeeAnalyticsReport({
         ...report,
@@ -184,10 +195,23 @@ export function Analytics({ embedded = false }: { embedded?: boolean }) {
               preset={periodPreset}
               year={year}
               month={month}
-              onPresetChange={setPeriodPreset}
+              customFrom={customFrom}
+              customTo={customTo}
+              onPresetChange={(next) => {
+                setPeriodPreset(next)
+                if (next === 'custom') {
+                  const monthRange = getMonthRange(year, month)
+                  setCustomFrom(monthRange.from)
+                  setCustomTo(formatDateKey(new Date()))
+                }
+              }}
               onMonthChange={(y, m) => {
                 setYear(y)
                 setMonth(m)
+              }}
+              onCustomRangeChange={(from, to) => {
+                setCustomFrom(from)
+                setCustomTo(to)
               }}
             />
             <div className="admin-analytics-clear-wrap">

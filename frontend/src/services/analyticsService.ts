@@ -99,9 +99,18 @@ export function employeeDisplayName(employee: Pick<Employee, 'firstName' | 'last
   return `${employee.firstName}${employee.lastName ? ` ${employee.lastName}` : ''}`.trim()
 }
 
-export type AnalyticsPeriodPreset = 'month' | 'this_week' | 'past_week' | 'last_two_weeks'
+export type AnalyticsPeriodPreset = 'month' | 'this_week' | 'past_week' | 'last_two_weeks' | 'custom'
 
 export type AnalyticsDateRange = { from: string; to: string }
+
+export function normalizeCustomDateRange(
+  from?: string | null,
+  to?: string | null,
+): AnalyticsDateRange | null {
+  if (!from || !to) return null
+  if (from <= to) return { from, to }
+  return { from: to, to: from }
+}
 
 export function getMonday(d: Date) {
   const date = new Date(d)
@@ -122,7 +131,14 @@ export function getAnalyticsDateRange(
   preset: AnalyticsPeriodPreset,
   year: number,
   month: number,
+  customRange?: AnalyticsDateRange | null,
 ): AnalyticsDateRange {
+  if (preset === 'custom') {
+    const normalized = normalizeCustomDateRange(customRange?.from, customRange?.to)
+    if (normalized) return normalized
+    return getMonthRange(year, month)
+  }
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -154,8 +170,13 @@ export function getAnalyticsDateRange(
   }
 }
 
-export function getPeriodLabel(preset: AnalyticsPeriodPreset, year: number, month: number) {
-  const range = getAnalyticsDateRange(preset, year, month)
+export function getPeriodLabel(
+  preset: AnalyticsPeriodPreset,
+  year: number,
+  month: number,
+  customRange?: AnalyticsDateRange | null,
+) {
+  const range = getAnalyticsDateRange(preset, year, month, customRange)
   const from = new Date(`${range.from}T00:00:00`)
   const to = new Date(`${range.to}T00:00:00`)
 
@@ -171,10 +192,17 @@ export function getPeriodLabel(preset: AnalyticsPeriodPreset, year: number, mont
       return `Past week · ${fmt(from)} – ${fmt(to)}`
     case 'last_two_weeks':
       return `Last 2 weeks · ${fmt(from)} – ${fmt(to)}`
+    case 'custom':
+      return `Custom · ${fmt(from)} – ${fmt(to)}`
   }
 }
 
-function weeksInRange(preset: AnalyticsPeriodPreset, year: number, month: number) {
+function weeksInRange(
+  preset: AnalyticsPeriodPreset,
+  year: number,
+  month: number,
+  customRange?: AnalyticsDateRange | null,
+) {
   switch (preset) {
     case 'this_week':
     case 'past_week':
@@ -183,6 +211,13 @@ function weeksInRange(preset: AnalyticsPeriodPreset, year: number, month: number
       return 2
     case 'month':
       return weeksInMonth(year, month)
+    case 'custom': {
+      const range = getAnalyticsDateRange(preset, year, month, customRange)
+      const start = new Date(`${range.from}T00:00:00`)
+      const end = new Date(`${range.to}T00:00:00`)
+      const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1)
+      return Math.max(1, Math.ceil(days / 7))
+    }
   }
 }
 
@@ -478,8 +513,9 @@ export function buildMetrics(
   preset: AnalyticsPeriodPreset,
   year: number,
   month: number,
+  customRange?: AnalyticsDateRange | null,
 ): AnalyticsMetrics {
-  const range = getAnalyticsDateRange(preset, year, month)
+  const range = getAnalyticsDateRange(preset, year, month, customRange)
   const totalHours =
     Math.round(timesheets.reduce((sum, t) => sum + hoursFromTimesheet(t), 0) * 10) / 10
 
@@ -491,7 +527,7 @@ export function buildMetrics(
   }).length
 
   const avgHoursPerWeek =
-    Math.round((totalHours / weeksInRange(preset, year, month)) * 10) / 10
+    Math.round((totalHours / weeksInRange(preset, year, month, customRange)) * 10) / 10
 
   return { totalHours, completedCourses, avgHoursPerWeek }
 }
@@ -581,8 +617,9 @@ export function buildAttendanceSummary(
   preset: AnalyticsPeriodPreset,
   year: number,
   month: number,
+  customRange?: AnalyticsDateRange | null,
 ): AttendanceSummary {
-  const range = getAnalyticsDateRange(preset, year, month)
+  const range = getAnalyticsDateRange(preset, year, month, customRange)
   const totalWorkingDays = countWorkingDaysInRange(range)
   const presentDays = countPresentDays(timesheets, range)
   const leaveDays = countLeaveDaysInRange(leaves, employee, range)
@@ -592,9 +629,11 @@ export function buildAttendanceSummary(
   const attendancePercentage =
     totalWorkingDays > 0 ? Math.min(100, Math.round((presentDays / totalWorkingDays) * 100)) : 0
 
+  const weeks = weeksInRange(preset, year, month, customRange)
+  const weeklyTargetHours = 45 * weeks
   const productivityScore =
-    presentDays > 0
-      ? Math.min(100, Math.round((hoursLogged / (presentDays * 8)) * 100))
+    weeklyTargetHours > 0
+      ? Math.min(100, Math.round((hoursLogged / weeklyTargetHours) * 100))
       : 0
 
   return {
@@ -609,12 +648,18 @@ export function buildAttendanceSummary(
 
 type TrendBucket = { label: string; from: Date; to: Date }
 
-function getTrendBuckets(preset: AnalyticsPeriodPreset, year: number, month: number): TrendBucket[] {
-  const range = getAnalyticsDateRange(preset, year, month)
+function getTrendBuckets(
+  preset: AnalyticsPeriodPreset,
+  year: number,
+  month: number,
+  customRange?: AnalyticsDateRange | null,
+): TrendBucket[] {
+  const range = getAnalyticsDateRange(preset, year, month, customRange)
   const start = new Date(`${range.from}T00:00:00`)
   const end = new Date(`${range.to}T00:00:00`)
+  const daySpan = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1)
 
-  if (preset === 'month') {
+  if (preset === 'month' || (preset === 'custom' && daySpan > 14)) {
     const buckets: TrendBucket[] = []
     let cursor = new Date(start)
     let weekNum = 1
@@ -635,7 +680,7 @@ function getTrendBuckets(preset: AnalyticsPeriodPreset, year: number, month: num
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   while (cursor <= end) {
     const label =
-      preset === 'last_two_weeks'
+      preset === 'last_two_weeks' || preset === 'custom'
         ? cursor.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         : dayNames[cursor.getDay()]
     buckets.push({ label, from: new Date(cursor), to: new Date(cursor) })
@@ -683,8 +728,9 @@ export function buildHoursTrend(
   preset: AnalyticsPeriodPreset,
   year: number,
   month: number,
+  customRange?: AnalyticsDateRange | null,
 ): TrendPoint[] {
-  const buckets = getTrendBuckets(preset, year, month)
+  const buckets = getTrendBuckets(preset, year, month, customRange)
   return buckets.map((bucket) => {
     let hours = 0
     timesheets.forEach((t) => {
@@ -705,8 +751,9 @@ export function buildAttendanceTrend(
   preset: AnalyticsPeriodPreset,
   year: number,
   month: number,
+  customRange?: AnalyticsDateRange | null,
 ): AttendanceTrendPoint[] {
-  const buckets = getTrendBuckets(preset, year, month)
+  const buckets = getTrendBuckets(preset, year, month, customRange)
   return buckets.map((bucket) => {
     const workingDays = countWorkingDaysBetween(bucket.from, bucket.to)
     const presentDates = new Set<string>()
@@ -733,8 +780,9 @@ export function buildEmployeeComparison(
   preset: AnalyticsPeriodPreset,
   year: number,
   month: number,
+  customRange?: AnalyticsDateRange | null,
 ): EmployeePerformanceRow[] {
-  const range = getAnalyticsDateRange(preset, year, month)
+  const range = getAnalyticsDateRange(preset, year, month, customRange)
   const totalWorkingDays = countWorkingDaysInRange(range)
   const activeEmployees = employees.filter((e) => e.status === 'Active')
 
@@ -807,12 +855,13 @@ export function buildIndividualPerformance(
   preset: AnalyticsPeriodPreset,
   year: number,
   month: number,
+  customRange?: AnalyticsDateRange | null,
 ): IndividualPerformance {
   const empTimesheets = filterTimesheetsForEmployee(timesheets, employee)
   return {
-    hoursTrend: buildHoursTrend(empTimesheets, preset, year, month),
-    attendanceTrend: buildAttendanceTrend(empTimesheets, preset, year, month),
-    attendance: buildAttendanceSummary(empTimesheets, leaves, employee, preset, year, month),
+    hoursTrend: buildHoursTrend(empTimesheets, preset, year, month, customRange),
+    attendanceTrend: buildAttendanceTrend(empTimesheets, preset, year, month, customRange),
+    attendance: buildAttendanceSummary(empTimesheets, leaves, employee, preset, year, month, customRange),
   }
 }
 
@@ -822,12 +871,14 @@ export async function fetchEmployeeAnalyticsReport({
   year,
   month,
   employees,
+  customRange,
 }: {
   employeeId: string
   preset: AnalyticsPeriodPreset
   year: number
   month: number
   employees: Employee[]
+  customRange?: AnalyticsDateRange | null
 }) {
   let employee = employees.find((e) => e.id === employeeId || e.employeeId === employeeId)
   if (!employee) {
@@ -844,6 +895,7 @@ export async function fetchEmployeeAnalyticsReport({
       month,
       selectedEmployeeId: employeeId,
       employees,
+      customRange,
     }),
     getLeaves(),
   ])
@@ -855,6 +907,7 @@ export async function fetchEmployeeAnalyticsReport({
     preset,
     year,
     month,
+    customRange,
   )
 
   return {
@@ -862,7 +915,7 @@ export async function fetchEmployeeAnalyticsReport({
     preset,
     year,
     month,
-    periodLabel: getPeriodLabel(preset, year, month),
+    periodLabel: getPeriodLabel(preset, year, month, customRange),
     weekly: analytics.weekly,
     courses: analytics.courses,
     metrics: analytics.metrics,
@@ -876,14 +929,16 @@ export async function fetchAnalyticsData({
   month,
   selectedEmployeeId,
   employees,
+  customRange,
 }: {
   preset: AnalyticsPeriodPreset
   year: number
   month: number
   selectedEmployeeId: string | 'all'
   employees: Employee[]
+  customRange?: AnalyticsDateRange | null
 }) {
-  const { from, to } = getAnalyticsDateRange(preset, year, month)
+  const { from, to } = getAnalyticsDateRange(preset, year, month, customRange)
   const selectedEmployee =
     selectedEmployeeId === 'all'
       ? null
@@ -927,11 +982,11 @@ export async function fetchAnalyticsData({
     employees,
     selectedEmployeeId,
   )
-  const metrics = buildMetrics(timesheets, enrollments, preset, year, month)
+  const metrics = buildMetrics(timesheets, enrollments, preset, year, month, customRange)
 
   const comparison =
     selectedEmployeeId === 'all'
-      ? buildEmployeeComparison(employees, timesheetsRes.data || [], leaves, preset, year, month)
+      ? buildEmployeeComparison(employees, timesheetsRes.data || [], leaves, preset, year, month, customRange)
       : []
 
   const comparisonSummary = buildComparisonSummary(comparison)
@@ -945,6 +1000,7 @@ export async function fetchAnalyticsData({
           preset,
           year,
           month,
+          customRange,
         )
       : null
 

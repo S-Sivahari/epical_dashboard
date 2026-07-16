@@ -62,6 +62,8 @@ export function useAnalyticsData(
   preset: AnalyticsPeriodPreset,
   year: number,
   month: number,
+  customFrom?: string,
+  customTo?: string,
 ) {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [employeesLoading, setEmployeesLoading] = useState(true)
@@ -102,12 +104,17 @@ export function useAnalyticsData(
     try {
       setDataLoading(true)
       setError(null)
+      const customRange =
+        preset === 'custom' && customFrom && customTo
+          ? { from: customFrom, to: customTo }
+          : null
       const result = await fetchAnalyticsData({
         preset,
         year,
         month,
         selectedEmployeeId,
         employees,
+        customRange,
       })
       setWeekly(result.weekly)
       setCourses(result.courses)
@@ -129,7 +136,7 @@ export function useAnalyticsData(
     } finally {
       setDataLoading(false)
     }
-  }, [employees, employeesLoading, month, preset, selectedEmployeeId, year])
+  }, [customFrom, customTo, employees, employeesLoading, month, preset, selectedEmployeeId, year])
 
   useEffect(() => {
     if (employeesLoading) return
