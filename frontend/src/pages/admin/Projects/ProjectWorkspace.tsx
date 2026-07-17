@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ClipboardList, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, User, X,
+  ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ClipboardList, FileSpreadsheet, FileText, GitBranch, History, Layers, LayoutGrid, ListChecks, Plus, Search, User, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageWrapper } from '@components/layout/PageWrapper'
@@ -63,6 +63,10 @@ import {
 import { calculateEstimatedHours, CELL_COMPLEXITY_OPTIONS, DEFAULT_BASE_HOURS, formatComplexityFactor } from '@/utils/effortEstimationUtils'
 import { buildEmployeeFullName, findEmployeeByAssigneeId, resolveAssigneeSelectValue } from '@/utils/employeeDisplayName'
 import { WorkspaceLibraryCard, WorkspaceLibraryToolbar } from './WorkspaceLibraryCard'
+import {
+  exportCellWorkProgressToExcel,
+  exportCellWorkProgressToPDF,
+} from '@/utils/exportCellWorkProgress'
 import './adminProjects.css'
 
 type DeleteTarget = { type: 'library' | 'cell'; id: string; name: string }
@@ -136,6 +140,7 @@ export function ProjectWorkspace() {
   const [workflowFilterSearch, setWorkflowFilterSearch] = useState('')
   const [workflowLibraryFilter, setWorkflowLibraryFilter] = useState('all')
   const [workflowCellFilter, setWorkflowCellFilter] = useState('all')
+  const [workProgressExporting, setWorkProgressExporting] = useState<'pdf' | 'excel' | null>(null)
   const reload = useCallback(async () => {
     if (!projectId) return
     setLoading(true)
@@ -367,6 +372,35 @@ export function ProjectWorkspace() {
       return haystack.includes(query)
     })
   }, [allCells, workflowFilterSearch, workflowLibraryFilter, workflowCellFilter, libraryNameById])
+
+  const exportWorkProgress = async (format: 'pdf' | 'excel') => {
+    if (!summary || filteredWorkflowCells.length === 0 || workProgressExporting) return
+
+    const selectedLibrary = libraries.find((library) => library.id === workflowLibraryFilter)?.name
+    const selectedCell = allCells.find((cell) => cell.id === workflowCellFilter)?.name
+    const options = {
+      projectName: summary.project.name,
+      cells: filteredWorkflowCells,
+      libraryNameById,
+      generatedBy: isEmployee ? 'Employee' : 'Admin',
+      filters: {
+        search: workflowFilterSearch.trim() || undefined,
+        library: selectedLibrary,
+        cell: selectedCell,
+      },
+    }
+
+    setWorkProgressExporting(format)
+    try {
+      if (format === 'pdf') await exportCellWorkProgressToPDF(options)
+      else await exportCellWorkProgressToExcel(options)
+      toast.success(`${format === 'pdf' ? 'PDF' : 'Excel'} export downloaded`)
+    } catch {
+      toast.error(`Failed to export ${format === 'pdf' ? 'PDF' : 'Excel'}`)
+    } finally {
+      setWorkProgressExporting(null)
+    }
+  }
 
   const filteredActivityEntries = useMemo(() => {
     const query = activityFilterSearch.trim().toLowerCase()
@@ -955,6 +989,26 @@ export function ProjectWorkspace() {
                           className="admin-projects-filter-select-icon admin-projects-activity-filter-icon"
                           aria-hidden
                         />
+                      </div>
+                      <div className="admin-projects-workflow-export-actions">
+                        <button
+                          type="button"
+                          className="admin-projects-workflow-export-btn"
+                          onClick={() => void exportWorkProgress('pdf')}
+                          disabled={filteredWorkflowCells.length === 0 || workProgressExporting !== null}
+                        >
+                          <FileText className="h-3.5 w-3.5 text-red-600" aria-hidden />
+                          {workProgressExporting === 'pdf' ? 'Exporting…' : 'Export PDF'}
+                        </button>
+                        <button
+                          type="button"
+                          className="admin-projects-workflow-export-btn"
+                          onClick={() => void exportWorkProgress('excel')}
+                          disabled={filteredWorkflowCells.length === 0 || workProgressExporting !== null}
+                        >
+                          <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-700" aria-hidden />
+                          {workProgressExporting === 'excel' ? 'Exporting…' : 'Export Excel'}
+                        </button>
                       </div>
                     </div>
                   </div>
