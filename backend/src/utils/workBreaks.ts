@@ -1,6 +1,10 @@
 export type WorkBreakType = 'morning' | 'lunch' | 'evening';
 
-/** Auto-deducted when no breaks were taken for the day (10m + 40m + 10m). */
+/**
+ * Daily break limit (morning 10m + lunch 40m + evening 10m).
+ * Taken slots use actual elapsed time; untaken slots keep their default when the
+ * checkout default policy applies (>= 5h session, once per day).
+ */
 export const DAILY_STANDARD_BREAK_MS = 60 * 60 * 1000;
 
 export const WORK_BREAKS: Record<
@@ -68,6 +72,17 @@ export function isWorkBreakType(value: unknown): value is WorkBreakType {
 export function anyScheduledBreakUsed(attendance?: AttendanceBreakFields | null): boolean {
   if (!attendance) return false;
   return Boolean(attendance.morningBreakAt || attendance.lunchBreakAt || attendance.eveningBreakAt);
+}
+
+/** Default minutes still owed for slots the employee never started (toward the 1h limit). */
+export function computeUnusedSlotDefaultMs(attendance?: AttendanceBreakFields | null): number {
+  let total = 0;
+  for (const type of ['morning', 'lunch', 'evening'] as WorkBreakType[]) {
+    if (!breakUsedAt(attendance ?? {}, type)) {
+      total += WORK_BREAKS[type].durationMs;
+    }
+  }
+  return total;
 }
 
 export function computeGrossAttendanceMs(

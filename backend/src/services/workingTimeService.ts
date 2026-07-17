@@ -36,22 +36,21 @@ export function computeActiveBreakPauseMs(
   return Math.min(Math.max(0, elapsed), config.durationMs);
 }
 
-/** Default break deduction on checkout — full day only, when no breaks were logged today. */
+/** Default break fill on checkout — unused slot defaults toward the 1h daily limit. */
 export function resolveCheckoutDefaultBreakMs(
   workDayType: WorkDayType,
-  dailyBreakUsedMs: number,
+  _dailyBreakUsedMs: number,
   remainingDailyBudgetMs: number,
 ): number {
   if (workDayType !== 'full_day') return 0;
-  if (dailyBreakUsedMs > 0) return 0;
   return Math.max(0, remainingDailyBudgetMs);
 }
 
 /**
  * Single source of truth:
- *   worked = end − start − actual breaks − min(default daily deduction, time left in session)
- *   defaultDeductedMs = full daily default applied (60m) for policy/display when no actual breaks
+ *   worked = end − start − actual breaks − unused-slot defaults (capped by session time left)
  *   breakMs = actual breaks only (admin raw column)
+ *   defaultDeductedMs = defaults for slots never started (morning 10 / lunch 40 / evening 10)
  */
 export function computeSessionWorkedMs(
   checkInTime: Date,
@@ -66,7 +65,7 @@ export function computeSessionWorkedMs(
 
   let defaultDeductedMs = 0;
   let sessionDefaultSlice = 0;
-  if (workDayType === 'full_day' && breakMs === 0 && defaultBreakDeductionMs > 0) {
+  if (workDayType === 'full_day' && defaultBreakDeductionMs > 0) {
     defaultDeductedMs = defaultBreakDeductionMs;
     sessionDefaultSlice = Math.min(defaultBreakDeductionMs, availableMs);
   }

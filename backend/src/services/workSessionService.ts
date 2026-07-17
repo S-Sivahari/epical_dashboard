@@ -2,7 +2,7 @@ import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
 import { TimesheetModel } from '../models/Timesheet';
 import { getDB } from '../config/db';
 import { buildAssignmentIdentityTokens } from '../utils/assignedTaskSync';
-import { computeUsedBreakMs, computeGrossAttendanceMs, DAILY_STANDARD_BREAK_MS } from '../utils/workBreaks';
+import { computeUsedBreakMs, computeGrossAttendanceMs } from '../utils/workBreaks';
 import { calendarDayBounds } from '../utils/istClock';
 import { computeSessionWorkedMs, resolveSessionWorkedMs, formatWorkedMsLabel, type WorkDayType } from './workingTimeService';
 
@@ -192,13 +192,11 @@ function sessionDisplayBreakMs(attendance: {
   activeBreakEndsAt?: Date | null;
 }): number {
   const actualMs = sessionBreakMs(attendance);
-  if (actualMs > 0) return actualMs;
-
-  if (typeof attendance.defaultBreakDeductedMs === 'number' && attendance.defaultBreakDeductedMs > 0) {
-    return DAILY_STANDARD_BREAK_MS;
-  }
-
-  return 0;
+  const defaultMs =
+    typeof attendance.defaultBreakDeductedMs === 'number' && attendance.defaultBreakDeductedMs > 0
+      ? attendance.defaultBreakDeductedMs
+      : 0;
+  return actualMs + defaultMs;
 }
 
 /** Same worked ms shown in employee work history for a completed session. */
@@ -241,11 +239,18 @@ function resolveAttendanceHistoryMetrics(attendance: {
     return { displayWorkedMs: 0, displayBreakMs: 0 };
   }
 
+  if (typeof attendance.sessionWorkedMs === 'number' && attendance.sessionWorkedMs >= 0) {
+    return {
+      displayWorkedMs: attendance.sessionWorkedMs,
+      displayBreakMs: sessionDisplayBreakMs(attendance),
+    };
+  }
+
   const checkOut = new Date(attendance.checkOutTime);
   const workDayType: WorkDayType = attendance.workDayType === 'half_day' ? 'half_day' : 'full_day';
   const defaultMs =
     typeof attendance.defaultBreakDeductedMs === 'number' && attendance.defaultBreakDeductedMs > 0
-      ? DAILY_STANDARD_BREAK_MS
+      ? attendance.defaultBreakDeductedMs
       : 0;
 
   const preview = computeSessionWorkedMs(
@@ -279,15 +284,20 @@ export function formatAttendanceBreakLabel(attendance: {
   if (!attendance.checkOutTime) return null;
 
   const actualMs = sessionBreakMs(attendance);
-  if (actualMs > 0) {
-    return formatWorkedMsLabel(actualMs);
-  }
+  const defaultMs =
+    typeof attendance.defaultBreakDeductedMs === 'number' && attendance.defaultBreakDeductedMs > 0
+      ? attendance.defaultBreakDeductedMs
+      : 0;
+  const totalMs = actualMs + defaultMs;
+  if (totalMs <= 0) return null;
 
-  if (typeof attendance.defaultBreakDeductedMs === 'number' && attendance.defaultBreakDeductedMs > 0) {
-    return `${formatWorkedMsLabel(DAILY_STANDARD_BREAK_MS)} (default)`;
+  if (defaultMs > 0 && actualMs > 0) {
+    return `${formatWorkedMsLabel(totalMs)} (${formatWorkedMsLabel(actualMs)} taken)`;
   }
-
-  return null;
+  if (defaultMs > 0) {
+    return `${formatWorkedMsLabel(defaultMs)} (default)`;
+  }
+  return formatWorkedMsLabel(actualMs);
 }
 
 async function projectsForAttendanceWindow(
@@ -592,7 +602,7 @@ export async function resolveStoredSessionWorkedMs(
   const workDayType: WorkDayType = attendance.workDayType === 'half_day' ? 'half_day' : 'full_day';
   const defaultMs =
     typeof attendance.defaultBreakDeductedMs === 'number' && attendance.defaultBreakDeductedMs > 0
-      ? DAILY_STANDARD_BREAK_MS
+      ? attendance.defaultBreakDeductedMs
       : 0;
 
   return computeSessionWorkedMs(

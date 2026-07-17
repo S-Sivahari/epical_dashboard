@@ -202,16 +202,17 @@ function formatAdminWorkedDuration(t: TimesheetLog): string {
 
 function formatBreakTime(session: Pick<WorkSessionLog, 'breakMs' | 'displayBreakMs' | 'defaultBreakDeductedMs'>): string {
   const actualMs = session.breakMs ?? 0
+  const defaultMs = session.defaultBreakDeductedMs ?? 0
   const displayMs =
     typeof session.displayBreakMs === 'number' && session.displayBreakMs > 0
       ? session.displayBreakMs
-      : actualMs
+      : actualMs + (defaultMs > 0 ? defaultMs : 0)
   const isDefault = isDefaultBreakDeduction({
     breakMs: actualMs,
-    defaultBreakDeductedMs: session.defaultBreakDeductedMs,
+    defaultBreakDeductedMs: defaultMs,
     displayBreakMs: displayMs,
   })
-  return formatBreakDisplayLabel(displayMs, { isDefault })
+  return formatBreakDisplayLabel(displayMs, { isDefault, actualMs })
 }
 
 function formatWorkSessionDuration(session: Pick<WorkSessionLog, 'displayWorkedMs' | 'logoutTime'>): string {

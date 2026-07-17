@@ -278,6 +278,7 @@ async function performAutoCheckoutForAttendance(
     claimed.date,
     claimed.checkInTime,
     checkoutTimestamp,
+    claimed,
   );
 
   const sessionPreview = computeSessionWorkedMs(

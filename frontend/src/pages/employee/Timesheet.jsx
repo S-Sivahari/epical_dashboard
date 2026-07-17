@@ -27,7 +27,6 @@ import {
 import {
   WORK_BREAK_OPTIONS,
   formatBreakCountdown,
-  DAILY_STANDARD_BREAK_MINUTES,
 } from '@utils/workBreaks'
 import { EmployeePageLoading } from '@components/employee/layout/EmployeePageLoading'
 import { EmployeeBreakTimeToday } from '@components/employee/shared/EmployeeBreakTimeToday'
@@ -119,13 +118,12 @@ function resolveHistoryBreakMs(seg) {
   if (typeof seg.displayBreakMs === 'number' && seg.displayBreakMs > 0) {
     return seg.displayBreakMs
   }
-  if (typeof seg.breakMs === 'number' && seg.breakMs > 0) {
-    return seg.breakMs
-  }
-  if (typeof seg.defaultBreakDeductedMs === 'number' && seg.defaultBreakDeductedMs > 0) {
-    return DAILY_STANDARD_BREAK_MINUTES * 60 * 1000
-  }
-  return 0
+  const actualMs = typeof seg.breakMs === 'number' && seg.breakMs > 0 ? seg.breakMs : 0
+  const defaultMs =
+    typeof seg.defaultBreakDeductedMs === 'number' && seg.defaultBreakDeductedMs > 0
+      ? seg.defaultBreakDeductedMs
+      : 0
+  return actualMs + defaultMs
 }
 
 function isSessionApprovedByAdmin(session) {

@@ -156,7 +156,7 @@ export async function finalizeOpenTimesheetsForCheckout<
   options?: {
     incompleteTaskStatus?: boolean;
     workDayType?: WorkDayType;
-    /** 60 min default slice when full day + no breaks taken today (from daily budget). */
+    /** Unused-slot defaults toward the 1h daily limit when session qualifies (>= 5h). */
     defaultBreakDeductionMs?: number;
   },
 ): Promise<T[]> {

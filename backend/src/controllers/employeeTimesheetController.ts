@@ -497,11 +497,12 @@ async function buildAttendanceResponseForEmployee(
 ) {
   const date = openAttendance?.date ?? latestAttendance?.date ?? todayDateKey();
   const daily = await getOrCreateDailyBreakState(employeeId, date);
-  if (await hasDailyDefaultDeductionBeenApplied(employeeId, date)) {
-    daily.projectBreakDeductedMs = Math.max(
-      daily.projectBreakDeductedMs ?? 0,
-      DAILY_STANDARD_BREAK_MS,
-    );
+  // Keep stored unused-slot fill as-is; only ensure the "applied" flag is visible if out of sync.
+  if (
+    (await hasDailyDefaultDeductionBeenApplied(employeeId, date)) &&
+    (daily.projectBreakDeductedMs ?? 0) <= 0
+  ) {
+    daily.projectBreakDeductedMs = DAILY_STANDARD_BREAK_MS;
   }
   return buildAttendanceResponse(openAttendance, latestAttendance, daily);
 }
@@ -921,6 +922,7 @@ export const employeeTimesheetController = {
         attendance.date,
         attendance.checkInTime,
         now,
+        attendance,
       );
 
       const sessionPreview = computeSessionWorkedMs(

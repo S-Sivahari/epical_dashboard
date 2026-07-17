@@ -1,7 +1,6 @@
 import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
 import { EmployeeDailyBreakModel } from '../models/EmployeeDailyBreak';
 import {
-  anyScheduledBreakUsed,
   DAILY_STANDARD_BREAK_MS,
   type WorkBreakType,
   WORK_BREAKS,
@@ -74,9 +73,7 @@ async function syncDailyBreakFromAttendances(employeeId: string, date: string) {
     }
   }
 
-  merged.projectBreakDeductedMs = anyScheduledBreakUsed(merged)
-    ? 0
-    : Math.min(DAILY_STANDARD_BREAK_MS, defaultDeducted);
+  merged.projectBreakDeductedMs = Math.min(DAILY_STANDARD_BREAK_MS, defaultDeducted);
   return merged;
 }
 

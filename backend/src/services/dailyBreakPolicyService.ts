@@ -2,13 +2,13 @@ import { EmployeeAttendanceModel } from '../models/EmployeeAttendance';
 import { TimesheetModel } from '../models/Timesheet';
 import {
   anyScheduledBreakUsed,
-  computeUsedBreakMs,
-  DAILY_STANDARD_BREAK_MS,
+  computeUnusedSlotDefaultMs,
 } from '../utils/workBreaks';
 import { getSchedulerDateKey } from '../utils/istClock';
 import {
   applyDailyCappedBreakDeduction,
   getOrCreateDailyBreakState,
+  mergeDailyBreakWithOpenSession,
 } from './dailyBreakStateService';
 import { applySessionWorkedToTimesheetLogs } from './projectBreakDeductionService';
 import { computeSessionWorkedMs } from './workingTimeService';
@@ -94,7 +94,7 @@ export async function normalizeTodaysHalfDaySessions(employeeId: string): Promis
   });
 
   let defaultAlreadyApplied = await hasDailyDefaultDeductionBeenApplied(employeeId, today);
-  let anyBreakUsed = await hasAnyDailyBreakRecordedForEmployee(employeeId, today);
+  const daily = await getOrCreateDailyBreakState(employeeId, today);
 
   for (const record of allToday) {
     const wasHalfDay = record.workDayType === 'half_day';
@@ -109,20 +109,17 @@ export async function normalizeTodaysHalfDaySessions(employeeId: string): Promis
 
     if (!wasHalfDay) {
       if ((record.defaultBreakDeductedMs ?? 0) > 0) defaultAlreadyApplied = true;
-      if (computeUsedBreakMs(record, record.checkOutTime) > 0) anyBreakUsed = true;
       continue;
     }
 
-    const sessionBreakMs = computeUsedBreakMs(record, record.checkOutTime);
     let defaultDeduction = 0;
-
     if (
-      !anyBreakUsed &&
       !defaultAlreadyApplied &&
       sessionQualifiesForDefaultBreak(record.checkInTime, record.checkOutTime)
     ) {
-      defaultDeduction = DAILY_STANDARD_BREAK_MS;
-      defaultAlreadyApplied = true;
+      const merged = mergeDailyBreakWithOpenSession(daily, record);
+      defaultDeduction = computeUnusedSlotDefaultMs(merged);
+      if (defaultDeduction > 0) defaultAlreadyApplied = true;
     }
 
     const preview = computeSessionWorkedMs(
@@ -141,43 +138,47 @@ export async function normalizeTodaysHalfDaySessions(employeeId: string): Promis
       await applyDailyCappedBreakDeduction(employeeId, today, defaultDeduction);
     }
 
-    if (sessionBreakMs > 0) anyBreakUsed = true;
-
     await updateTimesheetsForAttendanceSession(record, preview.workedMs, preview.breakMs);
   }
 }
 
-/** Apply the 60m daily default to today's first qualifying checkout when missing. */
+/** Apply unused-slot defaults to today's first qualifying checkout when missing. */
 export async function reconcileTodaysDefaultDeductions(employeeId: string): Promise<void> {
   const today = getSchedulerDateKey(new Date());
-  if (await hasAnyDailyBreakRecordedForEmployee(employeeId, today)) return;
   if (await hasDailyDefaultDeductionBeenApplied(employeeId, today)) return;
 
-  const firstSession = await EmployeeAttendanceModel.findOne({
+  const sessions = await EmployeeAttendanceModel.find({
     employeeId,
     date: today,
     checkOutTime: { $exists: true, $ne: null },
   }).sort({ checkInTime: 1 });
 
-  if (!firstSession?.checkOutTime) return;
-  if (!sessionQualifiesForDefaultBreak(firstSession.checkInTime, firstSession.checkOutTime)) {
-    return;
-  }
+  const qualifying = sessions.find(
+    (session) =>
+      session.checkOutTime &&
+      sessionQualifiesForDefaultBreak(session.checkInTime, session.checkOutTime),
+  );
+  if (!qualifying?.checkOutTime) return;
 
-  firstSession.workDayType = 'full_day';
+  const daily = await getOrCreateDailyBreakState(employeeId, today);
+  const merged = mergeDailyBreakWithOpenSession(daily, qualifying);
+  const unusedDefaults = computeUnusedSlotDefaultMs(merged);
+  if (unusedDefaults <= 0) return;
+
+  qualifying.workDayType = 'full_day';
   const preview = computeSessionWorkedMs(
-    firstSession.checkInTime,
-    firstSession.checkOutTime,
-    firstSession,
+    qualifying.checkInTime,
+    qualifying.checkOutTime,
+    qualifying,
     'full_day',
-    DAILY_STANDARD_BREAK_MS,
+    unusedDefaults,
   );
 
-  firstSession.defaultBreakDeductedMs = preview.defaultDeductedMs;
-  firstSession.sessionWorkedMs = preview.workedMs;
-  await firstSession.save();
-  await applyDailyCappedBreakDeduction(employeeId, today, DAILY_STANDARD_BREAK_MS);
-  await updateTimesheetsForAttendanceSession(firstSession, preview.workedMs, preview.breakMs);
+  qualifying.defaultBreakDeductedMs = preview.defaultDeductedMs;
+  qualifying.sessionWorkedMs = preview.workedMs;
+  await qualifying.save();
+  await applyDailyCappedBreakDeduction(employeeId, today, unusedDefaults);
+  await updateTimesheetsForAttendanceSession(qualifying, preview.workedMs, preview.breakMs);
 }
 
 export async function syncTodaysAttendanceBreakPolicy(employeeId: string): Promise<void> {
