@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import cors from 'cors';
 import path from 'path';
 import bodyParser from 'body-parser';
@@ -180,6 +181,45 @@ app.get('/health', async (_req, res) => {
       timestamp: new Date().toISOString(),
     });
   }
+});
+
+// ── Mongoose readiness probe (no auth, not under /api) ─────────
+app.get('/healthz', (_req, res) => {
+  const readyState = mongoose.connection.readyState;
+  res.status(readyState === 1 ? 200 : 503).json({ mongoose: readyState });
+});
+
+// ── DB readiness gate ────────────────────────────────────────
+// app.listen() binds the port before connectDB() resolves (Cloud Run needs
+// the port bound immediately), so requests can otherwise land while Mongoose
+// is still connecting/reconnecting and sit in its query buffer for up to
+// bufferTimeoutMS before failing as a 500. Fail fast with 503 instead.
+//
+// The flag must be event-driven, not a one-shot set-after-connectDB(): a
+// single connection means any transient disconnect (Atlas maintenance, Cloud
+// Run cold-start network blip) has to self-heal the flag on 'reconnected'
+// without a process restart, or the whole API stays 503 forever.
+let dbReady = false;
+mongoose.connection.on('connected', () => {
+  dbReady = true;
+});
+mongoose.connection.on('reconnected', () => {
+  dbReady = true;
+});
+mongoose.connection.on('disconnected', () => {
+  dbReady = false;
+});
+
+// Endpoints that don't touch Mongo and must keep working during an outage.
+const READINESS_GATE_EXEMPT_PATHS = new Set(['/auth/logout']);
+
+app.use('/api', (req, res, next) => {
+  if (!dbReady && !READINESS_GATE_EXEMPT_PATHS.has(req.path)) {
+    res.set('Retry-After', '5');
+    res.status(503).json({ error: 'Database connecting, please retry shortly' });
+    return;
+  }
+  next();
 });
 
 // ── API Routes ────────────────────────────────────────────────
@@ -371,6 +411,7 @@ export async function startServer() {
   try {
     validateProductionSecrets();
     const db = await connectDB();
+    dbReady = true;
 
     const employeeCount = await db
       .collection('employees')

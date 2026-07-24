@@ -17,10 +17,19 @@ function resolveGoogleCallbackUrl(): string {
   return 'http://localhost:3000/api/auth/google/callback';
 }
 
+function resolveMongodbUri(): string {
+  const uri = process.env.MONGODB_URI;
+  if (uri) return uri;
+  if ((process.env.NODE_ENV || 'development') === 'production') {
+    throw new Error('MONGODB_URI is required in production but is not set.');
+  }
+  return 'mongodb://localhost:27017/epical';
+}
+
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3000', 10),
-  mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/epical',
+  mongodbUri: resolveMongodbUri(),
   jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
   JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
