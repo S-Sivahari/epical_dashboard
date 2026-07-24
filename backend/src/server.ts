@@ -9,7 +9,7 @@ import passport from 'passport';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 
-import { connectDB, closeDB, getDB } from './config/db';
+import { connectDB, closeDB, getDB, isDbReady } from './config/db';
 import { env } from './config/env';
 import { validateProductionSecrets } from './config/validateSecurity';
 import { initializePassport } from './config/oauth';
@@ -195,26 +195,16 @@ app.get('/healthz', (_req, res) => {
 // is still connecting/reconnecting and sit in its query buffer for up to
 // bufferTimeoutMS before failing as a 500. Fail fast with 503 instead.
 //
-// The flag must be event-driven, not a one-shot set-after-connectDB(): a
-// single connection means any transient disconnect (Atlas maintenance, Cloud
-// Run cold-start network blip) has to self-heal the flag on 'reconnected'
-// without a process restart, or the whole API stays 503 forever.
-let dbReady = false;
-mongoose.connection.on('connected', () => {
-  dbReady = true;
-});
-mongoose.connection.on('reconnected', () => {
-  dbReady = true;
-});
-mongoose.connection.on('disconnected', () => {
-  dbReady = false;
-});
-
+// Checks isDbReady() live on every request instead of tracking a separate
+// flag off connection events — a separately-tracked flag could say "ready"
+// while db.ts's native handle derivation had actually failed. Reading
+// db.ts's own state directly means the gate can't drift from what getDB()
+// will actually do.
 // Endpoints that don't touch Mongo and must keep working during an outage.
 const READINESS_GATE_EXEMPT_PATHS = new Set(['/auth/logout']);
 
 app.use('/api', (req, res, next) => {
-  if (!dbReady && !READINESS_GATE_EXEMPT_PATHS.has(req.path)) {
+  if (!isDbReady() && !READINESS_GATE_EXEMPT_PATHS.has(req.path)) {
     res.set('Retry-After', '5');
     res.status(503).json({ error: 'Database connecting, please retry shortly' });
     return;
@@ -411,7 +401,6 @@ export async function startServer() {
   try {
     validateProductionSecrets();
     const db = await connectDB();
-    dbReady = true;
 
     const employeeCount = await db
       .collection('employees')

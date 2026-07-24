@@ -147,6 +147,13 @@ export function getDB(): Db {
   return db;
 }
 
+// Single source of truth for readiness gates (e.g. server.ts's /api
+// middleware) — reflects whether getDB() will actually succeed right now,
+// rather than a separately-tracked flag that could drift from this state.
+export function isDbReady(): boolean {
+  return client !== null && db !== null;
+}
+
 export async function closeDB(): Promise<void> {
   // client/db are derived from Mongoose's own connection, so disconnecting
   // Mongoose closes the single underlying client — do not also close
