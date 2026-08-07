@@ -63,8 +63,15 @@ export interface Employee {
   };
   // Profile photo
   photo?: { filename: string; data: string; contentType: string; uploadedAt: Date };
-  /** Per-employee annual leave day allotments (admin-overridable). */
+  /** Per-employee annual leave day allotments (admin-overridable). Earned Leave here is legacy-only; see earnedLeaveAccrual. */
   leaveAllocations?: Partial<Record<'Casual Leave' | 'Sick Leave' | 'Earned Leave', number>>;
+  /**
+   * Persisted earned-leave accrual checkpoint for the current calendar year.
+   * `monthsAccrued` is the count of completed employed months already folded into `total`.
+   * Recomputed only when a new month completes; manual admin edits rebase `total`/`monthsAccrued`
+   * to "now" instead of being overwritten by the next month-end recompute.
+   */
+  earnedLeaveAccrual?: { year: number; monthsAccrued: number; total: number };
   /** Admin manual used-day adjustments per calendar year (added to approved usage). */
   leaveBalanceAdjustments?: Partial<
     Record<string, Partial<Record<'Casual Leave' | 'Sick Leave' | 'Earned Leave' | 'Compensation Leave', number>>>

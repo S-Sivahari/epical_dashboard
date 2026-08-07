@@ -23,6 +23,9 @@ import {
   sumPendingLeaveDays,
   assertLeaveBalanceStep,
   withPendingLeaveReservations,
+  monthsWorkedInCurrentYear,
+  calculateEarnedLeaveAllocation,
+  EARNED_LEAVE_ACCRUAL_PER_MONTH,
 } from '../utils/leaveCalculator';
 import type { Employee } from '../models/Employee';
 import * as notificationService from './notificationService';
@@ -140,14 +143,80 @@ function employeeBalanceUsedAdjustments(
   return employee?.leaveBalanceAdjustments?.[year] ?? {};
 }
 
-function leaveBalanceOptions(
+/**
+ * Resolve the current Earned Leave total, persisting a checkpoint so it is only
+ * recomputed when a new employed calendar month actually completes.
+ *
+ * Earlier the total was fully re-derived from joinedAt on every read UNLESS an admin
+ * had ever manually set it, in which case it froze at that value forever (the override
+ * and the live calc shared one field with no way to tell them apart). Now the accrual
+ * state (`monthsAccrued` + running `total`) is stored on the employee: a manual edit
+ * rebases both to "caught up as of now" rather than freezing them, so the next
+ * completed month still adds its 0.5 on top.
+ */
+async function resolveEarnedLeaveTotal(
+  employee: Employee | null | undefined,
+  refDate: Date,
+): Promise<number> {
+  if (!employee?.id) return 0;
+
+  const joinedAt = employee.joinedAt as string | undefined;
+  const monthEndAccrual = employee.earnedLeaveMonthEndAccrual !== false;
+  const currentYear = refDate.getFullYear();
+
+  // Historical/future report views (e.g. viewing a past year's balances) must never
+  // mutate the live checkpoint — derive read-only, same as the pre-checkpoint behavior.
+  if (currentYear !== new Date().getFullYear()) {
+    const legacyOverride = employee.leaveAllocations?.['Earned Leave'];
+    return legacyOverride !== undefined && legacyOverride !== null && !Number.isNaN(Number(legacyOverride))
+      ? Math.max(0, Number(legacyOverride))
+      : calculateEarnedLeaveAllocation(joinedAt, refDate, monthEndAccrual);
+  }
+
+  const monthsNow = monthsWorkedInCurrentYear(joinedAt, refDate, monthEndAccrual);
+  const state = employee.earnedLeaveAccrual;
+
+  if (state && state.year === currentYear) {
+    if (monthsNow <= state.monthsAccrued) return state.total;
+    const total = state.total + (monthsNow - state.monthsAccrued) * EARNED_LEAVE_ACCRUAL_PER_MONTH;
+    const nextState = { year: currentYear, monthsAccrued: monthsNow, total };
+    await getDB()
+      .collection('employees')
+      .updateOne({ id: String(employee.id) }, { $set: { earnedLeaveAccrual: nextState, updatedAt: new Date() } });
+    employee.earnedLeaveAccrual = nextState;
+    return total;
+  }
+
+  // No checkpoint for this year yet. If the employee was never migrated (no state at
+  // all), preserve whatever legacy manual total an admin last set as the new baseline
+  // instead of silently discarding it. A genuine year rollover (state.year < currentYear)
+  // always restarts the yearly accrual from zero — Earned Leave resets each year.
+  const legacyOverride = !state ? employee.leaveAllocations?.['Earned Leave'] : undefined;
+  const total =
+    legacyOverride !== undefined && legacyOverride !== null && !Number.isNaN(Number(legacyOverride))
+      ? Math.max(0, Number(legacyOverride))
+      : monthsNow * EARNED_LEAVE_ACCRUAL_PER_MONTH;
+
+  const nextState = { year: currentYear, monthsAccrued: monthsNow, total };
+  await getDB()
+    .collection('employees')
+    .updateOne({ id: String(employee.id) }, { $set: { earnedLeaveAccrual: nextState, updatedAt: new Date() } });
+  employee.earnedLeaveAccrual = nextState;
+  return total;
+}
+
+async function leaveBalanceOptions(
   employee: Employee | null | undefined,
   compensationLeaveCredits: number,
   refDate = new Date(),
 ) {
+  const earnedLeaveTotal = await resolveEarnedLeaveTotal(employee, refDate);
   return {
     compensationLeaveCredits,
-    employeeAllocations: employeeAllocationOverrides(employee),
+    employeeAllocations: {
+      ...employeeAllocationOverrides(employee),
+      'Earned Leave': earnedLeaveTotal,
+    },
     balanceUsedAdjustments: employeeBalanceUsedAdjustments(employee, refDate),
     refDate,
     earnedLeaveMonthEndAccrual: employee?.earnedLeaveMonthEndAccrual !== false,
@@ -248,7 +317,7 @@ export async function createLeave(payload: CreateLeavePayload): Promise<LeaveReq
   const compCredits = await getCompensationLeaveCreditsForYear(
     employeeDoc?.id ? String(employeeDoc.id) : payload.employeeId,
   );
-  const balanceOptions = leaveBalanceOptions(employeeDoc, compCredits);
+  const balanceOptions = await leaveBalanceOptions(employeeDoc, compCredits);
   const balances = calculateBalances(employeeLeaves, employeeDoc?.joinedAt as string | undefined, balanceOptions);
 
   const balanceKey = resolveLeaveBalanceKey(payload.type);
@@ -365,7 +434,7 @@ export async function getLeaveBalances(
   const employee = await findEmployeeDoc(employeeId);
   const canonicalId = employee?.id ? String(employee.id) : employeeId;
   const compCredits = await getCompensationLeaveCreditsForYear(canonicalId, refDate.getFullYear());
-  const balanceOptions = leaveBalanceOptions(employee, compCredits, refDate);
+  const balanceOptions = await leaveBalanceOptions(employee, compCredits, refDate);
   const approvedBalances = calculateBalances(
     [...leaves, ...archivedEarned],
     employee?.joinedAt as string | undefined,
@@ -448,7 +517,7 @@ export async function getEmployeeLeaveSummary(employeeId: string): Promise<Emplo
   const employee = await findEmployeeDoc(employeeId);
   const canonicalId = employee?.id ? String(employee.id) : employeeId;
   const compCredits = await getCompensationLeaveCreditsForYear(canonicalId);
-  const balances = calculateBalances([...leaves, ...archivedEarned], employee?.joinedAt as string | undefined, leaveBalanceOptions(employee, compCredits));
+  const balances = calculateBalances([...leaves, ...archivedEarned], employee?.joinedAt as string | undefined, await leaveBalanceOptions(employee, compCredits));
   const reservedBalances = withPendingLeaveReservations(balances, leaves);
   const allocationDisplay: Record<string, number> = {
     'Casual Leave': reservedBalances['Casual Leave']?.total ?? LEAVE_ALLOCATIONS['Casual Leave'],
@@ -510,7 +579,10 @@ export async function updateEmployeeLeaveAllocations(
     throw new Error('Employee not found');
   }
 
+  const refDate = new Date();
   const next: Record<string, number> = { ...(employee.leaveAllocations ?? {}) };
+  let earnedLeaveAccrualUpdate: { year: number; monthsAccrued: number; total: number } | undefined;
+
   for (const type of ALLOCATION_TYPES) {
     if (payload[type] === undefined) continue;
     const value = Number(payload[type]);
@@ -518,18 +590,41 @@ export async function updateEmployeeLeaveAllocations(
       throw new Error(`${type} allotment must be a non-negative number`);
     }
     assertLeaveBalanceStep(type, value, 'total');
-    next[type] = value;
+
+    if (type === 'Earned Leave') {
+      // Rebase the persisted accrual checkpoint to "caught up as of now" rather than
+      // writing into leaveAllocations, which would otherwise permanently freeze future
+      // monthly accrual for this employee (see resolveEarnedLeaveTotal).
+      const monthsNow = monthsWorkedInCurrentYear(
+        employee.joinedAt as string | undefined,
+        refDate,
+        employee.earnedLeaveMonthEndAccrual !== false,
+      );
+      earnedLeaveAccrualUpdate = { year: refDate.getFullYear(), monthsAccrued: monthsNow, total: value };
+    } else {
+      next[type] = value;
+    }
   }
 
+  const setDoc: Record<string, unknown> = { leaveAllocations: next, updatedAt: new Date() };
+  if (earnedLeaveAccrualUpdate) {
+    setDoc.earnedLeaveAccrual = earnedLeaveAccrualUpdate;
+  }
   await getDB()
     .collection('employees')
-    .updateOne({ id: String(employee.id) }, { $set: { leaveAllocations: next, updatedAt: new Date() } });
+    .updateOne({ id: String(employee.id) }, { $set: setDoc });
+
+  employee.leaveAllocations = next as Employee['leaveAllocations'];
+  if (earnedLeaveAccrualUpdate) {
+    employee.earnedLeaveAccrual = earnedLeaveAccrualUpdate;
+  }
 
   const compCredits = await getCompensationLeaveCreditsForYear(String(employee.id));
-  const totals = calculateBalances([], employee.joinedAt as string | undefined, {
-    ...leaveBalanceOptions(employee, compCredits),
-    employeeAllocations: next,
-  });
+  const totals = calculateBalances(
+    [],
+    employee.joinedAt as string | undefined,
+    await leaveBalanceOptions(employee, compCredits),
+  );
 
   return {
     'Casual Leave': totals['Casual Leave'].total,
@@ -594,17 +689,18 @@ export async function repairPostArchiveLeaveBalances(options?: {
     const archivedEarned = await getArchivedEarnedLeavesForBalance(internalId, refDate);
     const compCredits = await getCompensationLeaveCreditsForYear(internalId, year);
 
+    const resolvedOptions = await leaveBalanceOptions(employee, compCredits, refDate);
     const currentBalances = calculateBalances(
       [...leaves, ...archivedEarned],
       employee.joinedAt as string | undefined,
-      leaveBalanceOptions(employee, compCredits, refDate),
+      resolvedOptions,
     );
 
     const rawBalances = calculateBalances(
       [...leaves, ...archivedEarned],
       employee.joinedAt as string | undefined,
       {
-        ...leaveBalanceOptions(employee, compCredits, refDate),
+        ...resolvedOptions,
         balanceUsedAdjustments: {},
       },
     );
@@ -746,7 +842,7 @@ export async function adjustEmployeeLeaveBalance(
     [...leaves, ...archivedEarned],
     employee.joinedAt as string | undefined,
     {
-      ...leaveBalanceOptions(employee, compCredits, refDate),
+      ...(await leaveBalanceOptions(employee, compCredits, refDate)),
       balanceUsedAdjustments: provisionalAdjustments,
     },
   );
@@ -839,7 +935,7 @@ export async function adjustEmployeeLeaveBalances(
     [...leaves, ...archivedEarned],
     employee.joinedAt as string | undefined,
     {
-      ...leaveBalanceOptions(employee, compCredits, refDate),
+      ...(await leaveBalanceOptions(employee, compCredits, refDate)),
       balanceUsedAdjustments: provisionalAdjustments,
     },
   );
@@ -1075,13 +1171,13 @@ function sumCompensationCreditsForTokens(
   return sum;
 }
 
-function computeEmployeeYearBalancesFromData(
+async function computeEmployeeYearBalancesFromData(
   employee: Employee,
   year: number,
   leaves: LeaveRequest[],
   archivedEarned: LeaveRequest[],
   compCredits: number,
-): LeaveTypeBalanceSummary[] {
+): Promise<LeaveTypeBalanceSummary[]> {
   const refDate = resolveRefDateForCalendarYear(year);
   const yearStr = String(year);
   const adjustments = employee.leaveBalanceAdjustments?.[yearStr] ?? {};
@@ -1090,7 +1186,7 @@ function computeEmployeeYearBalancesFromData(
     [...leaves, ...archivedEarned],
     employee.joinedAt as string | undefined,
     {
-      ...leaveBalanceOptions(employee, compCredits, refDate),
+      ...(await leaveBalanceOptions(employee, compCredits, refDate)),
       balanceUsedAdjustments: adjustments,
     },
   );
@@ -1124,26 +1220,26 @@ function computeEmployeeYearBalancesFromData(
   });
 }
 
-function computeEmployeeLopForBalanceViewFromData(
+async function computeEmployeeLopForBalanceViewFromData(
   employee: Employee,
   calendarYear: number,
   leaves: LeaveRequest[],
   compCreditsYear: number,
   compCreditsMonth: number,
   monthRefDate = new Date(),
-): { lopDays: number; lopThisMonth: number; lopApproved: number; lopPending: number } {
+): Promise<{ lopDays: number; lopThisMonth: number; lopApproved: number; lopPending: number }> {
   const yearRefDate = resolveRefDateForCalendarYear(calendarYear);
 
   const yearly = calculateYearlyLopSummary(
     leaves,
     calendarYear,
     employee.joinedAt as string | undefined,
-    leaveBalanceOptions(employee, compCreditsYear, yearRefDate),
+    await leaveBalanceOptions(employee, compCreditsYear, yearRefDate),
   );
   const monthly = calculateMonthlyLopSummary(
     leaves,
     employee.joinedAt as string | undefined,
-    leaveBalanceOptions(employee, compCreditsMonth, monthRefDate),
+    await leaveBalanceOptions(employee, compCreditsMonth, monthRefDate),
   );
 
   return {
@@ -1291,14 +1387,14 @@ export async function getAllEmployeesYearLeaveBalances(
         monthRefDate.getFullYear(),
       );
 
-      const balances = computeEmployeeYearBalancesFromData(
+      const balances = await computeEmployeeYearBalancesFromData(
         employee,
         calendarYear,
         leaves,
         archivedEarned,
         compCreditsYear,
       );
-      const lop = computeEmployeeLopForBalanceViewFromData(
+      const lop = await computeEmployeeLopForBalanceViewFromData(
         employee,
         calendarYear,
         leaves,
@@ -1359,7 +1455,7 @@ async function computeRawUsedForYear(
     [...leaves, ...archivedEarned],
     employee.joinedAt as string | undefined,
     {
-      ...leaveBalanceOptions(employee, compCredits, refDate),
+      ...(await leaveBalanceOptions(employee, compCredits, refDate)),
       balanceUsedAdjustments: {},
     },
   );
@@ -1398,6 +1494,7 @@ export async function updateEmployeeYearLeaveBalances(
   const yearAdjustments: Record<string, number> = { ...(adjustmentsByYear[yearStr] ?? {}) };
   const currentBalances = await computeEmployeeYearBalances(employee, calendarYear);
   const allocationActivityEntries: Omit<LeaveAllocationActivity, 'id' | 'createdAt'>[] = [];
+  let earnedLeaveAccrualPayload: { year: number; monthsAccrued: number; total: number } | undefined;
 
   for (const update of updates) {
     if (!YEAR_BALANCE_TYPES.includes(update.type)) {
@@ -1416,7 +1513,20 @@ export async function updateEmployeeYearLeaveBalances(
         throw new Error(`${update.type} total must be a non-negative number`);
       }
       assertLeaveBalanceStep(update.type, total, 'total');
-      allocationPayload[update.type as 'Casual Leave' | 'Sick Leave' | 'Earned Leave'] = total;
+
+      if (update.type === 'Earned Leave') {
+        // Rebase the persisted accrual checkpoint instead of writing into leaveAllocations,
+        // which would otherwise permanently freeze future monthly accrual for this employee
+        // (see resolveEarnedLeaveTotal).
+        const monthsNow = monthsWorkedInCurrentYear(
+          employee.joinedAt as string | undefined,
+          refDate,
+          employee.earnedLeaveMonthEndAccrual !== false,
+        );
+        earnedLeaveAccrualPayload = { year: calendarYear, monthsAccrued: monthsNow, total };
+      } else {
+        allocationPayload[update.type as 'Casual Leave' | 'Sick Leave'] = total;
+      }
 
       const previousTotal =
         currentBalances.find((balance) => balance.type === update.type)?.total ?? 0;
@@ -1443,13 +1553,15 @@ export async function updateEmployeeYearLeaveBalances(
       const compCredits = await getCompensationLeaveCreditsForYear(String(employee.id), calendarYear);
       const leaves = await getAllLeaves(String(employee.id));
       const archivedEarned = await getArchivedEarnedLeavesForBalance(String(employee.id), refDate);
+      const resolvedOptions = await leaveBalanceOptions(employee, compCredits, refDate);
       const nextAllocations = {
-        ...(employee.leaveAllocations ?? {}),
+        ...resolvedOptions.employeeAllocations,
         ...allocationPayload,
+        ...(earnedLeaveAccrualPayload ? { 'Earned Leave': earnedLeaveAccrualPayload.total } : {}),
       };
 
       const totals = calculateBalances([], employee.joinedAt as string | undefined, {
-        ...leaveBalanceOptions(employee, compCredits, refDate),
+        ...resolvedOptions,
         employeeAllocations: nextAllocations,
       });
 
@@ -1471,7 +1583,7 @@ export async function updateEmployeeYearLeaveBalances(
         [...leaves, ...archivedEarned],
         employee.joinedAt as string | undefined,
         {
-          ...leaveBalanceOptions(employee, compCredits, refDate),
+          ...resolvedOptions,
           employeeAllocations: nextAllocations,
           balanceUsedAdjustments: yearAdjustments,
         },
@@ -1484,19 +1596,24 @@ export async function updateEmployeeYearLeaveBalances(
     }
   }
 
-  if (Object.keys(allocationPayload).length > 0) {
+  if (Object.keys(allocationPayload).length > 0 || earnedLeaveAccrualPayload) {
+    const setDoc: Record<string, unknown> = { updatedAt: new Date() };
+    if (Object.keys(allocationPayload).length > 0) {
+      setDoc.leaveAllocations = { ...(employee.leaveAllocations ?? {}), ...allocationPayload };
+    }
+    if (earnedLeaveAccrualPayload) {
+      setDoc.earnedLeaveAccrual = earnedLeaveAccrualPayload;
+    }
     await getDB()
       .collection('employees')
-      .updateOne(
-        { id: String(employee.id) },
-        {
-          $set: {
-            leaveAllocations: { ...(employee.leaveAllocations ?? {}), ...allocationPayload },
-            updatedAt: new Date(),
-          },
-        },
-      );
-    employee.leaveAllocations = { ...(employee.leaveAllocations ?? {}), ...allocationPayload };
+      .updateOne({ id: String(employee.id) }, { $set: setDoc });
+
+    if (Object.keys(allocationPayload).length > 0) {
+      employee.leaveAllocations = { ...(employee.leaveAllocations ?? {}), ...allocationPayload };
+    }
+    if (earnedLeaveAccrualPayload) {
+      employee.earnedLeaveAccrual = earnedLeaveAccrualPayload;
+    }
   }
 
   if (Object.keys(yearAdjustments).length === 0) {
@@ -1572,10 +1689,7 @@ export async function updateLeaveStatus(
       { projection: { documents: 0, 'photo.data': 0 } },
     );
     const compCredits = await getCompensationLeaveCreditsForYear(leave.employeeId);
-    const balanceOptions = {
-      ...leaveBalanceOptions(employeeDoc as Employee | null, compCredits),
-      employeeAllocations: (employeeDoc as Employee | null)?.leaveAllocations,
-    };
+    const balanceOptions = await leaveBalanceOptions(employeeDoc as Employee | null, compCredits);
     const balances = calculateBalances(
       employeeLeaves,
       (employeeDoc as Employee | null)?.joinedAt as string | undefined,
