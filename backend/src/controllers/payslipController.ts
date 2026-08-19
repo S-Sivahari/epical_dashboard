@@ -4,6 +4,7 @@ import { join } from 'path'
 import { COMPANY_LOGO_PATH, PAYROLL_TEMPLATE_DIR } from '../config/paths'
 import { resolveLogoPath } from '../services/payslipPdfGenerator'
 import { savePayslipAsPdf } from '../services/payslipPdfGenerator'
+import { getPayslipPdfBuffer } from '../services/payslipStorageService'
 import {
   generatePayrollTemplateBuffer,
 } from '../services/payrollTemplate'
@@ -22,6 +23,7 @@ import {
   deletePayslipFromBatch,
   sendAllPayslipsInBatch,
   mergeBatchPayslipPdfs,
+  safePayslipFileName,
   type PayrollBatch,
 } from '../services/payrollBatchService'
 import {
@@ -56,6 +58,20 @@ function templateMetaCollection() {
 function payslipDownloadNameForBatch(batch: PayrollBatch, storageFileName: string): string {
   const row = batch.results.find((r) => r.fileName === storageFileName)
   return formatPayslipDownloadFileName(row?.name ?? 'employee', batch.payMonth, batch.payPeriodKey)
+}
+
+/** Returns true when the error message indicates a missing/not-found resource (→ 404), not a server fault (→ 500). */
+function isPayslipNotFoundError(message: string): boolean {
+  const lower = message.toLowerCase()
+  return (
+    lower.includes('not found') ||
+    lower.includes('invalid payslip') ||
+    lower.includes('no longer available') ||
+    lower.includes('payslip pdf is missing') ||
+    lower.includes('file not found') ||
+    lower.includes('no payslip') ||
+    lower.includes('not available')
+  )
 }
 
 async function notifyAdminsAndEmployee(params: {
@@ -415,7 +431,7 @@ export const payslipController = {
     }
   },
 
-  /** Download a generated payslip PDF */
+  /** Download a generated payslip PDF (served inline for preview) */
   downloadPayslipPdf: async (req: Request, res: Response): Promise<void> => {
     try {
       const { batchId } = req.params as any
@@ -426,16 +442,24 @@ export const payslipController = {
         return
       }
 
-      const filePath = await ensurePayslipPdfExists(batchId, fileName)
       const downloadName = payslipDownloadNameForBatch(batch, fileName)
-
       res.setHeader('Content-Type', 'application/pdf')
       res.setHeader('Content-Disposition', `inline; filename="${downloadName}"`)
+
+      // Try MongoDB first (avoids disk dependency)
+      const safeName = safePayslipFileName(fileName)
+      const pdfBuffer = await getPayslipPdfBuffer(batchId, safeName)
+      if (pdfBuffer && pdfBuffer.length > 0) {
+        res.send(pdfBuffer)
+        return
+      }
+
+      // Fallback: regenerate from disk/Excel
+      const filePath = await ensurePayslipPdfExists(batchId, fileName)
       res.sendFile(filePath)
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to download payslip'
-      const status =
-        message.includes('not found') || message.includes('Invalid payslip') ? 404 : 500
+      const message = error instanceof Error ? error.message : 'Failed to load payslip'
+      const status = isPayslipNotFoundError(message) ? 404 : 500
       res.status(status).json({ error: message })
     }
   },
@@ -693,13 +717,12 @@ export const payslipController = {
       res.send(buffer)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to merge payslips'
-      const status =
-        message.includes('not found') || message.includes('No payslip') ? 404 : 500
+      const status = isPayslipNotFoundError(message) ? 404 : 500
       res.status(status).json({ error: message })
     }
   },
 
-  /** Download payslip PDF as attachment (saves file instead of opening inline) */
+  /** Download payslip PDF as attachment (saves file to disk instead of opening inline) */
   downloadPayslipPdfAttachment: async (req: Request, res: Response): Promise<void> => {
     try {
       const { batchId } = req.params as any
@@ -709,15 +732,24 @@ export const payslipController = {
         res.status(404).json({ error: 'Payroll batch not found' })
         return
       }
-      const filePath = await ensurePayslipPdfExists(batchId, fileName)
       const downloadName = payslipDownloadNameForBatch(batch, fileName)
       res.setHeader('Content-Type', 'application/pdf')
       res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`)
+
+      // Try MongoDB first (avoids disk dependency)
+      const safeName = safePayslipFileName(fileName)
+      const pdfBuffer = await getPayslipPdfBuffer(batchId, safeName)
+      if (pdfBuffer && pdfBuffer.length > 0) {
+        res.send(pdfBuffer)
+        return
+      }
+
+      // Fallback: regenerate from disk/Excel
+      const filePath = await ensurePayslipPdfExists(batchId, fileName)
       res.sendFile(filePath)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to download payslip'
-      const status =
-        message.includes('not found') || message.includes('Invalid payslip') ? 404 : 500
+      const status = isPayslipNotFoundError(message) ? 404 : 500
       res.status(status).json({ error: message })
     }
   },

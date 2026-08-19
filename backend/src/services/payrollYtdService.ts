@@ -208,17 +208,12 @@ function collectComponentAmounts(
   return map
 }
 
-/** On April payroll, drop prior FY snapshots so YTD cannot carry into the new year. */
+/** On April payroll, drop prior FY snapshots so YTD cannot carry into the new year. (Disabled: retaining database records as per policy) */
 export async function purgePriorFiscalYearSnapshots(
   employeeId: string,
   period: PayPeriod
 ): Promise<void> {
-  if (period.month !== FY_START_MONTH) return
-  const empKey = employeeId.trim().toUpperCase()
-  await monthlyCollection().deleteMany({
-    employeeId: empKey,
-    fiscalYearStart: { $lt: period.fiscalYearStart },
-  })
+  // Do nothing to ensure no payroll data is deleted from the system
 }
 
 /** Persist this month's component amounts (re-upload replaces same month). */
@@ -297,7 +292,7 @@ export async function computeCumulativeYtd(
 
 const FY_SNAPSHOT_RESET_KEY = 'payrollFySnapshotGlobalReset'
 
-/** After March 31, purge all prior-FY payroll snapshots once April begins (YTD resets). */
+/** After March 31, purge all prior-FY payroll snapshots once April begins (YTD resets). (Disabled: retaining database records as per policy) */
 export async function ensureFinancialYearSnapshotReset(refDate = new Date()): Promise<void> {
   const month = refDate.getMonth() + 1
   if (month !== FY_START_MONTH) return
@@ -307,21 +302,12 @@ export async function ensureFinancialYearSnapshotReset(refDate = new Date()): Pr
   const last = await settings.findOne({ key: FY_SNAPSHOT_RESET_KEY })
   if (last?.value === String(fiscalYearStart)) return
 
-  const result = await monthlyCollection().deleteMany({
-    fiscalYearStart: { $lt: fiscalYearStart },
-  })
-
+  // Do not delete old snapshots to ensure no payroll data is deleted from the system
   await settings.updateOne(
     { key: FY_SNAPSHOT_RESET_KEY },
     { $set: { key: FY_SNAPSHOT_RESET_KEY, value: String(fiscalYearStart), updatedAt: new Date() } },
     { upsert: true },
   )
-
-  if (result.deletedCount > 0) {
-    console.log(
-      `[PayrollYTD] New financial year ${fiscalYearStart}: purged ${result.deletedCount} prior-FY monthly snapshot(s)`,
-    )
-  }
 }
 
 /**
