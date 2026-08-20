@@ -140,10 +140,10 @@ export function formatWorkflowDurationFromMs(ms) {
 /** Break duration for timesheets; note default fill when unused slots were applied. */
 export function formatBreakDisplayLabel(ms, { isDefault = false, actualMs = 0 } = {}) {
   if (!ms || ms <= 0) return '—'
-  const duration = formatDurationFromMs(ms)
   if (isDefault && actualMs > 0) {
-    return `${duration} (${formatDurationFromMs(actualMs)} taken)`
+    return formatDurationFromMs(actualMs)
   }
+  const duration = formatDurationFromMs(ms)
   return isDefault ? `${duration} (default)` : duration
 }
 
