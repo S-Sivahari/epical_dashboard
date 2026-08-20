@@ -28,6 +28,7 @@ import {
   deletePayslipsForBatch,
   upsertPayslipPdfFromFileIfMissing,
 } from './payslipStorageService'
+import { tmpdir } from 'os'
 
 export interface PayslipResult {
   empId: string
@@ -325,14 +326,18 @@ export async function processPayrollUpload(
       try {
         const fileName = payslipFileNameForEmpId(empId)
         const prepared = await prepareEmployeeForPayslip(company, structure, emp, appendBatchId)
-        const filePath = join(payslipsDir, fileName)
-        await savePayslipAsPdf(company, structure, prepared, filePath, templateId)
+        const tempPath = join(tmpdir(), `payslip_${randomUUID()}.pdf`)
+        await savePayslipAsPdf(company, structure, prepared, tempPath, templateId)
+        const pdfBuffer = readFileSync(tempPath)
+        try {
+          unlinkSync(tempPath)
+        } catch {}
         await upsertPayslipPdf({
           batchId: appendBatchId,
           fileName,
           empId,
           payPeriodKey: periodFields.payPeriodKey,
-          pdfBuffer: readFileSync(filePath),
+          pdfBuffer,
         })
         newResults.push({ empId, name, status: 'success', fileName })
       } catch (error: unknown) {
@@ -403,14 +408,18 @@ export async function processPayrollUpload(
     try {
       const fileName = payslipFileNameForEmpId(empId)
       const prepared = await prepareEmployeeForPayslip(company, structure, emp, id)
-      const filePath = join(payslipsDir, fileName)
-      await savePayslipAsPdf(company, structure, prepared, filePath, templateId)
+      const tempPath = join(tmpdir(), `payslip_${randomUUID()}.pdf`)
+      await savePayslipAsPdf(company, structure, prepared, tempPath, templateId)
+      const pdfBuffer = readFileSync(tempPath)
+      try {
+        unlinkSync(tempPath)
+      } catch {}
       await upsertPayslipPdf({
         batchId: id,
         fileName,
         empId,
         payPeriodKey: periodFields.payPeriodKey,
-        pdfBuffer: readFileSync(filePath),
+        pdfBuffer,
       })
       results.push({ empId, name, status: 'success', fileName })
     } catch (error: unknown) {
@@ -584,39 +593,13 @@ export function payslipFileNameForEmpId(empId: string): string {
   return `Payslip_${String(empId).replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`
 }
 
-/** Write MongoDB PDF to disk cache for sendFile / merge helpers. */
-async function materializePayslipToDisk(
-  batchId: string,
-  fileName: string,
-  pdfBuffer: Buffer
-): Promise<string> {
-  ensureBatchDirs(batchId)
-  const filePath = join(getPayslipsDir(batchId), fileName)
-  writeFileSync(filePath, pdfBuffer)
-  return resolve(filePath)
-}
-
-/** Resolve payslip path — prefers MongoDB; regenerates from Excel if missing. */
-export async function ensurePayslipPdfExists(batchId: string, fileName: string): Promise<string> {
+/** Resolve payslip PDF buffer — prefers MongoDB; regenerates in-memory from Excel if missing. */
+export async function ensurePayslipPdfExists(batchId: string, fileName: string): Promise<Buffer> {
   const safeName = safePayslipFileName(fileName)
-  const filePath = join(getPayslipsDir(batchId), safeName)
 
   const stored = await getPayslipPdfBuffer(batchId, safeName)
   if (stored && stored.length > 0) {
-    return materializePayslipToDisk(batchId, safeName, stored)
-  }
-
-  if (existsSync(filePath)) {
-    const batch = await batchesCollection().findOne({ id: batchId })
-    const row = batch?.results.find((r) => r.fileName === safeName)
-    await upsertPayslipPdfFromFileIfMissing({
-      batchId,
-      fileName: safeName,
-      empId: row?.empId ?? 'Unknown',
-      filePath,
-      payPeriodKey: batch?.payPeriodKey,
-    })
-    return resolve(filePath)
+    return stored
   }
 
   const batch = await batchesCollection().findOne({ id: batchId })
@@ -661,8 +644,14 @@ export async function ensurePayslipPdfExists(batchId: string, fileName: string):
   const templateId = (batch.templateId as TemplateId) || 'classic'
   const empId = String(emp['Emp ID'] || 'Unknown')
   const prepared = await prepareEmployeeForPayslip(company, structure, emp, batchId)
-  await savePayslipAsPdf(company, structure, prepared, filePath, templateId)
-  const pdfBuffer = readFileSync(filePath)
+
+  const tempPath = join(tmpdir(), `payslip_${randomUUID()}.pdf`)
+  await savePayslipAsPdf(company, structure, prepared, tempPath, templateId)
+  const pdfBuffer = readFileSync(tempPath)
+  try {
+    unlinkSync(tempPath)
+  } catch {}
+
   await upsertPayslipPdf({
     batchId,
     fileName: safeName,
@@ -670,7 +659,7 @@ export async function ensurePayslipPdfExists(batchId: string, fileName: string):
     payPeriodKey: batch.payPeriodKey,
     pdfBuffer,
   })
-  return resolve(filePath)
+  return pdfBuffer
 }
 
 /** Merge all generated payslip PDFs in a batch into a single document. */
@@ -694,8 +683,7 @@ export async function mergeBatchPayslipPdfs(batchId: string): Promise<Buffer> {
     let bytes = await getPayslipPdfBuffer(batchId, fileName)
     if (!bytes || bytes.length === 0) {
       try {
-        const filePath = await ensurePayslipPdfExists(batchId, fileName)
-        if (existsSync(filePath)) bytes = readFileSync(filePath)
+        bytes = await ensurePayslipPdfExists(batchId, fileName)
       } catch {
         continue
       }

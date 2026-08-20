@@ -323,14 +323,14 @@ export async function resendPayslipEmailToEmployee(
   let attachment: import('./emailService').EmailAttachment | undefined
 
   try {
-    const filePath = await ensurePayslipPdfExists(record.batchId, record.fileName)
+    const pdfBuffer = await ensurePayslipPdfExists(record.batchId, record.fileName)
     attachment = {
       filename: formatPayslipDownloadFileName(
         record.employeeName,
         record.payMonth,
         record.payPeriodKey
       ),
-      content: readFileSync(filePath),
+      content: pdfBuffer,
       contentType: 'application/pdf',
     }
   } catch (error) {

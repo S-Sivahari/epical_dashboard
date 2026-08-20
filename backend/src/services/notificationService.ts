@@ -559,8 +559,7 @@ async function loadPayslipPdfAttachment(
   try {
     const { ensurePayslipPdfExists } = await import('./payrollBatchService');
     const { formatPayslipDownloadFileName } = await import('./payslipDownloadName');
-    const filePath = await ensurePayslipPdfExists(batchId, fileName);
-    const content = readFileSync(filePath);
+    const content = await ensurePayslipPdfExists(batchId, fileName);
     return {
       filename: formatPayslipDownloadFileName(employeeName, payMonth),
       content,

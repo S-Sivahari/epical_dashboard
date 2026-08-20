@@ -455,8 +455,8 @@ export const payslipController = {
       }
 
       // Fallback: regenerate from disk/Excel
-      const filePath = await ensurePayslipPdfExists(batchId, fileName)
-      res.sendFile(filePath)
+      const fallbackPdfBuffer = await ensurePayslipPdfExists(batchId, fileName)
+      res.send(fallbackPdfBuffer)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to load payslip'
       const status = isPayslipNotFoundError(message) ? 404 : 500
@@ -745,8 +745,8 @@ export const payslipController = {
       }
 
       // Fallback: regenerate from disk/Excel
-      const filePath = await ensurePayslipPdfExists(batchId, fileName)
-      res.sendFile(filePath)
+      const fallbackPdfBuffer = await ensurePayslipPdfExists(batchId, fileName)
+      res.send(fallbackPdfBuffer)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to download payslip'
       const status = isPayslipNotFoundError(message) ? 404 : 500
