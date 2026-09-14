@@ -46,11 +46,7 @@ import { formatDate } from '@/utils/formatDate'
 import ExcelJS from 'exceljs'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import {
-  downloadExcelBuffer,
-  fetchExportLogo,
-  scaleExportLogo,
-} from '@/utils/exportLogo'
+import { downloadExcelBuffer, fetchExportLogo, scaleExportLogo } from '@/utils/exportLogo'
 import { timesheetReportFileName } from '@/utils/exportFileName'
 import api from '@/services/api'
 import { getEmployees } from '@/services/employeeService'
@@ -58,7 +54,13 @@ import { filterAllocatableEmployees } from '@/utils/employeeView'
 import { useEmployeeStore } from '@store/employeeStore'
 import type { Employee } from '@/types'
 import { cn } from '@/utils/cn'
-import { formatDurationFromMs, formatWorkedDuration, resolveDisplayWorkedMs, formatBreakDisplayLabel, isDefaultBreakDeduction } from '@/utils/durationFormat'
+import {
+  formatDurationFromMs,
+  formatWorkedDuration,
+  resolveDisplayWorkedMs,
+  formatBreakDisplayLabel,
+  isDefaultBreakDeduction,
+} from '@/utils/durationFormat'
 import { getVisiblePageNumbers } from '@hooks/usePagination'
 import {
   ProjectHoursHoverCard,
@@ -155,8 +157,6 @@ interface WorkSessionLog {
   workDescription?: string
 }
 
-
-
 /* ================================================================
    HELPER – Hours Calculation (with Overridden Hours respect)
    ================================================================ */
@@ -200,7 +200,9 @@ function formatAdminWorkedDuration(t: TimesheetLog): string {
   })
 }
 
-function formatBreakTime(session: Pick<WorkSessionLog, 'breakMs' | 'displayBreakMs' | 'defaultBreakDeductedMs'>): string {
+function formatBreakTime(
+  session: Pick<WorkSessionLog, 'breakMs' | 'displayBreakMs' | 'defaultBreakDeductedMs'>,
+): string {
   const actualMs = session.breakMs ?? 0
   const defaultMs = session.defaultBreakDeductedMs ?? 0
   const displayMs =
@@ -215,7 +217,9 @@ function formatBreakTime(session: Pick<WorkSessionLog, 'breakMs' | 'displayBreak
   return formatBreakDisplayLabel(displayMs, { isDefault, actualMs })
 }
 
-function formatWorkSessionDuration(session: Pick<WorkSessionLog, 'displayWorkedMs' | 'logoutTime'>): string {
+function formatWorkSessionDuration(
+  session: Pick<WorkSessionLog, 'displayWorkedMs' | 'logoutTime'>,
+): string {
   if (typeof session.displayWorkedMs === 'number' && session.displayWorkedMs >= 0) {
     return formatDurationFromMs(session.displayWorkedMs)
   }
@@ -339,15 +343,16 @@ function buildTimesheetExportAnalytics(logs: TimesheetLog[], employees: Employee
   const byEmployee: Record<string, { name: string; dept: string; hours: number }> = {}
 
   logs.forEach((t) => {
-    const hours = calculateHours(
-      t.loginTime,
-      t.logoutTime,
-      t.overriddenHours,
-      t.totalHours,
-      t.totalPausedMs,
-      t.workedMs,
-      t.displayWorkedMs
-    ) || 0
+    const hours =
+      calculateHours(
+        t.loginTime,
+        t.logoutTime,
+        t.overriddenHours,
+        t.totalHours,
+        t.totalPausedMs,
+        t.workedMs,
+        t.displayWorkedMs,
+      ) || 0
     byProject[t.project] = (byProject[t.project] || 0) + hours
 
     const { key, name, dept } = resolveTimesheetEmployeeKey(t, employees)
@@ -389,7 +394,7 @@ function formatExcelDuration(hours: number | null | undefined): string {
 
 /** Simplified operational status for the Timesheets log view (read-only). */
 const getTimesheetWorkflowStatus = (
-  t: Pick<TimesheetLog, 'logoutTime' | 'taskStatus' | 'status' | 'requestStatus'>
+  t: Pick<TimesheetLog, 'logoutTime' | 'taskStatus' | 'status' | 'requestStatus'>,
 ): 'Completed' | 'In Progress' => {
   const isCompleted =
     t.taskStatus === 'Completed' ||
@@ -408,7 +413,11 @@ const formatDateTime = (isoString?: string): string => {
   const d = new Date(isoString)
   if (isNaN(d.getTime())) return isoString
   const dateStr = d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
-  const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+  const timeStr = d.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  })
   return `${dateStr}, ${timeStr}`
 }
 
@@ -427,7 +436,6 @@ const TIMESHEET_AGGREGATED_SCROLL_THRESHOLD = {
   projects: 6,
   employees: 5,
 } as const
-
 
 /* ================================================================
    COMPONENT – Custom Date Range Picker (Linear/SaaS Style)
@@ -452,7 +460,13 @@ const QUICK_DATE_PRESETS = [
   'Last Year',
 ] as const
 
-function CustomDateRangePicker({ startDate, endDate, preset, onChange, size = 'md' }: DateRangePickerProps) {
+function CustomDateRangePicker({
+  startDate,
+  endDate,
+  preset,
+  onChange,
+  size = 'md',
+}: DateRangePickerProps) {
   const [open, setOpen] = useState(false)
   const [currentMonth, setCurrentMonth] = useState<Date>(
     new Date(startDate || new Date().toISOString().split('T')[0]),
@@ -463,7 +477,10 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange, size = 'm
   const [activeField, setActiveField] = useState<'start' | 'end'>('start')
   const containerRef = useRef<HTMLDivElement>(null)
   const calendarRef = useRef<HTMLDivElement>(null)
-  const [calendarPosition, setCalendarPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+  const [calendarPosition, setCalendarPosition] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  })
 
   const updateCalendarPosition = useCallback(() => {
     if (!containerRef.current || !calendarRef.current || !open) return
@@ -661,8 +678,10 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange, size = 'm
     setOpen(false)
   }
 
-  const rangeStart = draftStart && draftEnd ? (draftStart <= draftEnd ? draftStart : draftEnd) : draftStart
-  const rangeEnd = draftStart && draftEnd ? (draftStart <= draftEnd ? draftEnd : draftStart) : draftEnd
+  const rangeStart =
+    draftStart && draftEnd ? (draftStart <= draftEnd ? draftStart : draftEnd) : draftStart
+  const rangeEnd =
+    draftStart && draftEnd ? (draftStart <= draftEnd ? draftEnd : draftStart) : draftEnd
 
   const calendarCells = useMemo(() => {
     const year = currentMonth.getFullYear()
@@ -707,7 +726,9 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange, size = 'm
           isLarge ? 'h-11 px-3 text-sm' : 'h-9 px-2.5 text-xs'
         }`}
       >
-        <CalendarIcon className={`text-[var(--emerald-dark)] flex-shrink-0 ${isLarge ? 'h-4 w-4' : 'h-3.5 w-3.5'}`} />
+        <CalendarIcon
+          className={`text-[var(--emerald-dark)] flex-shrink-0 ${isLarge ? 'h-4 w-4' : 'h-3.5 w-3.5'}`}
+        />
         <span className={`truncate max-w-xs leading-tight ${isLarge ? 'text-sm' : 'text-xs'}`}>
           {preset === 'Custom' && startDate === endDate
             ? `${formatDate(startDate)}`
@@ -715,156 +736,175 @@ function CustomDateRangePicker({ startDate, endDate, preset, onChange, size = 'm
               ? `${formatDate(startDate)} – ${formatDate(endDate)}`
               : `${preset} (${formatDate(startDate)} – ${formatDate(endDate)})`}
         </span>
-        <ChevronDown className={`text-[var(--emerald-dark)]/70 flex-shrink-0 ${isLarge ? 'h-4 w-4' : 'h-3 w-3'}`} />
+        <ChevronDown
+          className={`text-[var(--emerald-dark)]/70 flex-shrink-0 ${isLarge ? 'h-4 w-4' : 'h-3 w-3'}`}
+        />
       </button>
 
-      {open && createPortal(
-        <div
-          className="projects-date-calendar-portal fixed inset-0 z-[10000]"
-          style={{ pointerEvents: 'none' }}
-        >
+      {open &&
+        createPortal(
           <div
-            ref={calendarRef}
-            className="projects-date-calendar date-range-popover absolute flex w-[94vw] flex-col gap-0 rounded-2xl shadow-2xl sm:w-auto sm:min-w-[700px] md:flex-row"
-            style={{
-              top: `${calendarPosition.top}px`,
-              left: `${calendarPosition.left}px`,
-              pointerEvents: 'auto',
-            }}
+            className="projects-date-calendar-portal fixed inset-0 z-[10000]"
+            style={{ pointerEvents: 'none' }}
           >
-            <div className="projects-date-calendar-main flex min-h-0 flex-1 select-none flex-col">
-              <div className="projects-date-calendar-body">
-              <div className="projects-date-fields">
-                <button
-                  type="button"
-                  onClick={() => setActiveField('start')}
-                  className={cn(
-                    'projects-date-field',
-                    activeField === 'start' && 'projects-date-field-active',
-                  )}
-                >
-                  <span className="projects-date-field-label">Start Date</span>
-                  <span className="projects-date-field-value">
-                    {draftStart ? formatDate(draftStart) : 'Select date'}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveField('end')}
-                  className={cn(
-                    'projects-date-field',
-                    activeField === 'end' && 'projects-date-field-active',
-                  )}
-                >
-                  <span className="projects-date-field-label">End Date</span>
-                  <span className="projects-date-field-value">
-                    {draftEnd ? formatDate(draftEnd) : 'Select date'}
-                  </span>
-                </button>
-              </div>
-
-              <div className="projects-date-calendar-header">
-                <button type="button" onClick={handlePrevMonth} className="projects-date-nav-btn" aria-label="Previous month">
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                <span className="date-range-month-title type-calendar-month">
-                  {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
-                </span>
-                <button type="button" onClick={handleNextMonth} className="projects-date-nav-btn" aria-label="Next month">
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              </div>
-
-              <div className="projects-date-weekdays type-calendar-weekday">
-                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                  <span key={d}>{d}</span>
-                ))}
-              </div>
-
-              <div className="projects-date-grid">
-                {calendarCells.map((cell, idx) => {
-                  const isRangeStart = rangeStart && cell.dateString === rangeStart
-                  const isRangeEnd = rangeEnd && cell.dateString === rangeEnd
-                  const isSingleDay = rangeStart && rangeEnd && rangeStart === rangeEnd && cell.dateString === rangeStart
-                  const isWithinRange =
-                    rangeStart &&
-                    rangeEnd &&
-                    rangeStart !== rangeEnd &&
-                    cell.dateString > rangeStart &&
-                    cell.dateString < rangeEnd
-                  const isActiveTarget =
-                    (activeField === 'start' && cell.dateString === draftStart) ||
-                    (activeField === 'end' && cell.dateString === draftEnd)
-
-                  return (
+            <div
+              ref={calendarRef}
+              className="projects-date-calendar date-range-popover absolute flex w-[94vw] flex-col gap-0 rounded-2xl shadow-2xl sm:w-auto sm:min-w-[700px] md:flex-row"
+              style={{
+                top: `${calendarPosition.top}px`,
+                left: `${calendarPosition.left}px`,
+                pointerEvents: 'auto',
+              }}
+            >
+              <div className="projects-date-calendar-main flex min-h-0 flex-1 select-none flex-col">
+                <div className="projects-date-calendar-body">
+                  <div className="projects-date-fields">
                     <button
-                      key={idx}
                       type="button"
-                      onClick={() => handleDayClick(cell.dateString)}
+                      onClick={() => setActiveField('start')}
                       className={cn(
-                        'projects-date-day',
-                        cell.isCurrentMonth ? 'projects-date-day-current' : 'projects-date-day-muted',
-                        (isSingleDay || isRangeStart || isRangeEnd) && 'projects-date-day-selected',
-                        isWithinRange && 'projects-date-day-in-range',
-                        isActiveTarget && 'projects-date-day-focus',
+                        'projects-date-field',
+                        activeField === 'start' && 'projects-date-field-active',
                       )}
                     >
-                      {cell.day}
+                      <span className="projects-date-field-label">Start Date</span>
+                      <span className="projects-date-field-value">
+                        {draftStart ? formatDate(draftStart) : 'Select date'}
+                      </span>
                     </button>
-                  )
-                })}
-              </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveField('end')}
+                      className={cn(
+                        'projects-date-field',
+                        activeField === 'end' && 'projects-date-field-active',
+                      )}
+                    >
+                      <span className="projects-date-field-label">End Date</span>
+                      <span className="projects-date-field-value">
+                        {draftEnd ? formatDate(draftEnd) : 'Select date'}
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="projects-date-calendar-header">
+                    <button
+                      type="button"
+                      onClick={handlePrevMonth}
+                      className="projects-date-nav-btn"
+                      aria-label="Previous month"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <span className="date-range-month-title type-calendar-month">
+                      {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleNextMonth}
+                      className="projects-date-nav-btn"
+                      aria-label="Next month"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </div>
+
+                  <div className="projects-date-weekdays type-calendar-weekday">
+                    {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                      <span key={d}>{d}</span>
+                    ))}
+                  </div>
+
+                  <div className="projects-date-grid">
+                    {calendarCells.map((cell, idx) => {
+                      const isRangeStart = rangeStart && cell.dateString === rangeStart
+                      const isRangeEnd = rangeEnd && cell.dateString === rangeEnd
+                      const isSingleDay =
+                        rangeStart &&
+                        rangeEnd &&
+                        rangeStart === rangeEnd &&
+                        cell.dateString === rangeStart
+                      const isWithinRange =
+                        rangeStart &&
+                        rangeEnd &&
+                        rangeStart !== rangeEnd &&
+                        cell.dateString > rangeStart &&
+                        cell.dateString < rangeEnd
+                      const isActiveTarget =
+                        (activeField === 'start' && cell.dateString === draftStart) ||
+                        (activeField === 'end' && cell.dateString === draftEnd)
+
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleDayClick(cell.dateString)}
+                          className={cn(
+                            'projects-date-day',
+                            cell.isCurrentMonth
+                              ? 'projects-date-day-current'
+                              : 'projects-date-day-muted',
+                            (isSingleDay || isRangeStart || isRangeEnd) &&
+                              'projects-date-day-selected',
+                            isWithinRange && 'projects-date-day-in-range',
+                            isActiveTarget && 'projects-date-day-focus',
+                          )}
+                        >
+                          {cell.day}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="projects-date-actions">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false)
+                      setDraftStart(startDate)
+                      setDraftEnd(endDate)
+                      setDraftPreset(preset)
+                    }}
+                    className="projects-date-action-btn projects-date-action-btn--ghost"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApply}
+                    className="projects-date-action-btn projects-date-action-btn--primary"
+                  >
+                    Apply Filter
+                  </button>
+                </div>
               </div>
 
-              <div className="projects-date-actions">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false)
-                    setDraftStart(startDate)
-                    setDraftEnd(endDate)
-                    setDraftPreset(preset)
-                  }}
-                  className="projects-date-action-btn projects-date-action-btn--ghost"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleApply}
-                  className="projects-date-action-btn projects-date-action-btn--primary"
-                >
-                  Apply Filter
-                </button>
+              <div className="projects-date-divider hidden md:block" />
+
+              <div className="projects-date-presets">
+                <p className="type-card-label-caps">Quick Presets</p>
+                {QUICK_DATE_PRESETS.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => handlePresetClick(p)}
+                    className={cn(
+                      'projects-date-preset',
+                      draftPreset === p && 'projects-date-preset-active',
+                    )}
+                  >
+                    {p}
+                  </button>
+                ))}
               </div>
             </div>
-
-            <div className="projects-date-divider hidden md:block" />
-
-            <div className="projects-date-presets">
-              <p className="type-card-label-caps">Quick Presets</p>
-              {QUICK_DATE_PRESETS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => handlePresetClick(p)}
-                  className={cn(
-                    'projects-date-preset',
-                    draftPreset === p && 'projects-date-preset-active',
-                  )}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }
-
 
 /** Empty selection = no restriction. Non-empty = value must be in the list. */
 function matchesMultiFilter(selected: string[], value: string): boolean {
@@ -924,7 +964,9 @@ function FilterCheckboxGroup({
   return (
     <div ref={rootRef} className="relative">
       {!compact && (
-        <span className={`mb-1 block font-bold uppercase tracking-wider text-slate-600 ${isLarge ? 'text-xs' : 'text-[10px]'}`}>
+        <span
+          className={`mb-1 block font-bold uppercase tracking-wider text-slate-600 ${isLarge ? 'text-xs' : 'text-[10px]'}`}
+        >
           {label}
         </span>
       )}
@@ -953,8 +995,14 @@ function FilterCheckboxGroup({
           aria-label={label}
           className={`absolute left-0 right-0 z-50 mt-1 min-w-full rounded-xl border border-border bg-[var(--bg-card)] shadow-2xl ${isLarge ? 'p-3' : 'p-2'}`}
         >
-          <div className={`mb-2 flex items-center justify-between gap-2 border-b border-border ${isLarge ? 'pb-2.5' : 'pb-2'}`}>
-            <span className={`font-bold uppercase tracking-wider text-slate-700 ${isLarge ? 'text-xs' : 'text-[10px]'}`}>{label}</span>
+          <div
+            className={`mb-2 flex items-center justify-between gap-2 border-b border-border ${isLarge ? 'pb-2.5' : 'pb-2'}`}
+          >
+            <span
+              className={`font-bold uppercase tracking-wider text-slate-700 ${isLarge ? 'text-xs' : 'text-[10px]'}`}
+            >
+              {label}
+            </span>
             <div className="flex shrink-0 gap-2">
               <button
                 type="button"
@@ -972,9 +1020,15 @@ function FilterCheckboxGroup({
               </button>
             </div>
           </div>
-          <div className={`space-y-0.5 overflow-y-auto pr-0.5 ${isLarge ? 'max-h-64' : 'max-h-48'}`}>
+          <div
+            className={`space-y-0.5 overflow-y-auto pr-0.5 ${isLarge ? 'max-h-64' : 'max-h-48'}`}
+          >
             {options.length === 0 ? (
-              <p className={`px-2 py-2 font-semibold text-slate-700 ${isLarge ? 'text-sm' : 'text-xs'}`}>No options</p>
+              <p
+                className={`px-2 py-2 font-semibold text-slate-700 ${isLarge ? 'text-sm' : 'text-xs'}`}
+              >
+                No options
+              </p>
             ) : (
               options.map((opt) => (
                 <label
@@ -1067,9 +1121,10 @@ const ProjectCard = memo(function ProjectCard({
   const visibleNames = project.visibleUsers.slice(0, maxVisibleNames)
   const remainingCount = memberCount - maxVisibleNames
 
-  const membersText = memberCount > 0 
-    ? visibleNames.join(' • ') + (remainingCount > 0 ? ` • +${remainingCount} more` : '')
-    : 'None assigned'
+  const membersText =
+    memberCount > 0
+      ? visibleNames.join(' • ') + (remainingCount > 0 ? ` • +${remainingCount} more` : '')
+      : 'None assigned'
 
   const projectInitial =
     project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
@@ -1158,7 +1213,9 @@ const ProjectCard = memo(function ProjectCard({
           ) : (
             <Globe className="mr-1.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
           )}
-          <span className="min-w-0 truncate">{project.accessType === 'private' ? 'Private' : 'Public'}</span>
+          <span className="min-w-0 truncate">
+            {project.accessType === 'private' ? 'Private' : 'Public'}
+          </span>
         </div>
         <div className="flex w-full min-w-0 items-center rounded-lg border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700">
           <Cpu className="mr-1.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
@@ -1170,7 +1227,9 @@ const ProjectCard = memo(function ProjectCard({
 
       <div className="project-members-section grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-2.5 text-xs text-slate-600">
         <span className="shrink-0 font-bold leading-relaxed text-slate-400">Lead:</span>
-        <span className="min-w-0 break-words font-medium leading-relaxed text-slate-700">{leadName}</span>
+        <span className="min-w-0 break-words font-medium leading-relaxed text-slate-700">
+          {leadName}
+        </span>
         <span className="shrink-0 font-bold leading-relaxed text-slate-400">Members:</span>
         <span className="min-w-0 break-words font-medium leading-relaxed text-slate-700">
           {membersText}
@@ -1203,14 +1262,21 @@ const ProjectListRow = memo(function ProjectListRow({
     project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
 
   return (
-    <tr className={cn('projects-list-row group transition-colors border-b border-border hover:bg-emerald-50/50', isCompleted ? 'bg-emerald-50/60' : '')}>
+    <tr
+      className={cn(
+        'projects-list-row group transition-colors border-b border-border hover:bg-emerald-50/50',
+        isCompleted ? 'bg-emerald-50/60' : '',
+      )}
+    >
       <td className="px-5 py-4">
         <div className="flex items-center gap-3">
           <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--emerald-surface)] text-sm font-extrabold text-[var(--emerald-dark)] ring-1 ring-[rgba(38,107,28,0.22)]">
             {projectInitial}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-ink group-hover:text-[var(--emerald-dark)]">{project.name}</p>
+            <p className="truncate text-sm font-bold text-ink group-hover:text-[var(--emerald-dark)]">
+              {project.name}
+            </p>
           </div>
         </div>
       </td>
@@ -1223,11 +1289,17 @@ const ProjectListRow = memo(function ProjectListRow({
       </td>
       <td className="px-5 py-4">
         {project.accessType === 'private' ? (
-          <Badge variant="warning" className="border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-400">
+          <Badge
+            variant="warning"
+            className="border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-400"
+          >
             <Lock className="mr-1 h-3.5 w-3.5 text-amber-500" /> Private
           </Badge>
         ) : (
-          <Badge variant="info" className="border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-[11px] font-bold text-sky-400">
+          <Badge
+            variant="info"
+            className="border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-[11px] font-bold text-sky-400"
+          >
             <Globe className="mr-1 h-3.5 w-3.5 text-sky-500" /> Public
           </Badge>
         )}
@@ -1236,15 +1308,22 @@ const ProjectListRow = memo(function ProjectListRow({
         <div className="flex flex-col gap-1.5 text-xs">
           <div className="flex items-start gap-2">
             <span className="font-semibold text-slate-455 w-20 shrink-0">Lead:</span>
-            <span className="font-bold text-slate-700 flex-1 break-words">{project.teamLead || 'Not assigned'}</span>
+            <span className="font-bold text-slate-700 flex-1 break-words">
+              {project.teamLead || 'Not assigned'}
+            </span>
           </div>
           <div className="flex items-start gap-2 text-slate-600">
             <span className="font-semibold text-slate-455 w-20 shrink-0">Members:</span>
-            <span className="flex-1 break-words leading-relaxed" title={project.visibleUsers.join(' • ')}>
-              {project.visibleUsers.length > 0 
-                ? project.visibleUsers.slice(0, 2).join(' • ') + (project.visibleUsers.length > 2 ? ` • +${project.visibleUsers.length - 2} more` : '')
-                : 'None'
-              }
+            <span
+              className="flex-1 break-words leading-relaxed"
+              title={project.visibleUsers.join(' • ')}
+            >
+              {project.visibleUsers.length > 0
+                ? project.visibleUsers.slice(0, 2).join(' • ') +
+                  (project.visibleUsers.length > 2
+                    ? ` • +${project.visibleUsers.length - 2} more`
+                    : '')
+                : 'None'}
               {project.visibleUsers.length > 0 && ` (${project.visibleUsers.length})`}
             </span>
           </div>
@@ -1252,19 +1331,31 @@ const ProjectListRow = memo(function ProjectListRow({
       </td>
       <td className="px-5 py-4">
         {isCancelled ? (
-          <Badge variant="neutral" className="border border-rose-500/25 bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-400">
+          <Badge
+            variant="neutral"
+            className="border border-rose-500/25 bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-400"
+          >
             <X className="mr-1 h-3.5 w-3.5 text-rose-400" /> Cancelled
           </Badge>
         ) : isRejected ? (
-          <Badge variant="neutral" className="border border-rose-500/25 bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-400">
+          <Badge
+            variant="neutral"
+            className="border border-rose-500/25 bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-400"
+          >
             <X className="mr-1 h-3.5 w-3.5 text-rose-400" /> Rejected
           </Badge>
         ) : isCompleted ? (
-          <Badge variant="success" className="border border-[rgba(38,107,28,0.22)] bg-[var(--emerald-surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--emerald-dark)]">
+          <Badge
+            variant="success"
+            className="border border-[rgba(38,107,28,0.22)] bg-[var(--emerald-surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--emerald-dark)]"
+          >
             <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Completed
           </Badge>
         ) : (
-          <Badge variant="info" className="border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[11px] font-bold text-blue-400">
+          <Badge
+            variant="info"
+            className="border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[11px] font-bold text-blue-400"
+          >
             <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-blue-500" />
             In Progress
           </Badge>
@@ -1505,7 +1596,8 @@ const ArchivedProjectCard = memo(function ArchivedProjectCard({
     memberCount > 0
       ? visibleNames.join(' • ') + (remainingCount > 0 ? ` • +${remainingCount} more` : '')
       : 'None assigned'
-  const projectInitial = project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
+  const projectInitial =
+    project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
   const statusLabel = isRejected ? 'Rejected' : isCompleted ? 'Completed' : 'In Progress'
   let ringColor = 'border-blue-500 ring-blue-500/20 text-blue-700 bg-blue-50'
   let badgeColor = 'bg-blue-100 text-blue-700 border-blue-200'
@@ -1535,10 +1627,14 @@ const ArchivedProjectCard = memo(function ArchivedProjectCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex shrink-0 flex-col items-center gap-2">
-          <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 ring-4 ${ringColor}`}>
+          <div
+            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 ring-4 ${ringColor}`}
+          >
             <span className="text-xl font-bold">{projectInitial}</span>
           </div>
-          <span className={`max-w-[6.5rem] whitespace-nowrap rounded-full border px-2.5 py-0.5 text-center text-[9px] font-bold uppercase tracking-wider ${badgeColor}`}>
+          <span
+            className={`max-w-[6.5rem] whitespace-nowrap rounded-full border px-2.5 py-0.5 text-center text-[9px] font-bold uppercase tracking-wider ${badgeColor}`}
+          >
             {statusLabel}
           </span>
         </div>
@@ -1556,14 +1652,24 @@ const ArchivedProjectCard = memo(function ArchivedProjectCard({
         </div>
       </div>
       <div className="min-w-0">
-        <h3 className="truncate text-base font-bold leading-snug text-slate-800 group-hover:text-emerald-700">{project.name}</h3>
+        <h3 className="truncate text-base font-bold leading-snug text-slate-800 group-hover:text-emerald-700">
+          {project.name}
+        </h3>
         <p className="mt-1 truncate text-xs text-slate-500">{project.client}</p>
       </div>
-      {project.description ? <p className="line-clamp-2 text-xs text-slate-600">{project.description}</p> : null}
+      {project.description ? (
+        <p className="line-clamp-2 text-xs text-slate-600">{project.description}</p>
+      ) : null}
       <div className="flex flex-col gap-2 border-b border-slate-100/60 pb-4">
         <div className="flex min-w-0 items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700">
-          {project.accessType === 'private' ? <Lock className="mr-1.5 h-3.5 w-3.5 shrink-0 text-amber-600" /> : <Globe className="mr-1.5 h-3.5 w-3.5 shrink-0 text-slate-500" />}
-          <span className="truncate">{project.accessType === 'private' ? 'Private' : 'Public'}</span>
+          {project.accessType === 'private' ? (
+            <Lock className="mr-1.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+          ) : (
+            <Globe className="mr-1.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+          )}
+          <span className="truncate">
+            {project.accessType === 'private' ? 'Private' : 'Public'}
+          </span>
         </div>
         <div className="flex min-w-0 items-center rounded-lg border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700">
           <Cpu className="mr-1.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
@@ -1581,7 +1687,9 @@ const ArchivedProjectCard = memo(function ArchivedProjectCard({
         </div>
         <div className="rounded-lg border border-slate-200/80 bg-white/70 px-2 py-1.5">
           <p className="text-[9px] uppercase tracking-wide text-slate-400">Archived</p>
-          <p className="mt-0.5 truncate" title={archivedLabel}>{archivedLabel}</p>
+          <p className="mt-0.5 truncate" title={archivedLabel}>
+            {archivedLabel}
+          </p>
         </div>
       </div>
       <div className="project-members-section grid grid-cols-[auto_1fr] gap-x-3 gap-y-2.5 text-xs text-slate-600">
@@ -1608,15 +1716,29 @@ const ArchivedProjectListRow = memo(function ArchivedProjectListRow({
 }) {
   const isCompleted = project.status === 'Completed'
   const isRejected = project.status === 'Rejected'
-  const projectInitial = project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
-  const archivedLabel = new Date(project.archivedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  const projectInitial =
+    project.name.charAt(project.name.indexOf(' ') + 1) || project.name.charAt(0)
+  const archivedLabel = new Date(project.archivedAt).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
 
   return (
-    <tr className={cn('projects-list-row group border-b border-border transition-colors hover:bg-emerald-50/50', isCompleted ? 'bg-emerald-50/60' : '')}>
+    <tr
+      className={cn(
+        'projects-list-row group border-b border-border transition-colors hover:bg-emerald-50/50',
+        isCompleted ? 'bg-emerald-50/60' : '',
+      )}
+    >
       <td className="px-5 py-4">
         <div className="flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--emerald-surface)] text-sm font-extrabold text-[var(--emerald-dark)] ring-1 ring-[rgba(38,107,28,0.22)]">{projectInitial}</span>
-          <p className="truncate text-sm font-bold text-ink group-hover:text-[var(--emerald-dark)]">{project.name}</p>
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--emerald-surface)] text-sm font-extrabold text-[var(--emerald-dark)] ring-1 ring-[rgba(38,107,28,0.22)]">
+            {projectInitial}
+          </span>
+          <p className="truncate text-sm font-bold text-ink group-hover:text-[var(--emerald-dark)]">
+            {project.name}
+          </p>
         </div>
       </td>
       <td className="px-5 py-4 text-sm font-semibold text-slate-800">{project.client}</td>
@@ -1628,13 +1750,21 @@ const ArchivedProjectListRow = memo(function ArchivedProjectListRow({
         {isRejected ? (
           <Badge variant="neutral">Rejected</Badge>
         ) : isCompleted ? (
-          <Badge variant="success"><CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />Completed</Badge>
+          <Badge variant="success">
+            <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />
+            Completed
+          </Badge>
         ) : (
           <Badge variant="info">In Progress</Badge>
         )}
       </td>
       <td className="px-5 py-4 text-right">
-        <button type="button" onClick={onRestore} disabled={restoring} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-50 px-3 text-xs font-bold text-[var(--emerald-dark)] hover:bg-emerald-100/80 disabled:opacity-60">
+        <button
+          type="button"
+          onClick={onRestore}
+          disabled={restoring}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-50 px-3 text-xs font-bold text-[var(--emerald-dark)] hover:bg-emerald-100/80 disabled:opacity-60"
+        >
           <RefreshCw className={cn('h-4 w-4', restoring && 'animate-spin')} />
           Restore
         </button>
@@ -1701,17 +1831,33 @@ function ArchivedProjectsPanel({
                 className="admin-field projects-search-input w-full pl-9 pr-8 font-medium text-ink shadow-sm"
               />
               {searchQuery ? (
-                <button type="button" onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-white/60 hover:text-ink">
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-white/60 hover:text-ink"
+                >
                   <X className="h-3.5 w-3.5" />
                 </button>
               ) : null}
             </div>
           </div>
           <div className="projects-directory-view-toggle projects-view-toggle shrink-0">
-            <button type="button" onClick={() => setViewMode('grid')} className={`rounded-md p-2 transition-all ${viewMode === 'grid' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'}`} title="Grid view" aria-label="Grid view">
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={`rounded-md p-2 transition-all ${viewMode === 'grid' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'}`}
+              title="Grid view"
+              aria-label="Grid view"
+            >
               <LayoutGrid className="h-4 w-4" />
             </button>
-            <button type="button" onClick={() => setViewMode('list')} className={`rounded-md p-2 transition-all ${viewMode === 'list' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'}`} title="List view" aria-label="List view">
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`rounded-md p-2 transition-all ${viewMode === 'list' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'}`}
+              title="List view"
+              aria-label="List view"
+            >
               <List className="h-4 w-4" />
             </button>
           </div>
@@ -1727,13 +1873,24 @@ function ArchivedProjectsPanel({
         ) : filteredList.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 py-16 text-center">
             <Archive className="mb-3 h-12 w-12 text-slate-300" />
-            <p className="text-base font-bold text-slate-700">{searchQuery ? 'No archived projects match your search.' : 'No archived projects found'}</p>
-            <p className="mt-1 max-w-sm px-4 text-sm font-medium text-slate-500">Projects you archive from the active workspace will appear here.</p>
+            <p className="text-base font-bold text-slate-700">
+              {searchQuery
+                ? 'No archived projects match your search.'
+                : 'No archived projects found'}
+            </p>
+            <p className="mt-1 max-w-sm px-4 text-sm font-medium text-slate-500">
+              Projects you archive from the active workspace will appear here.
+            </p>
           </div>
         ) : viewMode === 'grid' ? (
           <div className="projects-grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 xl:grid-cols-3">
             {filteredList.map((p) => (
-              <ArchivedProjectCard key={p.id} project={p} restoring={restoringId === p.id} onRestore={() => void onRestore(p.id, p.name)} />
+              <ArchivedProjectCard
+                key={p.id}
+                project={p}
+                restoring={restoringId === p.id}
+                onRestore={() => void onRestore(p.id, p.name)}
+              />
             ))}
           </div>
         ) : (
@@ -1742,19 +1899,40 @@ function ArchivedProjectsPanel({
               <table className="w-full border-collapse text-left">
                 <thead className="sticky top-0 z-20 bg-white">
                   <tr className="border-b border-border bg-white shadow-sm">
-                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Project</th>
-                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Client</th>
-                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Tech Node</th>
-                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Tasks</th>
-                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Timesheets</th>
-                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Archived</th>
-                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Status</th>
-                    <th className="bg-white px-5 py-3 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">Actions</th>
+                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                      Project
+                    </th>
+                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                      Client
+                    </th>
+                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                      Tech Node
+                    </th>
+                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                      Tasks
+                    </th>
+                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                      Timesheets
+                    </th>
+                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                      Archived
+                    </th>
+                    <th className="bg-white px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                      Status
+                    </th>
+                    <th className="bg-white px-5 py-3 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-sm">
                   {filteredList.map((p) => (
-                    <ArchivedProjectListRow key={p.id} project={p} restoring={restoringId === p.id} onRestore={() => void onRestore(p.id, p.name)} />
+                    <ArchivedProjectListRow
+                      key={p.id}
+                      project={p}
+                      restoring={restoringId === p.id}
+                      onRestore={() => void onRestore(p.id, p.name)}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -1789,12 +1967,7 @@ export function ProjectManagement() {
 
   useEffect(() => {
     const tab = searchParams.get('tab')
-    if (
-      tab === 'analytics' ||
-      tab === 'timesheets' ||
-      tab === 'projects' ||
-      tab === 'archived'
-    ) {
+    if (tab === 'analytics' || tab === 'timesheets' || tab === 'projects' || tab === 'archived') {
       setActiveTab(tab)
     }
   }, [searchParams])
@@ -1865,7 +2038,10 @@ export function ProjectManagement() {
   const [form, setForm] = useState(emptyForm)
 
   const allocatableEmployees = useMemo(() => filterAllocatableEmployees(employees), [employees])
-  const allEmployeeNames = useMemo(() => allEmployeeDisplayNames(allocatableEmployees), [allocatableEmployees])
+  const allEmployeeNames = useMemo(
+    () => allEmployeeDisplayNames(allocatableEmployees),
+    [allocatableEmployees],
+  )
 
   useEffect(() => {
     if (!modalOpen || form.accessType !== 'public' || allEmployeeNames.length === 0) return
@@ -2031,8 +2207,6 @@ export function ProjectManagement() {
     })
   }, [uniqueEmployees, employees])
 
-
-
   // ── Projects Tab Filter Implementation ──────────────────────
   const activeFiltersCount = useMemo(() => {
     let count = 0
@@ -2056,7 +2230,7 @@ export function ProjectManagement() {
       const matchClient = matchesMultiFilter(filterClients, p.client)
       const matchStatus = matchesMultiFilter(filterStatuses, p.status)
       const matchAccess = matchesMultiFilter(filterAccessTypes, p.accessType)
-      
+
       // Check if any selected employee is associated with the project
       const matchEmployee =
         filterEmployees.length === 0 ||
@@ -2065,14 +2239,7 @@ export function ProjectManagement() {
 
       return matchSearch && matchClient && matchStatus && matchAccess && matchEmployee
     })
-  }, [
-    projects,
-    searchQuery,
-    filterClients,
-    filterEmployees,
-    filterStatuses,
-    filterAccessTypes,
-  ])
+  }, [projects, searchQuery, filterClients, filterEmployees, filterStatuses, filterAccessTypes])
 
   // ── Projects Pagination derived values ──────────────────────
   const totalProjectsPages = Math.ceil(filteredProjects.length / projectsPerPage)
@@ -2086,7 +2253,7 @@ export function ProjectManagement() {
     filterClients,
     filterEmployees,
     filterStatuses,
-    filterAccessTypes
+    filterAccessTypes,
   })
 
   // Reset projects page to 1 when filters or search query change
@@ -2106,7 +2273,7 @@ export function ProjectManagement() {
         filterClients,
         filterEmployees,
         filterStatuses,
-        filterAccessTypes
+        filterAccessTypes,
       }
     }
   }, [searchQuery, filterClients, filterEmployees, filterStatuses, filterAccessTypes])
@@ -2129,22 +2296,30 @@ export function ProjectManagement() {
     setModalOpen(true)
   }, [])
 
-  const openEditProject = useCallback((p: Project) => {
-    setModalMode('edit')
-    setEditingId(p.id)
-    setForm({
-      name: p.name,
-      client: p.client,
-      technologyNode: p.technologyNode,
-      accessType: p.accessType,
-      description: p.description,
-      visibleUsers:
-        p.accessType === 'public' ? allEmployeeDisplayNames(allocatableEmployees) : [...p.visibleUsers],
-      teamLead: p.teamLead || '',
-      status: (p.status === 'Rejected' ? 'Cancelled' : p.status) as 'Active' | 'Completed' | 'Cancelled',
-    })
-    setModalOpen(true)
-  }, [allocatableEmployees])
+  const openEditProject = useCallback(
+    (p: Project) => {
+      setModalMode('edit')
+      setEditingId(p.id)
+      setForm({
+        name: p.name,
+        client: p.client,
+        technologyNode: p.technologyNode,
+        accessType: p.accessType,
+        description: p.description,
+        visibleUsers:
+          p.accessType === 'public'
+            ? allEmployeeDisplayNames(allocatableEmployees)
+            : [...p.visibleUsers],
+        teamLead: p.teamLead || '',
+        status: (p.status === 'Rejected' ? 'Cancelled' : p.status) as
+          | 'Active'
+          | 'Completed'
+          | 'Cancelled',
+      })
+      setModalOpen(true)
+    },
+    [allocatableEmployees],
+  )
 
   const handleSaveProject = useCallback(
     async (e: React.FormEvent) => {
@@ -2188,7 +2363,7 @@ export function ProjectManagement() {
           })
           if (oldProjectName && oldProjectName !== newProjectName) {
             setTsProjectFilters((prev) =>
-              prev.map((n) => (n === oldProjectName ? newProjectName : n))
+              prev.map((n) => (n === oldProjectName ? newProjectName : n)),
             )
           }
           await refreshAllData()
@@ -2201,7 +2376,7 @@ export function ProjectManagement() {
         setLoading(false)
       }
     },
-    [form, modalMode, editingId, refreshAllData, allProjects]
+    [form, modalMode, editingId, refreshAllData, allProjects],
   )
 
   const handleDeleteProject = useCallback((p: Project) => {
@@ -2251,7 +2426,6 @@ export function ProjectManagement() {
     }
   }, [projectToDelete, refreshAllData])
 
-
   const clearProjectsFilters = useCallback(() => {
     setSearchQuery('')
     setFilterClients([])
@@ -2268,11 +2442,14 @@ export function ProjectManagement() {
   }
 
   // Mapper helper to link employee team to logical teams for filtering
-  const getEmployeeTeam = useCallback((empName: string): string => {
-    const emp = employees.find((e) => employeeDisplayName(e) === empName)
-    if (!emp) return 'Design Team'
-    return `${emp.department} Team`
-  }, [employees])
+  const getEmployeeTeam = useCallback(
+    (empName: string): string => {
+      const emp = employees.find((e) => employeeDisplayName(e) === empName)
+      if (!emp) return 'Design Team'
+      return `${emp.department} Team`
+    },
+    [employees],
+  )
 
   // ── Work sessions filtering (one row per check-in / check-out) ──
   const filteredWorkSessions = useMemo(() => {
@@ -2330,10 +2507,7 @@ export function ProjectManagement() {
 
       const matchEmployee = matchesMultiFilter(tsEmployeeFilters, t.employeeName)
       const matchProject = matchesMultiFilter(tsProjectFilters, t.project)
-      const matchStatus = matchesMultiFilter(
-        tsStatusFilters,
-        getTimesheetWorkflowStatus(t)
-      )
+      const matchStatus = matchesMultiFilter(tsStatusFilters, getTimesheetWorkflowStatus(t))
 
       return matchSearch && matchEmployee && matchProject && matchStatus
     })
@@ -2352,27 +2526,28 @@ export function ProjectManagement() {
   const derivedHoursByProject = useMemo(() => {
     const projectMap: Record<string, { name: string; hours: number; projectId?: string }> = {}
     filteredTimesheets.forEach((t) => {
-      const hours = calculateHours(
-        t.loginTime,
-        t.logoutTime,
-        t.overriddenHours,
-        t.totalHours,
-        t.totalPausedMs,
-      t.workedMs,
-      t.displayWorkedMs
-      ) || 0
+      const hours =
+        calculateHours(
+          t.loginTime,
+          t.logoutTime,
+          t.overriddenHours,
+          t.totalHours,
+          t.totalPausedMs,
+          t.workedMs,
+          t.displayWorkedMs,
+        ) || 0
       if (projectMap[t.project]) {
         projectMap[t.project].hours += hours
       } else {
         projectMap[t.project] = {
           name: t.project,
           hours,
-          projectId: t.projectId
+          projectId: t.projectId,
         }
       }
     })
     return Object.values(projectMap)
-      .map(p => ({ ...p, hours: Math.round(p.hours * 10) / 10 }))
+      .map((p) => ({ ...p, hours: Math.round(p.hours * 10) / 10 }))
       .sort((a, b) => b.hours - a.hours)
   }, [filteredTimesheets])
 
@@ -2380,15 +2555,16 @@ export function ProjectManagement() {
   const derivedLeaderboardData = useMemo(() => {
     const empMap: Record<string, { name: string; dept: string; hours: number; hue: number }> = {}
     filteredTimesheets.forEach((t) => {
-      const hours = calculateHours(
-        t.loginTime,
-        t.logoutTime,
-        t.overriddenHours,
-        t.totalHours,
-        t.totalPausedMs,
-      t.workedMs,
-      t.displayWorkedMs
-      ) || 0
+      const hours =
+        calculateHours(
+          t.loginTime,
+          t.logoutTime,
+          t.overriddenHours,
+          t.totalHours,
+          t.totalPausedMs,
+          t.workedMs,
+          t.displayWorkedMs,
+        ) || 0
       const { key, name, dept } = resolveTimesheetEmployeeKey(t, employees)
       const empInfo = employees.find(
         (e) => e.employeeId === key || e.id === key || employeeDisplayName(e) === name,
@@ -2405,8 +2581,7 @@ export function ProjectManagement() {
         }
       }
     })
-    return Object.values(empMap)
-      .map(e => ({ ...e, hours: Math.round(e.hours * 10) / 10 }))
+    return Object.values(empMap).map((e) => ({ ...e, hours: Math.round(e.hours * 10) / 10 }))
   }, [filteredTimesheets, employees])
 
   // ── Work sessions pagination ─────────────────────────────────
@@ -2473,7 +2648,7 @@ export function ProjectManagement() {
     tsEndDate,
     tsEmployeeFilters,
     tsProjectFilters,
-    tsStatusFilters
+    tsStatusFilters,
   })
 
   // Reset timesheets page to 1 when filters or search query change
@@ -2495,648 +2670,769 @@ export function ProjectManagement() {
         tsEndDate,
         tsEmployeeFilters,
         tsProjectFilters,
-        tsStatusFilters
+        tsStatusFilters,
       }
     }
   }, [tsSearch, tsStartDate, tsEndDate, tsEmployeeFilters, tsProjectFilters, tsStatusFilters])
 
   // ── Export Implementations (Excel / PDF) ─────────────────────
-  const handleExportExcel = useCallback(async (includeWorkDescription: boolean) => {
-    if (!filteredTimesheets.length) {
-      toast.error('No timesheet data available to export.')
-      return
-    }
+  const handleExportExcel = useCallback(
+    async (includeWorkDescription: boolean) => {
+      if (!filteredTimesheets.length) {
+        toast.error('No timesheet data available to export.')
+        return
+      }
 
-    const detailColCount = includeWorkDescription ? 10 : 9
-    const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets, employees)
-    const workbook = new ExcelJS.Workbook()
-    const sheet = workbook.addWorksheet('Timesheet Report')
+      const detailColCount = includeWorkDescription ? 10 : 9
+      const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(
+        filteredTimesheets,
+        employees,
+      )
+      const workbook = new ExcelJS.Workbook()
+      const sheet = workbook.addWorksheet('Timesheet Report')
 
-    // Ensure grid lines are visible in the excel sheet
-    sheet.views = [{ showGridLines: true }]
+      // Ensure grid lines are visible in the excel sheet
+      sheet.views = [{ showGridLines: true }]
 
-    // Keep track of rows we merge so we can exclude them from column width auto-adjustment
-    const fullMergedRows: number[] = []
+      // Keep track of rows we merge so we can exclude them from column width auto-adjustment
+      const fullMergedRows: number[] = []
 
-    // Helper to merge and style banner headers
-    const addMainHeader = (r: number, text: string, bgColor: string, fontSize: number, height: number) => {
-      sheet.mergeCells(r, 1, r, detailColCount)
-      const cell = sheet.getCell(r, 1)
-      cell.value = text
-      cell.font = { name: 'Segoe UI', size: fontSize, bold: true, color: { argb: 'FFFFFFFF' } }
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } }
-      cell.alignment = { horizontal: 'center', vertical: 'middle' }
-      sheet.getRow(r).height = height
-      fullMergedRows.push(r)
-    }
-
-    // Helper to add empty spacing rows
-    const addEmptyRow = (r: number, height = 15) => {
-      sheet.getRow(r).height = height
-    }
-
-    // Helper to add section headers
-    const addSectionHeader = (r: number, text: string, bgColor: string) => {
-      sheet.mergeCells(r, 1, r, detailColCount)
-      const cell = sheet.getCell(r, 1)
-      cell.value = text
-      cell.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FFFFFFFF' } }
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } }
-      cell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 }
-      sheet.getRow(r).height = 25
-      fullMergedRows.push(r)
-    }
-
-    // Helper to style table header row
-    const styleTableHeader = (r: number, colCount: number, bgColor: string) => {
-      sheet.getRow(r).height = 22
-      for (let c = 1; c <= colCount; c++) {
-        const cell = sheet.getCell(r, c)
-        cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
+      // Helper to merge and style banner headers
+      const addMainHeader = (
+        r: number,
+        text: string,
+        bgColor: string,
+        fontSize: number,
+        height: number,
+      ) => {
+        sheet.mergeCells(r, 1, r, detailColCount)
+        const cell = sheet.getCell(r, 1)
+        cell.value = text
+        cell.font = { name: 'Segoe UI', size: fontSize, bold: true, color: { argb: 'FFFFFFFF' } }
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } }
         cell.alignment = { horizontal: 'center', vertical: 'middle' }
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
-          bottom: { style: 'medium', color: { argb: 'FF9CA3AF' } },
-          left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
-          right: { style: 'thin', color: { argb: 'FFD1D5DB' } }
-        }
-      }
-    }
-
-    // Helper to style data cells
-    const styleDataRow = (r: number, colCount: number, isEven: boolean, alignments: ('left' | 'center' | 'right')[]) => {
-      sheet.getRow(r).height = includeWorkDescription ? 28 : 20
-      const rowBg = isEven ? 'FFFFFFFF' : 'FFF9FAFB'
-      for (let c = 1; c <= colCount; c++) {
-        const cell = sheet.getCell(r, c)
-        cell.font = { name: 'Segoe UI', size: 9, color: { argb: 'FF374151' } } // Slate-700
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } }
-        cell.alignment = {
-          horizontal: alignments[c - 1] || 'left',
-          vertical: 'middle',
-          wrapText: includeWorkDescription && c === detailColCount,
-        }
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-          bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-          left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-          right: { style: 'thin', color: { argb: 'FFE5E7EB' } }
-        }
-      }
-    }
-
-    let currentRow = 1
-
-    // 1. Banner Title Header
-    addMainHeader(currentRow, 'EPICAL LAYOUTS PVT LTD', 'FF047857', 15, 38)
-    currentRow++
-    addMainHeader(currentRow, 'TIMESHEET PERFORMANCE SUMMARY REPORT', 'FF065F46', 11, 24)
-    currentRow++
-
-    addEmptyRow(currentRow, 15)
-    currentRow++
-
-    // 2. TIMESHEET REPORT SUMMARY (Section 1)
-    addSectionHeader(currentRow, '1. TIMESHEET REPORT SUMMARY', 'FF0F766E') // Teal-700
-    currentRow++
-
-    // Calculate total hours across filtered timesheets
-    let totalSecHours = 0
-    filteredTimesheets.forEach((t) => {
-      const h = calculateHours(t.loginTime, t.logoutTime, t.overriddenHours, t.totalHours, t.totalPausedMs, t.workedMs, t.displayWorkedMs) || 0
-      totalSecHours += h
-    })
-    const totalHoursFormatted = formatExcelDuration(totalSecHours)
-
-    const setSummaryRow = (r: number, label1: string, val1: string, label2: string, val2: string) => {
-      sheet.getRow(r).height = 20
-      
-      sheet.getCell(r, 1).value = label1
-      sheet.getCell(r, 1).font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF4B5563' } } // Gray-600
-      sheet.getCell(r, 1).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 }
-      
-      sheet.getCell(r, 2).value = val1
-      sheet.getCell(r, 2).font = { name: 'Segoe UI', size: 9, color: { argb: 'FF1F2937' } } // Gray-800
-      sheet.getCell(r, 2).alignment = { horizontal: 'left', vertical: 'middle' }
-
-      sheet.getCell(r, 4).value = label2
-      sheet.getCell(r, 4).font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF4B5563' } } // Gray-600
-      sheet.getCell(r, 4).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 }
-
-      sheet.getCell(r, 5).value = val2
-      sheet.getCell(r, 5).font = { name: 'Segoe UI', size: 9, color: { argb: 'FF1F2937' } } // Gray-800
-      sheet.getCell(r, 5).alignment = { horizontal: 'left', vertical: 'middle' }
-
-      sheet.mergeCells(r, 2, r, 3)
-      sheet.mergeCells(r, 5, r, 6)
-
-      for (let c = 1; c <= 6; c++) {
-        sheet.getCell(r, c).border = {
-          top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-          bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-          left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-          right: { style: 'thin', color: { argb: 'FFE5E7EB' } }
-        }
-        sheet.getCell(r, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } }
-      }
-    }
-
-    setSummaryRow(
-      currentRow,
-      'Report Period:',
-      `${tsStartDate} to ${tsEndDate}`,
-      'Total Hours Logged:',
-      totalHoursFormatted
-    )
-    fullMergedRows.push(currentRow)
-    currentRow++
-
-    setSummaryRow(
-      currentRow,
-      'Generated By:',
-      'System Admin',
-      'Total Working Employees:',
-      String(leaderboard.length)
-    )
-    fullMergedRows.push(currentRow)
-    currentRow++
-
-    setSummaryRow(
-      currentRow,
-      'Generated Date:',
-      new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) +
-        ', ' +
-        new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
-      'Total Active Projects:',
-      String(hoursByProject.length)
-    )
-    fullMergedRows.push(currentRow)
-    currentRow++
-
-    addEmptyRow(currentRow, 15)
-    currentRow++
-
-    // 3. AGGREGATED HOURS BY EMPLOYEE (Section 2)
-    addSectionHeader(currentRow, '2. AGGREGATED HOURS BY EMPLOYEE', 'FF0F766E')
-    currentRow++
-
-    sheet.getCell(currentRow, 1).value = 'Employee'
-    sheet.getCell(currentRow, 2).value = 'Total Hours Logged'
-    sheet.mergeCells(currentRow, 2, currentRow, 3)
-    styleTableHeader(currentRow, 3, 'FF115E59')
-    currentRow++
-
-    leaderboard.forEach((e, idx) => {
-      sheet.getCell(currentRow, 1).value = e.name
-      sheet.getCell(currentRow, 2).value = formatExcelDuration(e.hours)
-      sheet.mergeCells(currentRow, 2, currentRow, 3)
-      styleDataRow(currentRow, 3, idx % 2 === 0, ['left', 'center', 'center'])
-      currentRow++
-    })
-
-    addEmptyRow(currentRow, 15)
-    currentRow++
-
-    // 4. AGGREGATED HOURS BY PROJECT (Section 3)
-    addSectionHeader(currentRow, '3. AGGREGATED HOURS BY PROJECT', 'FF0F766E')
-    currentRow++
-
-    sheet.getCell(currentRow, 1).value = 'Project'
-    sheet.getCell(currentRow, 2).value = 'Total Hours Logged'
-    sheet.mergeCells(currentRow, 2, currentRow, 3)
-    styleTableHeader(currentRow, 3, 'FF115E59')
-    currentRow++
-
-    hoursByProject.forEach((p, idx) => {
-      sheet.getCell(currentRow, 1).value = p.name
-      sheet.getCell(currentRow, 2).value = formatExcelDuration(p.hours)
-      sheet.mergeCells(currentRow, 2, currentRow, 3)
-      styleDataRow(currentRow, 3, idx % 2 === 0, ['left', 'center', 'center'])
-      currentRow++
-    })
-
-    addEmptyRow(currentRow, 15)
-    currentRow++
-
-    // 5. WORK SESSION LOGS (Section 4)
-    addSectionHeader(currentRow, '4. WORK SESSION LOGS', 'FF0369A1') // Sky-700
-    currentRow++
-
-    sheet.getCell(currentRow, 1).value = 'Employee'
-    sheet.getCell(currentRow, 2).value = 'Employee ID'
-    sheet.getCell(currentRow, 3).value = 'Project'
-    sheet.getCell(currentRow, 4).value = 'Login Time'
-    sheet.getCell(currentRow, 5).value = 'Logout Time'
-    sheet.getCell(currentRow, 6).value = 'Break'
-    sheet.getCell(currentRow, 7).value = 'Worked'
-    sheet.getCell(currentRow, 8).value = 'Day Group'
-    sheet.getCell(currentRow, 9).value = 'Day Total (Worked / Break)'
-    if (includeWorkDescription) {
-      sheet.getCell(currentRow, 10).value = 'Work Description'
-    }
-    styleTableHeader(currentRow, detailColCount, 'FF0284C7') // Sky-600
-    currentRow++
-
-    filteredWorkSessions.forEach((s, idx) => {
-      const { key, name } = resolveTimesheetEmployeeKey(s, employees)
-      const projectLabel =
-        s.project && s.project !== '—'
-          ? s.project
-          : s.projects?.length === 1
-            ? s.projects[0]
-            : s.projects?.length > 1
-              ? 'Multiple'
-              : '—'
-      sheet.getCell(currentRow, 1).value = name
-      sheet.getCell(currentRow, 2).value = key
-      sheet.getCell(currentRow, 3).value = projectLabel
-      sheet.getCell(currentRow, 4).value = formatDateTime(s.loginTime)
-      sheet.getCell(currentRow, 5).value = s.logoutTime ? formatDateTime(s.logoutTime) : '—'
-      sheet.getCell(currentRow, 6).value = formatBreakTime(s)
-      sheet.getCell(currentRow, 7).value = formatWorkSessionDuration(s)
-      sheet.getCell(currentRow, 8).value = s.dayGroup.isMultiSessionDay
-        ? `] ${s.dayGroup.dayGroupIndex + 1}/${s.dayGroup.dayGroupSize}`
-        : ''
-      sheet.getCell(currentRow, 9).value =
-        s.dayGroup.isMultiSessionDay && s.dayGroup.isLastInDayGroup
-          ? formatDayGroupTotals(s.dayGroup)
-          : ''
-      if (includeWorkDescription) {
-        sheet.getCell(currentRow, 10).value = String(s.workDescription || '').trim() || '—'
+        sheet.getRow(r).height = height
+        fullMergedRows.push(r)
       }
 
-      const alignments: ('left' | 'center' | 'right')[] = [
-        'left',
-        'center',
-        'left',
-        'center',
-        'center',
-        'center',
-        'center',
-        'center',
-        'left',
-      ]
-      if (includeWorkDescription) alignments.push('left')
+      // Helper to add empty spacing rows
+      const addEmptyRow = (r: number, height = 15) => {
+        sheet.getRow(r).height = height
+      }
 
-      styleDataRow(currentRow, detailColCount, idx % 2 === 0, alignments)
-      currentRow++
-    })
+      // Helper to add section headers
+      const addSectionHeader = (r: number, text: string, bgColor: string) => {
+        sheet.mergeCells(r, 1, r, detailColCount)
+        const cell = sheet.getCell(r, 1)
+        cell.value = text
+        cell.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FFFFFFFF' } }
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } }
+        cell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 }
+        sheet.getRow(r).height = 25
+        fullMergedRows.push(r)
+      }
 
-    // Setup base column widths
-    sheet.columns = [
-      { width: 22 }, // Col 1 (Employee / Project)
-      { width: 15 }, // Col 2 (Emp ID / Hours)
-      { width: 22 }, // Col 3 (Project / merged hours)
-      { width: 24 }, // Col 4 (Login / Summary right side labels)
-      { width: 24 }, // Col 5 (Logout / Summary right side values)
-      { width: 14 }, // Col 6 (Total Hours / merged right side values)
-      { width: 14 },
-      { width: 12 },
-      { width: 22 },
-      ...(includeWorkDescription ? [{ width: 40 }] : []),
-    ]
-
-    // Auto-adjust column widths programmatically based on content, avoiding merged headers
-    sheet.columns.forEach((column) => {
-      let maxLen = 0
-      column.eachCell?.({ includeEmpty: false }, (cell) => {
-        const cellRow = Number(cell.row)
-
-        if (
-          cellRow > 3 &&
-          !fullMergedRows.includes(cellRow) &&
-          cell.address === cell.master.address
-        ) {
-          const cellValue = cell.value ? String(cell.value) : ''
-          if (cellValue.length > maxLen) {
-            maxLen = cellValue.length
+      // Helper to style table header row
+      const styleTableHeader = (r: number, colCount: number, bgColor: string) => {
+        sheet.getRow(r).height = 22
+        for (let c = 1; c <= colCount; c++) {
+          const cell = sheet.getCell(r, c)
+          cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } }
+          cell.alignment = { horizontal: 'center', vertical: 'middle' }
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+            bottom: { style: 'medium', color: { argb: 'FF9CA3AF' } },
+            left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+            right: { style: 'thin', color: { argb: 'FFD1D5DB' } },
           }
+        }
+      }
+
+      // Helper to style data cells
+      const styleDataRow = (
+        r: number,
+        colCount: number,
+        isEven: boolean,
+        alignments: ('left' | 'center' | 'right')[],
+      ) => {
+        sheet.getRow(r).height = includeWorkDescription ? 28 : 20
+        const rowBg = isEven ? 'FFFFFFFF' : 'FFF9FAFB'
+        for (let c = 1; c <= colCount; c++) {
+          const cell = sheet.getCell(r, c)
+          cell.font = { name: 'Segoe UI', size: 9, color: { argb: 'FF374151' } } // Slate-700
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } }
+          cell.alignment = {
+            horizontal: alignments[c - 1] || 'left',
+            vertical: 'middle',
+            wrapText: includeWorkDescription && c === detailColCount,
+          }
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+            bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+            left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+            right: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          }
+        }
+      }
+
+      let currentRow = 1
+
+      // 1. Banner Title Header
+      addMainHeader(currentRow, 'EPICAL LAYOUTS PVT LTD', 'FF047857', 15, 38)
+      currentRow++
+      addMainHeader(currentRow, 'TIMESHEET PERFORMANCE SUMMARY REPORT', 'FF065F46', 11, 24)
+      currentRow++
+
+      addEmptyRow(currentRow, 15)
+      currentRow++
+
+      // 2. TIMESHEET REPORT SUMMARY (Section 1)
+      addSectionHeader(currentRow, '1. TIMESHEET REPORT SUMMARY', 'FF0F766E') // Teal-700
+      currentRow++
+
+      // Calculate total hours across filtered timesheets
+      let totalSecHours = 0
+      filteredTimesheets.forEach((t) => {
+        const h =
+          calculateHours(
+            t.loginTime,
+            t.logoutTime,
+            t.overriddenHours,
+            t.totalHours,
+            t.totalPausedMs,
+            t.workedMs,
+            t.displayWorkedMs,
+          ) || 0
+        totalSecHours += h
+      })
+      const totalHoursFormatted = formatExcelDuration(totalSecHours)
+
+      const setSummaryRow = (
+        r: number,
+        label1: string,
+        val1: string,
+        label2: string,
+        val2: string,
+      ) => {
+        sheet.getRow(r).height = 20
+
+        sheet.getCell(r, 1).value = label1
+        sheet.getCell(r, 1).font = {
+          name: 'Segoe UI',
+          size: 9,
+          bold: true,
+          color: { argb: 'FF4B5563' },
+        } // Gray-600
+        sheet.getCell(r, 1).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 }
+
+        sheet.getCell(r, 2).value = val1
+        sheet.getCell(r, 2).font = { name: 'Segoe UI', size: 9, color: { argb: 'FF1F2937' } } // Gray-800
+        sheet.getCell(r, 2).alignment = { horizontal: 'left', vertical: 'middle' }
+
+        sheet.getCell(r, 4).value = label2
+        sheet.getCell(r, 4).font = {
+          name: 'Segoe UI',
+          size: 9,
+          bold: true,
+          color: { argb: 'FF4B5563' },
+        } // Gray-600
+        sheet.getCell(r, 4).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 }
+
+        sheet.getCell(r, 5).value = val2
+        sheet.getCell(r, 5).font = { name: 'Segoe UI', size: 9, color: { argb: 'FF1F2937' } } // Gray-800
+        sheet.getCell(r, 5).alignment = { horizontal: 'left', vertical: 'middle' }
+
+        sheet.mergeCells(r, 2, r, 3)
+        sheet.mergeCells(r, 5, r, 6)
+
+        for (let c = 1; c <= 6; c++) {
+          sheet.getCell(r, c).border = {
+            top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+            bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+            left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+            right: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          }
+          sheet.getCell(r, c).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF9FAFB' },
+          }
+        }
+      }
+
+      setSummaryRow(
+        currentRow,
+        'Report Period:',
+        `${tsStartDate} to ${tsEndDate}`,
+        'Total Hours Logged:',
+        totalHoursFormatted,
+      )
+      fullMergedRows.push(currentRow)
+      currentRow++
+
+      setSummaryRow(
+        currentRow,
+        'Generated By:',
+        'System Admin',
+        'Total Working Employees:',
+        String(leaderboard.length),
+      )
+      fullMergedRows.push(currentRow)
+      currentRow++
+
+      setSummaryRow(
+        currentRow,
+        'Generated Date:',
+        new Date().toLocaleDateString('en-US', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }) +
+          ', ' +
+          new Date().toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+          }),
+        'Total Active Projects:',
+        String(hoursByProject.length),
+      )
+      fullMergedRows.push(currentRow)
+      currentRow++
+
+      addEmptyRow(currentRow, 15)
+      currentRow++
+
+      // 3. AGGREGATED HOURS BY EMPLOYEE (Section 2)
+      addSectionHeader(currentRow, '2. AGGREGATED HOURS BY EMPLOYEE', 'FF0F766E')
+      currentRow++
+
+      sheet.getCell(currentRow, 1).value = 'Employee'
+      sheet.getCell(currentRow, 2).value = 'Total Hours Logged'
+      sheet.mergeCells(currentRow, 2, currentRow, 3)
+      styleTableHeader(currentRow, 3, 'FF115E59')
+      currentRow++
+
+      leaderboard.forEach((e, idx) => {
+        sheet.getCell(currentRow, 1).value = e.name
+        sheet.getCell(currentRow, 2).value = formatExcelDuration(e.hours)
+        sheet.mergeCells(currentRow, 2, currentRow, 3)
+        styleDataRow(currentRow, 3, idx % 2 === 0, ['left', 'center', 'center'])
+        currentRow++
+      })
+
+      addEmptyRow(currentRow, 15)
+      currentRow++
+
+      // 4. AGGREGATED HOURS BY PROJECT (Section 3)
+      addSectionHeader(currentRow, '3. AGGREGATED HOURS BY PROJECT', 'FF0F766E')
+      currentRow++
+
+      sheet.getCell(currentRow, 1).value = 'Project'
+      sheet.getCell(currentRow, 2).value = 'Total Hours Logged'
+      sheet.mergeCells(currentRow, 2, currentRow, 3)
+      styleTableHeader(currentRow, 3, 'FF115E59')
+      currentRow++
+
+      hoursByProject.forEach((p, idx) => {
+        sheet.getCell(currentRow, 1).value = p.name
+        sheet.getCell(currentRow, 2).value = formatExcelDuration(p.hours)
+        sheet.mergeCells(currentRow, 2, currentRow, 3)
+        styleDataRow(currentRow, 3, idx % 2 === 0, ['left', 'center', 'center'])
+        currentRow++
+      })
+
+      addEmptyRow(currentRow, 15)
+      currentRow++
+
+      // 5. WORK SESSION LOGS (Section 4)
+      addSectionHeader(currentRow, '4. WORK SESSION LOGS', 'FF0369A1') // Sky-700
+      currentRow++
+
+      sheet.getCell(currentRow, 1).value = 'Employee'
+      sheet.getCell(currentRow, 2).value = 'Employee ID'
+      sheet.getCell(currentRow, 3).value = 'Project'
+      sheet.getCell(currentRow, 4).value = 'Login Time'
+      sheet.getCell(currentRow, 5).value = 'Logout Time'
+      sheet.getCell(currentRow, 6).value = 'Break'
+      sheet.getCell(currentRow, 7).value = 'Worked'
+      sheet.getCell(currentRow, 8).value = 'Day Group'
+      sheet.getCell(currentRow, 9).value = 'Day Total (Worked / Break)'
+      if (includeWorkDescription) {
+        sheet.getCell(currentRow, 10).value = 'Work Description'
+      }
+      styleTableHeader(currentRow, detailColCount, 'FF0284C7') // Sky-600
+      currentRow++
+
+      filteredWorkSessions.forEach((s, idx) => {
+        const { key, name } = resolveTimesheetEmployeeKey(s, employees)
+        const projectLabel =
+          s.project && s.project !== '—'
+            ? s.project
+            : s.projects?.length === 1
+              ? s.projects[0]
+              : s.projects?.length > 1
+                ? 'Multiple'
+                : '—'
+        sheet.getCell(currentRow, 1).value = name
+        sheet.getCell(currentRow, 2).value = key
+        sheet.getCell(currentRow, 3).value = projectLabel
+        sheet.getCell(currentRow, 4).value = formatDateTime(s.loginTime)
+        sheet.getCell(currentRow, 5).value = s.logoutTime ? formatDateTime(s.logoutTime) : '—'
+        sheet.getCell(currentRow, 6).value = formatBreakTime(s)
+        sheet.getCell(currentRow, 7).value = formatWorkSessionDuration(s)
+        sheet.getCell(currentRow, 8).value = s.dayGroup.isMultiSessionDay
+          ? `] ${s.dayGroup.dayGroupIndex + 1}/${s.dayGroup.dayGroupSize}`
+          : ''
+        sheet.getCell(currentRow, 9).value =
+          s.dayGroup.isMultiSessionDay && s.dayGroup.isLastInDayGroup
+            ? formatDayGroupTotals(s.dayGroup)
+            : ''
+        if (includeWorkDescription) {
+          sheet.getCell(currentRow, 10).value = String(s.workDescription || '').trim() || '—'
+        }
+
+        const alignments: ('left' | 'center' | 'right')[] = [
+          'left',
+          'center',
+          'left',
+          'center',
+          'center',
+          'center',
+          'center',
+          'center',
+          'left',
+        ]
+        if (includeWorkDescription) alignments.push('left')
+
+        styleDataRow(currentRow, detailColCount, idx % 2 === 0, alignments)
+        currentRow++
+      })
+
+      // Setup base column widths
+      sheet.columns = [
+        { width: 22 }, // Col 1 (Employee / Project)
+        { width: 15 }, // Col 2 (Emp ID / Hours)
+        { width: 22 }, // Col 3 (Project / merged hours)
+        { width: 24 }, // Col 4 (Login / Summary right side labels)
+        { width: 24 }, // Col 5 (Logout / Summary right side values)
+        { width: 14 }, // Col 6 (Total Hours / merged right side values)
+        { width: 14 },
+        { width: 12 },
+        { width: 22 },
+        ...(includeWorkDescription ? [{ width: 40 }] : []),
+      ]
+
+      // Auto-adjust column widths programmatically based on content, avoiding merged headers
+      sheet.columns.forEach((column) => {
+        let maxLen = 0
+        column.eachCell?.({ includeEmpty: false }, (cell) => {
+          const cellRow = Number(cell.row)
+
+          if (
+            cellRow > 3 &&
+            !fullMergedRows.includes(cellRow) &&
+            cell.address === cell.master.address
+          ) {
+            const cellValue = cell.value ? String(cell.value) : ''
+            if (cellValue.length > maxLen) {
+              maxLen = cellValue.length
+            }
+          }
+        })
+
+        const currentWidth = column.width || 12
+        if (maxLen > 0) {
+          column.width = Math.min(
+            Math.max(maxLen + 4, currentWidth),
+            includeWorkDescription ? 48 : 40,
+          )
         }
       })
 
-      const currentWidth = column.width || 12
-      if (maxLen > 0) {
-        column.width = Math.min(Math.max(maxLen + 4, currentWidth), includeWorkDescription ? 48 : 40)
+      const buffer = await workbook.xlsx.writeBuffer()
+      downloadExcelBuffer(buffer, timesheetReportFileName(tsStartDate, tsEndDate, 'xlsx'))
+    },
+    [filteredTimesheets, filteredWorkSessions, tsStartDate, tsEndDate, employees],
+  )
+
+  const handleExportPDF = useCallback(
+    async (includeWorkDescription: boolean) => {
+      if (!filteredTimesheets.length) {
+        toast.error('No timesheet data available to export.')
+        return
       }
-    })
 
-    const buffer = await workbook.xlsx.writeBuffer()
-    downloadExcelBuffer(buffer, timesheetReportFileName(tsStartDate, tsEndDate, 'xlsx'))
-  }, [filteredTimesheets, filteredWorkSessions, tsStartDate, tsEndDate, employees])
+      const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(
+        filteredTimesheets,
+        employees,
+      )
 
-  const handleExportPDF = useCallback(async (includeWorkDescription: boolean) => {
-    if (!filteredTimesheets.length) {
-      toast.error('No timesheet data available to export.')
-      return
-    }
+      // Sort leaderboard alphabetically matching the A-Z requirement
+      const sortedLeaderboard = [...leaderboard].sort((a, b) => a.name.localeCompare(b.name))
 
-    const { hoursByProject, leaderboard } = buildTimesheetExportAnalytics(filteredTimesheets, employees)
-    
-    // Sort leaderboard alphabetically matching the A-Z requirement
-    const sortedLeaderboard = [...leaderboard].sort((a, b) => a.name.localeCompare(b.name))
+      const doc = new jsPDF({
+        orientation: includeWorkDescription ? 'landscape' : 'portrait',
+        unit: 'pt',
+      })
+      const pageWidth = doc.internal.pageSize.width || (includeWorkDescription ? 842 : 595)
+      const pageHeight = doc.internal.pageSize.height || (includeWorkDescription ? 595 : 842)
+      const marginX = 36
+      const contentWidth = pageWidth - marginX * 2
 
-    const doc = new jsPDF({
-      orientation: includeWorkDescription ? 'landscape' : 'portrait',
-      unit: 'pt',
-    })
-    const pageWidth = doc.internal.pageSize.width || (includeWorkDescription ? 842 : 595)
-    const pageHeight = doc.internal.pageSize.height || (includeWorkDescription ? 595 : 842)
-    const marginX = 36
-    const contentWidth = pageWidth - marginX * 2
+      const logo = await fetchExportLogo()
 
-    const logo = await fetchExportLogo()
+      const tableTheme = {
+        styles: {
+          fontSize: includeWorkDescription ? 7 : 7.5,
+          cellPadding: 4,
+          overflow: 'linebreak' as const,
+        },
+        headStyles: {
+          fillColor: [30, 41, 59] as [number, number, number],
+          fontStyle: 'bold' as const,
+          textColor: [255, 255, 255] as [number, number, number],
+        },
+        alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
+        theme: 'grid' as const,
+        margin: { left: marginX, right: marginX, bottom: 44 },
+      }
 
-    const tableTheme = {
-      styles: { fontSize: includeWorkDescription ? 7 : 7.5, cellPadding: 4, overflow: 'linebreak' as const },
-      headStyles: { fillColor: [30, 41, 59] as [number, number, number], fontStyle: 'bold' as const, textColor: [255, 255, 255] as [number, number, number] },
-      alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
-      theme: 'grid' as const,
-      margin: { left: marginX, right: marginX, bottom: 44 },
-    }
+      const addSectionTitle = (title: string, y: number) => {
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10)
+        doc.setTextColor(30, 41, 59)
+        doc.text(title, marginX, y)
+        doc.setDrawColor(226, 232, 240)
+        doc.setLineWidth(0.5)
+        doc.line(marginX, y + 4, marginX + contentWidth, y + 4)
+        return y + 16
+      }
 
-    const addSectionTitle = (title: string, y: number) => {
+      let headerY = 20
+
+      // Draw the green chip logo if available
+      let logoWidth = 0
+      if (logo) {
+        const scaled = scaleExportLogo(logo.width, logo.height, 44)
+        const format = logo.dataUrl.includes('image/png') ? 'PNG' : 'JPEG'
+        doc.addImage(logo.dataUrl, format, marginX, headerY, scaled.width, scaled.height)
+        logoWidth = scaled.width
+      }
+
+      // Draw Title next to Logo
+      const textX = marginX + logoWidth + 10
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(10)
+      doc.setFontSize(16)
       doc.setTextColor(30, 41, 59)
-      doc.text(title, marginX, y)
+      doc.text('EPICAL LAYOUTS PVT LTD', textX, headerY + 14)
+
+      doc.setFontSize(11)
+      doc.setTextColor(71, 85, 105)
+      doc.text('Timesheet Report', textX, headerY + 28)
+
+      headerY += 40
+
+      // Generated Timestamp
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(100, 116, 139)
+      doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - marginX, headerY, {
+        align: 'right',
+      })
+      headerY += 10
+
+      // Horizontal Line divider
       doc.setDrawColor(226, 232, 240)
-      doc.setLineWidth(0.5)
-      doc.line(marginX, y + 4, marginX + contentWidth, y + 4)
-      return y + 16
-    }
+      doc.setLineWidth(1)
+      doc.line(marginX, headerY, pageWidth - marginX, headerY)
 
-    let headerY = 20
+      let cursorY = headerY + 16
 
-    // Draw the green chip logo if available
-    let logoWidth = 0
-    if (logo) {
-      const scaled = scaleExportLogo(logo.width, logo.height, 44)
-      const format = logo.dataUrl.includes('image/png') ? 'PNG' : 'JPEG'
-      doc.addImage(logo.dataUrl, format, marginX, headerY, scaled.width, scaled.height)
-      logoWidth = scaled.width
-    }
-
-    // Draw Title next to Logo
-    const textX = marginX + logoWidth + 10
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(16)
-    doc.setTextColor(30, 41, 59)
-    doc.text('EPICAL LAYOUTS PVT LTD', textX, headerY + 14)
-
-    doc.setFontSize(11)
-    doc.setTextColor(71, 85, 105)
-    doc.text('Timesheet Report', textX, headerY + 28)
-    
-    headerY += 40
-
-    // Generated Timestamp
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.setTextColor(100, 116, 139)
-    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - marginX, headerY, { align: 'right' })
-    headerY += 10
-
-    // Horizontal Line divider
-    doc.setDrawColor(226, 232, 240)
-    doc.setLineWidth(1)
-    doc.line(marginX, headerY, pageWidth - marginX, headerY)
-
-    let cursorY = headerY + 16
-
-    // Helper to convert HSL to RGB
-    const hslToRgb = (h: number, s: number, l: number): [number, number, number] => {
-      s /= 100
-      l /= 100
-      const k = (n: number) => (n + h / 30) % 12
-      const a = s * Math.min(l, 1 - l)
-      const f = (n: number) => {
-        const r = l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))
-        return Math.round(255 * r)
-      }
-      return [f(0), f(8), f(4)]
-    }
-
-    // 3D Bar Drawer
-    const draw3DBar = (x: number, y: number, width: number, height: number, baseColor: [number, number, number]) => {
-      const adjustColor = (color: [number, number, number], percent: number) => {
-        return color.map(c => Math.min(255, Math.max(0, Math.round(c * (1 + percent))))) as [number, number, number]
+      // Helper to convert HSL to RGB
+      const hslToRgb = (h: number, s: number, l: number): [number, number, number] => {
+        s /= 100
+        l /= 100
+        const k = (n: number) => (n + h / 30) % 12
+        const a = s * Math.min(l, 1 - l)
+        const f = (n: number) => {
+          const r = l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))
+          return Math.round(255 * r)
+        }
+        return [f(0), f(8), f(4)]
       }
 
-      const frontColor = baseColor
-      const topColor = adjustColor(baseColor, 0.35)
-      const rightColor = adjustColor(baseColor, -0.3)
+      // 3D Bar Drawer
+      const draw3DBar = (
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+        baseColor: [number, number, number],
+      ) => {
+        const adjustColor = (color: [number, number, number], percent: number) => {
+          return color.map((c) => Math.min(255, Math.max(0, Math.round(c * (1 + percent))))) as [
+            number,
+            number,
+            number,
+          ]
+        }
 
-      const depth = 3
+        const frontColor = baseColor
+        const topColor = adjustColor(baseColor, 0.35)
+        const rightColor = adjustColor(baseColor, -0.3)
 
-      // 1. Draw front face (rectangle)
-      doc.setFillColor(frontColor[0], frontColor[1], frontColor[2])
-      doc.rect(x, y, width, height, 'F')
+        const depth = 3
 
-      // 2. Draw top face (parallelogram)
-      doc.setFillColor(topColor[0], topColor[1], topColor[2])
-      doc.triangle(x, y, x + depth, y - depth, x + width + depth, y - depth, 'F')
-      doc.triangle(x, y, x + width + depth, y - depth, x + width, y, 'F')
+        // 1. Draw front face (rectangle)
+        doc.setFillColor(frontColor[0], frontColor[1], frontColor[2])
+        doc.rect(x, y, width, height, 'F')
 
-      // 3. Draw right side face (parallelogram)
-      doc.setFillColor(rightColor[0], rightColor[1], rightColor[2])
-      doc.triangle(x + width, y, x + width + depth, y - depth, x + width + depth, y - depth + height, 'F')
-      doc.triangle(x + width, y, x + width + depth, y - depth + height, x + width, y + height, 'F')
-    }
+        // 2. Draw top face (parallelogram)
+        doc.setFillColor(topColor[0], topColor[1], topColor[2])
+        doc.triangle(x, y, x + depth, y - depth, x + width + depth, y - depth, 'F')
+        doc.triangle(x, y, x + width + depth, y - depth, x + width, y, 'F')
 
-    // Maximum bar width scaled for portrait content area
-    const maxBarWidth = contentWidth * 0.55
+        // 3. Draw right side face (parallelogram)
+        doc.setFillColor(rightColor[0], rightColor[1], rightColor[2])
+        doc.triangle(
+          x + width,
+          y,
+          x + width + depth,
+          y - depth,
+          x + width + depth,
+          y - depth + height,
+          'F',
+        )
+        doc.triangle(
+          x + width,
+          y,
+          x + width + depth,
+          y - depth + height,
+          x + width,
+          y + height,
+          'F',
+        )
+      }
 
-    // ── PROJECT HOURS (full-width, stacked vertically) ──
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.setTextColor(71, 85, 105)
-    doc.setFillColor(74, 175, 125)
-    doc.rect(marginX, cursorY, 3, 10, 'F')
-    doc.text('PROJECT HOURS', marginX + 8, cursorY + 8)
+      // Maximum bar width scaled for portrait content area
+      const maxBarWidth = contentWidth * 0.55
 
-    cursorY += 22
-    const maxProjectHours = Math.max(...hoursByProject.map(p => p.hours), 1)
-    const averageProjectHours = hoursByProject.length > 0 ? (hoursByProject.reduce((sum, p) => sum + p.hours, 0) / hoursByProject.length) : 0
-
-    hoursByProject.forEach((p) => {
-      const barWidth = Math.max(5, (p.hours / maxProjectHours) * maxBarWidth)
-      const isGreaterThanAverage = p.hours > averageProjectHours
-      const baseColor: [number, number, number] = isGreaterThanAverage ? [74, 175, 125] : [241, 108, 111]
-
-      draw3DBar(marginX, cursorY, barWidth, 8, baseColor)
-
+      // ── PROJECT HOURS (full-width, stacked vertically) ──
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(7.5)
-      doc.setTextColor(30, 41, 59)
-      doc.text(`${formatExportHours(p.hours)} — ${p.name}`, marginX + barWidth + 8, cursorY + 7)
+      doc.setFontSize(9)
+      doc.setTextColor(71, 85, 105)
+      doc.setFillColor(74, 175, 125)
+      doc.rect(marginX, cursorY, 3, 10, 'F')
+      doc.text('PROJECT HOURS', marginX + 8, cursorY + 8)
 
-      cursorY += 16
-    })
+      cursorY += 22
+      const maxProjectHours = Math.max(...hoursByProject.map((p) => p.hours), 1)
+      const averageProjectHours =
+        hoursByProject.length > 0
+          ? hoursByProject.reduce((sum, p) => sum + p.hours, 0) / hoursByProject.length
+          : 0
 
-    cursorY += 14
+      hoursByProject.forEach((p) => {
+        const barWidth = Math.max(5, (p.hours / maxProjectHours) * maxBarWidth)
+        const isGreaterThanAverage = p.hours > averageProjectHours
+        const baseColor: [number, number, number] = isGreaterThanAverage
+          ? [74, 175, 125]
+          : [241, 108, 111]
 
-    // ── EMPLOYEE HOURS (full-width, stacked below) ──
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.setTextColor(71, 85, 105)
-    doc.setFillColor(59, 130, 246)
-    doc.rect(marginX, cursorY, 3, 10, 'F')
-    doc.text('EMPLOYEE HOURS', marginX + 8, cursorY + 8)
+        draw3DBar(marginX, cursorY, barWidth, 8, baseColor)
 
-    cursorY += 22
-    const maxEmployeeHours = Math.max(...sortedLeaderboard.map(e => e.hours), 1)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(7.5)
+        doc.setTextColor(30, 41, 59)
+        doc.text(`${formatExportHours(p.hours)} — ${p.name}`, marginX + barWidth + 8, cursorY + 7)
 
-    sortedLeaderboard.forEach((e, idx) => {
-      // Check if we need a new page for the analytics section
-      if (cursorY > pageHeight - 60) {
+        cursorY += 16
+      })
+
+      cursorY += 14
+
+      // ── EMPLOYEE HOURS (full-width, stacked below) ──
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.setTextColor(71, 85, 105)
+      doc.setFillColor(59, 130, 246)
+      doc.rect(marginX, cursorY, 3, 10, 'F')
+      doc.text('EMPLOYEE HOURS', marginX + 8, cursorY + 8)
+
+      cursorY += 22
+      const maxEmployeeHours = Math.max(...sortedLeaderboard.map((e) => e.hours), 1)
+
+      sortedLeaderboard.forEach((e, idx) => {
+        // Check if we need a new page for the analytics section
+        if (cursorY > pageHeight - 60) {
+          doc.addPage()
+          cursorY = 36
+        }
+
+        const barWidth = Math.max(5, (e.hours / maxEmployeeHours) * maxBarWidth)
+        const baseColor = hslToRgb(Math.round((idx * 137.5) % 360), 75, 50)
+
+        draw3DBar(marginX, cursorY, barWidth, 8, baseColor)
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(7.5)
+        doc.setTextColor(30, 41, 59)
+        doc.text(`${formatExportHours(e.hours)} — ${e.name}`, marginX + barWidth + 8, cursorY + 7)
+
+        cursorY += 16
+      })
+
+      cursorY += 20
+
+      // Check if there's enough room for the table header, otherwise start on a new page
+      if (cursorY > pageHeight - 100) {
         doc.addPage()
         cursorY = 36
       }
 
-      const barWidth = Math.max(5, (e.hours / maxEmployeeHours) * maxBarWidth)
-      const baseColor = hslToRgb(Math.round((idx * 137.5) % 360), 75, 50)
+      // ── Detailed time logs ──
+      cursorY = addSectionTitle('Detailed Time Logs', cursorY)
 
-      draw3DBar(marginX, cursorY, barWidth, 8, baseColor)
+      const tableHeaders = includeWorkDescription
+        ? [
+            'Employee',
+            'Project',
+            'Login Time',
+            'Logout Time',
+            'Break',
+            'Duration',
+            'Day Total',
+            'Work Description',
+          ]
+        : ['Employee', 'Project', 'Login Time', 'Logout Time', 'Break', 'Duration', 'Day Total']
 
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(7.5)
-      doc.setTextColor(30, 41, 59)
-      doc.text(`${formatExportHours(e.hours)} — ${e.name}`, marginX + barWidth + 8, cursorY + 7)
+      const tableRows = filteredWorkSessions.map((s) => {
+        const { key, name } = resolveTimesheetEmployeeKey(s, employees)
+        const projectLabel =
+          s.project && s.project !== '—'
+            ? s.project
+            : s.projects?.length === 1
+              ? s.projects[0]
+              : s.projects?.length > 1
+                ? 'Multiple'
+                : '—'
+        const dayMarker = s.dayGroup.isMultiSessionDay
+          ? s.dayGroup.isLastInDayGroup
+            ? ']'
+            : '|'
+          : ''
+        const row = [
+          `${dayMarker ? `${dayMarker} ` : ''}${name} (${key})`,
+          projectLabel,
+          formatDateTime(s.loginTime),
+          s.logoutTime ? formatDateTime(s.logoutTime) : '—',
+          formatBreakTime(s),
+          formatWorkSessionDuration(s),
+          s.dayGroup.isMultiSessionDay && s.dayGroup.isLastInDayGroup
+            ? formatDayGroupTotals(s.dayGroup)
+            : '',
+        ]
+        if (includeWorkDescription) {
+          row.push(String(s.workDescription || '').trim() || '—')
+        }
+        return row
+      })
 
-      cursorY += 16
-    })
-
-    cursorY += 20
-
-    // Check if there's enough room for the table header, otherwise start on a new page
-    if (cursorY > pageHeight - 100) {
-      doc.addPage()
-      cursorY = 36
-    }
-
-    // ── Detailed time logs ──
-    cursorY = addSectionTitle('Detailed Time Logs', cursorY)
-
-    const tableHeaders = includeWorkDescription
-      ? ['Employee', 'Project', 'Login Time', 'Logout Time', 'Break', 'Duration', 'Day Total', 'Work Description']
-      : ['Employee', 'Project', 'Login Time', 'Logout Time', 'Break', 'Duration', 'Day Total']
-
-    const tableRows = filteredWorkSessions.map((s) => {
-      const { key, name } = resolveTimesheetEmployeeKey(s, employees)
-      const projectLabel =
-        s.project && s.project !== '—'
-          ? s.project
-          : s.projects?.length === 1
-            ? s.projects[0]
-            : s.projects?.length > 1
-              ? 'Multiple'
-              : '—'
-      const dayMarker = s.dayGroup.isMultiSessionDay
-        ? s.dayGroup.isLastInDayGroup
-          ? ']'
-          : '|'
-        : ''
-      const row = [
-        `${dayMarker ? `${dayMarker} ` : ''}${name} (${key})`,
-        projectLabel,
-        formatDateTime(s.loginTime),
-        s.logoutTime ? formatDateTime(s.logoutTime) : '—',
-        formatBreakTime(s),
-        formatWorkSessionDuration(s),
-        s.dayGroup.isMultiSessionDay && s.dayGroup.isLastInDayGroup
-          ? formatDayGroupTotals(s.dayGroup)
-          : '',
-      ]
-      if (includeWorkDescription) {
-        row.push(String(s.workDescription || '').trim() || '—')
-      }
-      return row
-    })
-
-    autoTable(doc, {
-      ...tableTheme,
-      head: [tableHeaders],
-      body: tableRows,
-      startY: cursorY,
-      styles: { ...tableTheme.styles, cellPadding: 4 },
-      columnStyles: includeWorkDescription
-        ? {
-            0: { cellWidth: contentWidth * 0.16 },
-            1: { cellWidth: contentWidth * 0.12 },
-            2: { cellWidth: contentWidth * 0.11 },
-            3: { cellWidth: contentWidth * 0.11 },
-            4: { cellWidth: contentWidth * 0.06, halign: 'right' },
-            5: { cellWidth: contentWidth * 0.06,halign: 'right' },
-            6: { cellWidth: contentWidth * 0.12,halign: 'left' },
-            7: { cellWidth: contentWidth * 0.26,halign: 'left' },
+      autoTable(doc, {
+        ...tableTheme,
+        head: [tableHeaders],
+        body: tableRows,
+        startY: cursorY,
+        styles: { ...tableTheme.styles, cellPadding: 4 },
+        columnStyles: includeWorkDescription
+          ? {
+              0: { cellWidth: contentWidth * 0.16 },
+              1: { cellWidth: contentWidth * 0.12 },
+              2: { cellWidth: contentWidth * 0.11 },
+              3: { cellWidth: contentWidth * 0.11 },
+              4: { cellWidth: contentWidth * 0.06, halign: 'right' },
+              5: { cellWidth: contentWidth * 0.06, halign: 'right' },
+              6: { cellWidth: contentWidth * 0.12, halign: 'left' },
+              7: { cellWidth: contentWidth * 0.26, halign: 'left' },
+            }
+          : {
+              0: { cellWidth: contentWidth * 0.22 },
+              1: { cellWidth: contentWidth * 0.16 },
+              2: { cellWidth: contentWidth * 0.15 },
+              3: { cellWidth: contentWidth * 0.15 },
+              4: { cellWidth: contentWidth * 0.08, halign: 'right' },
+              5: { cellWidth: contentWidth * 0.08, halign: 'right' },
+              6: { cellWidth: contentWidth * 0.16, halign: 'left' },
+            },
+        didParseCell: (data) => {
+          if (data.section !== 'body') return
+          const session = filteredWorkSessions[data.row.index]
+          if (!session?.dayGroup.isMultiSessionDay) return
+          data.cell.styles.fillColor = [236, 253, 245]
+          if (data.column.index === 0 && session.dayGroup.isLastInDayGroup) {
+            data.cell.styles.fontStyle = 'bold'
           }
-        : {
-            0: { cellWidth: contentWidth * 0.22 },
-            1: { cellWidth: contentWidth * 0.16 },
-            2: { cellWidth: contentWidth * 0.15 },
-            3: { cellWidth: contentWidth * 0.15 },
-            4: { cellWidth: contentWidth * 0.08,halign: 'right' },
-            5: { cellWidth: contentWidth * 0.08,halign: 'right' },
-            6: { cellWidth: contentWidth * 0.16,halign: 'left' },
-          },
-      didParseCell: (data) => {
-        if (data.section !== 'body') return
-        const session = filteredWorkSessions[data.row.index]
-        if (!session?.dayGroup.isMultiSessionDay) return
-        data.cell.styles.fillColor = [236, 253, 245]
-        if (data.column.index === 0 && session.dayGroup.isLastInDayGroup) {
-          data.cell.styles.fontStyle = 'bold'
-        }
-        if (data.column.index === 6 && session.dayGroup.isLastInDayGroup) {
-          data.cell.styles.fontStyle = 'bold'
-          data.cell.styles.textColor = [22, 101, 52]
-        }
-      },
-    })
+          if (data.column.index === 6 && session.dayGroup.isLastInDayGroup) {
+            data.cell.styles.fontStyle = 'bold'
+            data.cell.styles.textColor = [22, 101, 52]
+          }
+        },
+      })
 
-    // ── Footer on every page ──
-    const totalPages = doc.getNumberOfPages()
-    for (let i = 1; i <= totalPages; i++) {
-      doc.setPage(i)
-      doc.setDrawColor(226, 232, 240)
-      doc.setLineWidth(0.5)
-      doc.line(marginX, pageHeight - 36, pageWidth - marginX, pageHeight - 36)
-      doc.setFontSize(7)
-      doc.setTextColor(148, 163, 184)
-      doc.text(`Page ${i} of ${totalPages}`, pageWidth - marginX, pageHeight - 24, { align: 'right' })
-      doc.text('Confidential – EPICAL Timesheet Data', marginX, pageHeight - 24)
-    }
-
-    doc.save(timesheetReportFileName(tsStartDate, tsEndDate, 'pdf'))
-  }, [filteredTimesheets, filteredWorkSessions, tsStartDate, tsEndDate, employees])
-
-  const openTimesheetExport = useCallback((format: 'excel' | 'pdf') => {
-    if (!filteredTimesheets.length) {
-      toast.error('No timesheet data available to export.')
-      return
-    }
-    setExportFormatPending(format)
-  }, [filteredTimesheets.length])
-
-  const confirmTimesheetExport = useCallback(async (includeWorkDescription: boolean) => {
-    const format = exportFormatPending
-    if (!format) return
-    setExportingTimesheet(true)
-    try {
-      if (format === 'excel') {
-        await handleExportExcel(includeWorkDescription)
-      } else {
-        await handleExportPDF(includeWorkDescription)
+      // ── Footer on every page ──
+      const totalPages = doc.getNumberOfPages()
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i)
+        doc.setDrawColor(226, 232, 240)
+        doc.setLineWidth(0.5)
+        doc.line(marginX, pageHeight - 36, pageWidth - marginX, pageHeight - 36)
+        doc.setFontSize(7)
+        doc.setTextColor(148, 163, 184)
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - marginX, pageHeight - 24, {
+          align: 'right',
+        })
+        doc.text('Confidential – EPICAL Timesheet Data', marginX, pageHeight - 24)
       }
-      setExportFormatPending(null)
-    } catch (err) {
-      console.error('[timesheet-export]', err)
-      toast.error('Failed to export timesheet report.')
-    } finally {
-      setExportingTimesheet(false)
-    }
-  }, [exportFormatPending, handleExportExcel, handleExportPDF])
+
+      doc.save(timesheetReportFileName(tsStartDate, tsEndDate, 'pdf'))
+    },
+    [filteredTimesheets, filteredWorkSessions, tsStartDate, tsEndDate, employees],
+  )
+
+  const openTimesheetExport = useCallback(
+    (format: 'excel' | 'pdf') => {
+      if (!filteredTimesheets.length) {
+        toast.error('No timesheet data available to export.')
+        return
+      }
+      setExportFormatPending(format)
+    },
+    [filteredTimesheets.length],
+  )
+
+  const confirmTimesheetExport = useCallback(
+    async (includeWorkDescription: boolean) => {
+      const format = exportFormatPending
+      if (!format) return
+      setExportingTimesheet(true)
+      try {
+        if (format === 'excel') {
+          await handleExportExcel(includeWorkDescription)
+        } else {
+          await handleExportPDF(includeWorkDescription)
+        }
+        setExportFormatPending(null)
+      } catch (err) {
+        console.error('[timesheet-export]', err)
+        toast.error('Failed to export timesheet report.')
+      } finally {
+        setExportingTimesheet(false)
+      }
+    },
+    [exportFormatPending, handleExportExcel, handleExportPDF],
+  )
 
   const clearTimesheetFilters = useCallback(() => {
     const today = formatLocalDateString()
@@ -3151,12 +3447,17 @@ export function ProjectManagement() {
 
   const tsEmployeeFilterOptions = useMemo(() => {
     const names = new Set<string>()
-    employees.forEach((e) => names.add(employeeDisplayName(e)))
+    const deactivatedEmployeeNames = new Set(
+      employees.filter((e) => e.status === 'Deactivated').map((e) => employeeDisplayName(e)),
+    )
+    employees
+      .filter((e) => e.status !== 'Deactivated')
+      .forEach((e) => names.add(employeeDisplayName(e)))
     timesheets.forEach((t) => {
-      if (t.employeeName) names.add(t.employeeName)
+      if (t.employeeName && !deactivatedEmployeeNames.has(t.employeeName)) names.add(t.employeeName)
     })
     workSessions.forEach((s) => {
-      if (s.employeeName) names.add(s.employeeName)
+      if (s.employeeName && !deactivatedEmployeeNames.has(s.employeeName)) names.add(s.employeeName)
     })
     return [...names].sort().map((name) => ({ value: name, label: name }))
   }, [timesheets, workSessions, employees])
@@ -3172,7 +3473,7 @@ export function ProjectManagement() {
               ? `${p.name} (Rejected)`
               : p.name,
       })),
-    [projects]
+    [projects],
   )
 
   const tsStatusFilterOptions = useMemo(
@@ -3180,7 +3481,7 @@ export function ProjectManagement() {
       { value: 'Completed', label: 'Completed' },
       { value: 'In Progress', label: 'In Progress' },
     ],
-    []
+    [],
   )
 
   const hasActiveTimesheetFilters =
@@ -3198,7 +3499,6 @@ export function ProjectManagement() {
         className="projects-page-wrapper relative z-10 py-3 font-body !max-w-none w-full !px-4 lg:!px-8"
       >
         <div className="projects-shell animate-fadeIn">
-          
           {/* Hero — matches Leave Management hub header */}
           <div className="projects-hero-section mb-6">
             <div className="projects-hero-top">
@@ -3223,947 +3523,993 @@ export function ProjectManagement() {
             </div>
           </div>
 
-      {/* ================================================================
+          {/* ================================================================
            TAB 1 – PROJECTS
            ================================================================ */}
-      <div className="projects-body-grid">
-        {/* Left Sidebar with Navigation and Filters */}
-        <aside className="projects-sidebar projects-sidebar--with-footer flex flex-col">
-          <div className="projects-sidebar__body flex flex-1 flex-col space-y-4">
-          <div>
-            {/* Navigation List */}
-            <div className="sidebar-nav-list">
-              <button
-                type="button"
-                onClick={() => setWorkspaceTab('projects')}
-                className={`sidebar-nav-item ${activeTab === 'projects' ? 'active' : ''}`}
-              >
-                <FolderOpen className="h-4 w-4" />
-                <span className="flex-1 text-left">Projects</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setWorkspaceTab('timesheets')}
-                className={`sidebar-nav-item ${activeTab === 'timesheets' ? 'active' : ''}`}
-              >
-                <Clock className="h-4 w-4" />
-                <span className="flex-1 text-left">Timesheets</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setWorkspaceTab('analytics')}
-                className={`sidebar-nav-item ${activeTab === 'analytics' ? 'active' : ''}`}
-              >
-                <BarChart3 className="h-4 w-4" />
-                <span className="flex-1 text-left">Analytics</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setWorkspaceTab('archived')}
-                className={`sidebar-nav-item ${activeTab === 'archived' ? 'active' : ''}`}
-              >
-                <Archive className="h-4 w-4 shrink-0" />
-                <span className="flex-1 text-left">Archived</span>
-              </button>
-            </div>
-          </div>
-
-          {activeTab === 'projects' ? (
-            <div className="projects-sidebar-stats">
-              <div className="projects-hero-stat-card projects-sidebar-stat-card">
-                <div className="projects-hero-stat-head">
-                  <span className="projects-hero-stat-dot projects-hero-stat-dot--progress" />
-                  <span className="projects-hero-stat-label">In Progress</span>
-                </div>
-                <span className="projects-hero-stat-value projects-hero-stat-value--progress">
-                  {projectMetrics.inProgress}
-                </span>
-              </div>
-
-              <div className="projects-hero-stat-card projects-sidebar-stat-card">
-                <div className="projects-hero-stat-head">
-                  <span className="projects-hero-stat-dot projects-hero-stat-dot--completed" />
-                  <span className="projects-hero-stat-label">Completed</span>
-                </div>
-                <span className="projects-hero-stat-value projects-hero-stat-value--completed">
-                  {projectMetrics.completed}
-                </span>
-              </div>
-
-              <div className="projects-hero-stat-card projects-sidebar-stat-card">
-                <div className="projects-hero-stat-head">
-                  <span className="projects-hero-stat-dot projects-hero-stat-dot--cancelled" />
-                  <span className="projects-hero-stat-label">Cancelled</span>
-                </div>
-                <span className="projects-hero-stat-value projects-hero-stat-value--cancelled">
-                  {projectMetrics.cancelled}
-                </span>
-              </div>
-            </div>
-          ) : null}
-          </div>
-        </aside>
-
-        {/* Unified main content panel */}
-        <div className="projects-main-panel">
-          {activeTab === 'analytics' ? (
-            <div className="projects-tab-panel projects-analytics-embed animate-fadeIn">
-              <div className="projects-tab-scroll">
-                <Analytics embedded />
-              </div>
-            </div>
-          ) : activeTab === 'archived' ? (
-            <ArchivedProjectsPanel
-              archivedProjects={archivedProjects}
-              loading={loadingArchived}
-              restoringId={restoringArchivedId}
-              onRestore={handleRestoreArchivedProject}
-            />
-          ) : activeTab === 'projects' ? (
-            <div className="projects-directory-section animate-fadeIn">
-              <div className="projects-directory-header">
-                <div className="projects-directory-header-title">
-                  <h2 className="projects-directory-table-title projects-directory-table-title--main">Project Directory</h2>
-                  <p className="projects-directory-table-subtitle">
-                    {filteredProjects.length} project{filteredProjects.length === 1 ? '' : 's'}
-                  </p>
+          <div className="projects-body-grid">
+            {/* Left Sidebar with Navigation and Filters */}
+            <aside className="projects-sidebar projects-sidebar--with-footer flex flex-col">
+              <div className="projects-sidebar__body flex flex-1 flex-col space-y-4">
+                <div>
+                  {/* Navigation List */}
+                  <div className="sidebar-nav-list">
+                    <button
+                      type="button"
+                      onClick={() => setWorkspaceTab('projects')}
+                      className={`sidebar-nav-item ${activeTab === 'projects' ? 'active' : ''}`}
+                    >
+                      <FolderOpen className="h-4 w-4" />
+                      <span className="flex-1 text-left">Projects</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWorkspaceTab('timesheets')}
+                      className={`sidebar-nav-item ${activeTab === 'timesheets' ? 'active' : ''}`}
+                    >
+                      <Clock className="h-4 w-4" />
+                      <span className="flex-1 text-left">Timesheets</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWorkspaceTab('analytics')}
+                      className={`sidebar-nav-item ${activeTab === 'analytics' ? 'active' : ''}`}
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      <span className="flex-1 text-left">Analytics</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWorkspaceTab('archived')}
+                      className={`sidebar-nav-item ${activeTab === 'archived' ? 'active' : ''}`}
+                    >
+                      <Archive className="h-4 w-4 shrink-0" />
+                      <span className="flex-1 text-left">Archived</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="projects-directory-header-controls">
-                  <div className="projects-directory-search-group">
-                    <div className="relative min-w-0 flex-1">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search projects, clients…"
-                        className="admin-field projects-search-input w-full pl-9 pr-8 font-medium text-ink shadow-sm"
-                      />
-                      {searchQuery ? (
+                {activeTab === 'projects' ? (
+                  <div className="projects-sidebar-stats">
+                    <div className="projects-hero-stat-card projects-sidebar-stat-card">
+                      <div className="projects-hero-stat-head">
+                        <span className="projects-hero-stat-dot projects-hero-stat-dot--progress" />
+                        <span className="projects-hero-stat-label">In Progress</span>
+                      </div>
+                      <span className="projects-hero-stat-value projects-hero-stat-value--progress">
+                        {projectMetrics.inProgress}
+                      </span>
+                    </div>
+
+                    <div className="projects-hero-stat-card projects-sidebar-stat-card">
+                      <div className="projects-hero-stat-head">
+                        <span className="projects-hero-stat-dot projects-hero-stat-dot--completed" />
+                        <span className="projects-hero-stat-label">Completed</span>
+                      </div>
+                      <span className="projects-hero-stat-value projects-hero-stat-value--completed">
+                        {projectMetrics.completed}
+                      </span>
+                    </div>
+
+                    <div className="projects-hero-stat-card projects-sidebar-stat-card">
+                      <div className="projects-hero-stat-head">
+                        <span className="projects-hero-stat-dot projects-hero-stat-dot--cancelled" />
+                        <span className="projects-hero-stat-label">Cancelled</span>
+                      </div>
+                      <span className="projects-hero-stat-value projects-hero-stat-value--cancelled">
+                        {projectMetrics.cancelled}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </aside>
+
+            {/* Unified main content panel */}
+            <div className="projects-main-panel">
+              {activeTab === 'analytics' ? (
+                <div className="projects-tab-panel projects-analytics-embed animate-fadeIn">
+                  <div className="projects-tab-scroll">
+                    <Analytics embedded />
+                  </div>
+                </div>
+              ) : activeTab === 'archived' ? (
+                <ArchivedProjectsPanel
+                  archivedProjects={archivedProjects}
+                  loading={loadingArchived}
+                  restoringId={restoringArchivedId}
+                  onRestore={handleRestoreArchivedProject}
+                />
+              ) : activeTab === 'projects' ? (
+                <div className="projects-directory-section animate-fadeIn">
+                  <div className="projects-directory-header">
+                    <div className="projects-directory-header-title">
+                      <h2 className="projects-directory-table-title projects-directory-table-title--main">
+                        Project Directory
+                      </h2>
+                      <p className="projects-directory-table-subtitle">
+                        {filteredProjects.length} project{filteredProjects.length === 1 ? '' : 's'}
+                      </p>
+                    </div>
+
+                    <div className="projects-directory-header-controls">
+                      <div className="projects-directory-search-group">
+                        <div className="relative min-w-0 flex-1">
+                          <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[var(--emerald-dark)]" />
+                          <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search projects, clients…"
+                            className="admin-field projects-search-input w-full pl-9 pr-8 font-medium text-ink shadow-sm"
+                          />
+                          {searchQuery ? (
+                            <button
+                              type="button"
+                              onClick={() => setSearchQuery('')}
+                              className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-white/60 hover:text-ink"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          ) : null}
+                        </div>
+
                         <button
                           type="button"
-                          onClick={() => setSearchQuery('')}
-                          className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-white/60 hover:text-ink"
+                          onClick={() => setShowFilters(!showFilters)}
+                          aria-label="Filters"
+                          title="Filters"
+                          className={`projects-directory-filters-btn inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border transition-all ${
+                            showFilters || activeFiltersCount > 0
+                              ? 'border-[rgba(38,107,28,0.35)] bg-white/80 text-[var(--emerald-dark)]'
+                              : 'border-[rgba(38,107,28,0.2)] bg-white/50 text-slate-800 hover:bg-white/70'
+                          }`}
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <SlidersHorizontal className="h-3.5 w-3.5" />
+                          {activeFiltersCount > 0 ? (
+                            <span className="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[var(--emerald-dark)] px-1 text-[10px] font-bold leading-none text-white">
+                              {activeFiltersCount}
+                            </span>
+                          ) : null}
+                        </button>
+                      </div>
+
+                      <div className="projects-directory-view-toggle projects-view-toggle shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setViewMode('grid')}
+                          className={`rounded-md p-2 transition-all ${
+                            viewMode === 'grid'
+                              ? 'admin-projects-green-solid shadow-sm'
+                              : 'text-slate-600 hover:text-ink'
+                          }`}
+                          title="Grid view"
+                          aria-label="Grid view"
+                        >
+                          <LayoutGrid className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setViewMode('list')}
+                          className={`rounded-md p-2 transition-all ${
+                            viewMode === 'list'
+                              ? 'admin-projects-green-solid shadow-sm'
+                              : 'text-slate-600 hover:text-ink'
+                          }`}
+                          title="List view"
+                          aria-label="List view"
+                        >
+                          <List className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {showFilters ? (
+                    <div className="projects-directory-filters rounded-lg border border-[rgba(38,107,28,0.15)] bg-white/55 p-3 animate-fadeIn">
+                      <FilterCheckboxGroup
+                        label="Client Name"
+                        placeholder="All Clients"
+                        compact
+                        options={uniqueClients.map((c) => ({ value: c, label: c }))}
+                        selected={filterClients}
+                        onChange={setFilterClients}
+                      />
+                      <FilterCheckboxGroup
+                        label="Employee"
+                        placeholder="All Employees"
+                        compact
+                        options={projectEmployeeFilterOptions}
+                        selected={filterEmployees}
+                        onChange={setFilterEmployees}
+                      />
+                      <FilterCheckboxGroup
+                        label="Project Status"
+                        placeholder="All Statuses"
+                        compact
+                        options={[
+                          { value: 'Active', label: 'In Progress' },
+                          { value: 'Completed', label: 'Completed' },
+                          { value: 'Cancelled', label: 'Cancelled' },
+                        ]}
+                        selected={filterStatuses}
+                        onChange={setFilterStatuses}
+                      />
+                      <FilterCheckboxGroup
+                        label="Access Control"
+                        placeholder="All Access"
+                        compact
+                        options={[
+                          { value: 'public', label: 'Public' },
+                          { value: 'private', label: 'Private' },
+                        ]}
+                        selected={filterAccessTypes}
+                        onChange={setFilterAccessTypes}
+                      />
+                      {activeFiltersCount > 0 ? (
+                        <button
+                          type="button"
+                          onClick={clearProjectsFilters}
+                          className="projects-directory-filters-reset shrink-0 whitespace-nowrap text-xs font-bold text-[var(--emerald-dark)] transition-colors hover:text-[var(--green-600)]"
+                        >
+                          Reset All Filters
                         </button>
                       ) : null}
                     </div>
+                  ) : null}
 
-                    <button
-                      type="button"
-                      onClick={() => setShowFilters(!showFilters)}
-                      aria-label="Filters"
-                      title="Filters"
-                      className={`projects-directory-filters-btn inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border transition-all ${
-                        showFilters || activeFiltersCount > 0
-                          ? 'border-[rgba(38,107,28,0.35)] bg-white/80 text-[var(--emerald-dark)]'
-                          : 'border-[rgba(38,107,28,0.2)] bg-white/50 text-slate-800 hover:bg-white/70'
-                      }`}
-                    >
-                      <SlidersHorizontal className="h-3.5 w-3.5" />
-                      {activeFiltersCount > 0 ? (
-                        <span className="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[var(--emerald-dark)] px-1 text-[10px] font-bold leading-none text-white">
-                          {activeFiltersCount}
-                        </span>
-                      ) : null}
-                    </button>
-                  </div>
-
-                  <div className="projects-directory-view-toggle projects-view-toggle shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('grid')}
-                      className={`rounded-md p-2 transition-all ${
-                        viewMode === 'grid' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'
-                      }`}
-                      title="Grid view"
-                      aria-label="Grid view"
-                    >
-                      <LayoutGrid className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('list')}
-                      className={`rounded-md p-2 transition-all ${
-                        viewMode === 'list' ? 'admin-projects-green-solid shadow-sm' : 'text-slate-600 hover:text-ink'
-                      }`}
-                      title="List view"
-                      aria-label="List view"
-                    >
-                      <List className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {showFilters ? (
-                <div className="projects-directory-filters rounded-lg border border-[rgba(38,107,28,0.15)] bg-white/55 p-3 animate-fadeIn">
-                    <FilterCheckboxGroup
-                      label="Client Name"
-                      placeholder="All Clients"
-                      compact
-                      options={uniqueClients.map((c) => ({ value: c, label: c }))}
-                      selected={filterClients}
-                      onChange={setFilterClients}
-                    />
-                    <FilterCheckboxGroup
-                      label="Employee"
-                      placeholder="All Employees"
-                      compact
-                      options={projectEmployeeFilterOptions}
-                      selected={filterEmployees}
-                      onChange={setFilterEmployees}
-                    />
-                    <FilterCheckboxGroup
-                      label="Project Status"
-                      placeholder="All Statuses"
-                      compact
-                      options={[
-                        { value: 'Active', label: 'In Progress' },
-                        { value: 'Completed', label: 'Completed' },
-                        { value: 'Cancelled', label: 'Cancelled' },
-                      ]}
-                      selected={filterStatuses}
-                      onChange={setFilterStatuses}
-                    />
-                    <FilterCheckboxGroup
-                      label="Access Control"
-                      placeholder="All Access"
-                      compact
-                      options={[
-                        { value: 'public', label: 'Public' },
-                        { value: 'private', label: 'Private' },
-                      ]}
-                      selected={filterAccessTypes}
-                      onChange={setFilterAccessTypes}
-                    />
-                    {activeFiltersCount > 0 ? (
-                      <button
-                        type="button"
-                        onClick={clearProjectsFilters}
-                        className="projects-directory-filters-reset shrink-0 whitespace-nowrap text-xs font-bold text-[var(--emerald-dark)] transition-colors hover:text-[var(--green-600)]"
-                      >
-                        Reset All Filters
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-
-              <div className="projects-directory-scroll">
-              {viewMode === 'grid' ? (
-                <>
-                  {filteredProjects.length > 0 ? (
-                    <div className="projects-grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 xl:grid-cols-3">
-                      {currentProjects.map((p) => (
-                        <ProjectCard
-                          key={p.id}
-                          project={p}
-                          onEdit={() => openEditProject(p)}
-                          onDelete={() => handleDeleteProject(p)}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <EmptyState
-                      message="No projects correspond to your search criteria."
-                      onClear={clearProjectsFilters}
-                      hasFilters={activeFiltersCount > 0 || !!searchQuery}
-                    />
-                  )}
-                </>
-              ) : (
-                <div className="projects-table-shell">
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse text-left">
-                      <thead className="sticky top-0 z-20 bg-white">
-                        <tr className="border-b border-border bg-white shadow-sm">
-                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
-                            Project Details
-                          </th>
-                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
-                            Client
-                          </th>
-                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
-                            Technology Node
-                          </th>
-                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
-                            Access Control
-                          </th>
-                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
-                            Visibility Scope
-                          </th>
-                          <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
-                            Status
-                          </th>
-                          <th className="px-5 py-3 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5 text-sm">
-                        {currentProjects.map((p) => (
-                          <ProjectListRow
-                            key={p.id}
-                            project={p}
-                            onEdit={() => openEditProject(p)}
-                            onDelete={() => handleDeleteProject(p)}
+                  <div className="projects-directory-scroll">
+                    {viewMode === 'grid' ? (
+                      <>
+                        {filteredProjects.length > 0 ? (
+                          <div className="projects-grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 xl:grid-cols-3">
+                            {currentProjects.map((p) => (
+                              <ProjectCard
+                                key={p.id}
+                                project={p}
+                                onEdit={() => openEditProject(p)}
+                                onDelete={() => handleDeleteProject(p)}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <EmptyState
+                            message="No projects correspond to your search criteria."
+                            onClear={clearProjectsFilters}
+                            hasFilters={activeFiltersCount > 0 || !!searchQuery}
                           />
-                        ))}
-                        {filteredProjects.length === 0 && (
-                          <tr>
-                            <td colSpan={7} className="py-16 text-center text-slate-550 font-medium">
-                              No projects matched the selected filters.
-                            </td>
-                          </tr>
                         )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              </div>
-
-              {/* Projects Pagination Controls */}
-              {totalProjectsPages > 1 && (
-                <ProjectsPaginationBar
-                  currentPage={projectsCurrentPage}
-                  totalPages={totalProjectsPages}
-                  rangeStart={indexOfFirstProject + 1}
-                  rangeEnd={Math.min(indexOfLastProject, filteredProjects.length)}
-                  totalItems={filteredProjects.length}
-                  itemLabel="projects"
-                  onPageChange={setProjectsCurrentPage}
-                />
-              )}
-            </div>
-          ) : (
-            <div className="projects-tab-panel animate-fadeIn">
-              <div className="projects-tab-scroll space-y-5">
-              <div className="border-b border-border pb-3">
-                <div className="projects-timesheet-toolbar flex flex-wrap items-center gap-3">
-                  <div className="relative min-w-[12rem] flex-1 max-w-[22rem]">
-                    <Search className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-[var(--emerald-dark)]" />
-                    <input
-                      type="text"
-                      value={tsSearch}
-                      onChange={(e) => setTsSearch(e.target.value)}
-                      placeholder="Search logs…"
-                      className="admin-field projects-search-input h-11 w-full pl-10 pr-9 text-sm font-medium text-ink shadow-sm"
-                    />
-                    {tsSearch.trim() && (
-                      <button
-                        type="button"
-                        onClick={() => setTsSearch('')}
-                        className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-emerald-50/50 hover:text-ink"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
+                      </>
+                    ) : (
+                      <div className="projects-table-shell">
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse text-left">
+                            <thead className="sticky top-0 z-20 bg-white">
+                              <tr className="border-b border-border bg-white shadow-sm">
+                                <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
+                                  Project Details
+                                </th>
+                                <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
+                                  Client
+                                </th>
+                                <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
+                                  Technology Node
+                                </th>
+                                <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
+                                  Access Control
+                                </th>
+                                <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
+                                  Visibility Scope
+                                </th>
+                                <th className="px-5 py-3 text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
+                                  Status
+                                </th>
+                                <th className="px-5 py-3 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-slate-600 bg-white">
+                                  Actions
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 text-sm">
+                              {currentProjects.map((p) => (
+                                <ProjectListRow
+                                  key={p.id}
+                                  project={p}
+                                  onEdit={() => openEditProject(p)}
+                                  onDelete={() => handleDeleteProject(p)}
+                                />
+                              ))}
+                              {filteredProjects.length === 0 && (
+                                <tr>
+                                  <td
+                                    colSpan={7}
+                                    className="py-16 text-center text-slate-550 font-medium"
+                                  >
+                                    No projects matched the selected filters.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     )}
                   </div>
 
-                  <div className="relative shrink-0">
-                    <CustomDateRangePicker
-                      startDate={tsStartDate}
-                      endDate={tsEndDate}
-                      preset={datePreset}
-                      onChange={handleDateRangeChange}
-                      size="lg"
+                  {/* Projects Pagination Controls */}
+                  {totalProjectsPages > 1 && (
+                    <ProjectsPaginationBar
+                      currentPage={projectsCurrentPage}
+                      totalPages={totalProjectsPages}
+                      rangeStart={indexOfFirstProject + 1}
+                      rangeEnd={Math.min(indexOfLastProject, filteredProjects.length)}
+                      totalItems={filteredProjects.length}
+                      itemLabel="projects"
+                      onPageChange={setProjectsCurrentPage}
                     />
-                  </div>
-
-                  <div className="relative min-w-[11rem] flex-1 max-w-[15rem]">
-                    <FilterCheckboxGroup
-                      label="Employee"
-                      placeholder="All Employees"
-                      compact
-                      size="lg"
-                      options={tsEmployeeFilterOptions}
-                      selected={tsEmployeeFilters}
-                      onChange={setTsEmployeeFilters}
-                    />
-                  </div>
-
-                  <div className="relative min-w-[11rem] flex-1 max-w-[15rem]">
-                    <FilterCheckboxGroup
-                      label="Project"
-                      placeholder="All Projects"
-                      compact
-                      size="lg"
-                      options={tsProjectFilterOptions}
-                      selected={tsProjectFilters}
-                      onChange={setTsProjectFilters}
-                    />
-                  </div>
-
-                  <div className="relative min-w-[10rem] flex-1 max-w-[13rem]">
-                    <FilterCheckboxGroup
-                      label="Status"
-                      placeholder="All Statuses"
-                      compact
-                      size="lg"
-                      options={tsStatusFilterOptions}
-                      selected={tsStatusFilters}
-                      onChange={setTsStatusFilters}
-                    />
-                  </div>
-
-                  {hasActiveTimesheetFilters ? (
-                    <button
-                      type="button"
-                      onClick={clearTimesheetFilters}
-                      className="shrink-0 whitespace-nowrap px-1 text-sm font-bold text-[var(--emerald-dark)] transition-colors hover:text-[var(--green-600)]"
-                    >
-                      Reset
-                    </button>
-                  ) : null}
-
-                  <div className="flex w-full shrink-0 items-center justify-end gap-2.5 sm:ml-auto sm:w-auto">
-                    <button
-                      type="button"
-                      onClick={() => openTimesheetExport('excel')}
-                      className="inline-flex h-11 min-w-[9.75rem] shrink-0 flex-row items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[rgba(38,107,28,0.25)] bg-white px-4 text-sm font-bold text-[var(--emerald-dark)] transition-all hover:bg-emerald-50"
-                    >
-                      <FileSpreadsheet className="h-4 w-4 shrink-0" />
-                      <span>Export Excel</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openTimesheetExport('pdf')}
-                      className="inline-flex h-11 min-w-[9.75rem] shrink-0 flex-row items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 px-4 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md"
-                    >
-                      <FileDown className="h-4 w-4 shrink-0" />
-                      <span>PDF Report</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-          {/* Analytics panels */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="projects-analytics-card">
-              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0 rounded-t-2xl">
-                <h3 className="flex items-center gap-2 font-display text-[0.9375rem] font-extrabold text-white">
-                  <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/85" />
-                  Aggregated Hours by Project
-                </h3>
-                {derivedHoursByProject.length > 0 && (
-                  <span className="text-sm font-mono font-bold text-white/90">
-                    {derivedHoursByProject.length} project{derivedHoursByProject.length === 1 ? '' : 's'}
-                  </span>
-                )}
-              </div>
-              <div className="projects-analytics-body">
-              {derivedHoursByProject.length > 0 ? (
-                <div
-                  className={cn(
-                    'timesheet-panel-scroll pr-0.5',
-                    derivedHoursByProject.length > TIMESHEET_AGGREGATED_SCROLL_THRESHOLD.projects &&
-                      'max-h-[22rem] overflow-auto',
                   )}
-                >
-                  <ProjectHoursHoverCardProvider>
-                    <div
-                      className={
-                        derivedHoursByProject.length > 9
-                          ? 'grid w-max min-w-full gap-3 p-0.5'
-                          : 'grid w-full grid-cols-2 gap-3 sm:grid-cols-3'
-                      }
-                      style={
-                        derivedHoursByProject.length > 9
-                          ? {
-                              gridTemplateRows: 'repeat(3, minmax(5.75rem, auto))',
-                              gridAutoFlow: 'column',
-                              gridAutoColumns: 'minmax(9rem, 10.5rem)',
-                            }
-                          : undefined
-                      }
-                    >
-                      {(() => {
-                        const totalHours = derivedHoursByProject.reduce((sum, p) => sum + p.hours, 0)
-                        const averageHours =
-                          derivedHoursByProject.length > 0 ? totalHours / derivedHoursByProject.length : 0
-
-                        return derivedHoursByProject.map((project) => {
-                          const isGreaterThanAverage = project.hours > averageHours
-                          const percentage =
-                            totalHours > 0 ? ((project.hours / totalHours) * 100).toFixed(2) : '0.00'
-                          const cardBg = 'bg-[#2f6b4f]'
-                          const foundProject = allProjects.find((p) => p.name === project.name)
-
-                          return (
-                            <ProjectHoursHoverCard
-                              key={project.name}
-                              projectName={project.name}
-                              hours={project.hours}
-                              percentage={percentage}
-                              isGreaterThanAverage={isGreaterThanAverage}
-                              cardBg={cardBg}
-                              client={foundProject?.client}
-                              technologyNode={foundProject?.technologyNode}
-                              accessType={foundProject?.accessType}
-                              onCardClick={() => {
-                                if (project.projectId) {
-                                  openAuditTrail(project.projectId, project.name)
-                                } else if (foundProject) {
-                                  openAuditTrail(foundProject.id, foundProject.name)
-                                } else {
-                                  openAuditTrail('', project.name)
-                                }
-                              }}
-                            />
-                          )
-                        })
-                      })()}
-                    </div>
-                  </ProjectHoursHoverCardProvider>
                 </div>
               ) : (
-                <div className="flex min-h-[8rem] items-center justify-center rounded-lg border border-dashed border-[rgba(38,107,28,0.2)] bg-white/60 px-4 py-8 text-base font-semibold text-slate-600">
-                  No data logs available in the chosen dates.
-                </div>
-              )}
-              </div>
-            </div>
-
-            <div className="projects-analytics-card">
-              <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0 rounded-t-2xl">
-                <h3 className="flex items-center gap-2 font-display text-[0.9375rem] font-extrabold text-white">
-                  <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/85" />
-                  Aggregated Hours by Employee
-                </h3>
-                {derivedLeaderboardData.length > 0 && (
-                  <span className="text-sm font-mono font-bold text-white/90">
-                    {derivedLeaderboardData.length} employee{derivedLeaderboardData.length === 1 ? '' : 's'}
-                  </span>
-                )}
-              </div>
-              <div className="projects-analytics-body">
-              <div
-                className={cn(
-                  'timesheet-panel-scroll pr-0.5',
-                  derivedLeaderboardData.length > TIMESHEET_AGGREGATED_SCROLL_THRESHOLD.employees &&
-                    'max-h-[22rem] overflow-y-auto',
-                )}
-              >
-                <EmployeeLeaderboard data={derivedLeaderboardData} />
-              </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Timesheet log table */}
-          <div className="projects-ts-table-wrap">
-            <div className="overflow-x-auto timesheet-panel-scroll">
-              <table className="w-full min-w-[760px] border-collapse text-left">
-                <thead className="sticky top-0 z-10">
-                  <tr className="border-b border-[rgba(38,107,28,0.12)]">
-                    <th className="w-8 px-2 py-3.5 font-bold" aria-label="Day group" />
-                    <th className="px-5 py-3.5 font-bold">Employee</th>
-                    <th className="px-5 py-3.5 font-bold">Project</th>
-                    <th className="px-5 py-3.5 font-bold">Login Time</th>
-                    <th className="px-5 py-3.5 font-bold">Logout Time</th>
-                    <th className="px-5 py-3.5 font-bold">Break Time</th>
-                    <th className="px-5 py-3.5 font-bold">Duration</th>
-                    <th className="px-5 py-3.5 font-bold">Day Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200/70 text-base">
-                  {timesheetsLoading && currentTimesheets.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="px-5 py-12 text-center text-slate-600">
-                        <Spinner className="mx-auto text-[var(--emerald-dark)]" />
-                        <p className="mt-3 text-sm font-medium">Loading timesheet logs…</p>
-                      </td>
-                    </tr>
-                  ) : null}
-                  {currentTimesheets.map((t, rowIndex) => {
-                    const { key: displayEmployeeId, name: displayEmployeeName } =
-                      resolveTimesheetEmployeeKey(t, employees)
-                    const empInfo = employees.find(
-                      (e) =>
-                        e.id === t.employeeId ||
-                        e.employeeId === t.employeeId ||
-                        e.employeeId === displayEmployeeId ||
-                        employeeDisplayName(e) === displayEmployeeName,
-                    )
-                    const employeeColorKey =
-                      empInfo?.id || empInfo?.employeeId || displayEmployeeId || displayEmployeeName
-                    const dayLayout = currentTimesheetDayLayout[rowIndex]
-                    const projectLabel =
-                      t.project && t.project !== '—'
-                        ? t.project
-                        : t.projects?.length === 1
-                          ? t.projects[0]
-                          : t.projects?.length > 1
-                            ? 'Multiple'
-                            : '—'
-
-                    return (
-                      <tr
-                        key={t.id}
-                        className={cn(
-                          'group transition-colors',
-                          dayLayout?.isMulti && 'ts-day-group-row',
-                        )}
-                      >
-                        {dayLayout?.showSpanCell ? (
-                          <td
-                            rowSpan={dayLayout.rowSpan}
-                            className="ts-day-group-bracket-cell"
-                          >
-                            <span className="ts-day-group-bracket-bar" aria-hidden />
-                          </td>
-                        ) : dayLayout?.isMulti ? null : (
-                          <td className="w-8 px-2 py-0" />
-                        )}
-
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <Avatar
-                              name={displayEmployeeName}
-                              size="md"
-                              color={stringToHueColor(employeeColorKey)}
-                            />
-                            <div className="min-w-0">
-                              <p className="truncate text-base font-bold text-ink leading-tight">
-                                {displayEmployeeName}
-                              </p>
-                              <p className="text-xs font-semibold text-slate-600 font-mono">
-                                {displayEmployeeId}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="px-5 py-4">
-                          {projectLabel === '—' ? (
-                            <span className="text-base font-semibold text-slate-400">—</span>
-                          ) : (
+                <div className="projects-tab-panel animate-fadeIn">
+                  <div className="projects-tab-scroll space-y-5">
+                    <div className="border-b border-border pb-3">
+                      <div className="projects-timesheet-toolbar flex flex-wrap items-center gap-3">
+                        <div className="relative min-w-[12rem] flex-1 max-w-[22rem]">
+                          <Search className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-[var(--emerald-dark)]" />
+                          <input
+                            type="text"
+                            value={tsSearch}
+                            onChange={(e) => setTsSearch(e.target.value)}
+                            placeholder="Search logs…"
+                            className="admin-field projects-search-input h-11 w-full pl-10 pr-9 text-sm font-medium text-ink shadow-sm"
+                          />
+                          {tsSearch.trim() && (
                             <button
                               type="button"
-                              onClick={() => {
-                                if (t.projectId) {
-                                  openAuditTrail(t.projectId, projectLabel)
-                                } else {
-                                  const found = allProjects.find((p) => p.name === projectLabel)
-                                  if (found) {
-                                    openAuditTrail(found.id, found.name)
-                                  } else {
-                                    toast.error(`Could not find project: ${projectLabel}`)
-                                  }
-                                }
-                              }}
-                              className="group/btn block max-w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(38,107,28,0.22)] rounded-md"
+                              onClick={() => setTsSearch('')}
+                              className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 rounded-md p-0.5 text-slate-700 hover:bg-emerald-50/50 hover:text-ink"
                             >
-                              <p className="flex items-center gap-1 text-base font-bold text-ink transition-colors group-hover/btn:text-[var(--emerald-dark)]">
-                                <span className="truncate">{projectLabel}</span>
-                                <ArrowUpRight className="h-4 w-4 shrink-0 opacity-0 text-[var(--emerald-dark)] transition-all group-hover/btn:opacity-100" />
-                              </p>
+                              <X className="h-4 w-4" />
                             </button>
                           )}
-                        </td>
+                        </div>
 
-                        <td className="whitespace-nowrap px-5 py-4">
-                          <p className="text-base font-semibold text-slate-800">{formatDateTime(t.loginTime)}</p>
-                        </td>
+                        <div className="relative shrink-0">
+                          <CustomDateRangePicker
+                            startDate={tsStartDate}
+                            endDate={tsEndDate}
+                            preset={datePreset}
+                            onChange={handleDateRangeChange}
+                            size="lg"
+                          />
+                        </div>
 
-                        <td className="whitespace-nowrap px-5 py-4">
-                          <p
+                        <div className="relative min-w-[11rem] flex-1 max-w-[15rem]">
+                          <FilterCheckboxGroup
+                            label="Employee"
+                            placeholder="All Employees"
+                            compact
+                            size="lg"
+                            options={tsEmployeeFilterOptions}
+                            selected={tsEmployeeFilters}
+                            onChange={setTsEmployeeFilters}
+                          />
+                        </div>
+
+                        <div className="relative min-w-[11rem] flex-1 max-w-[15rem]">
+                          <FilterCheckboxGroup
+                            label="Project"
+                            placeholder="All Projects"
+                            compact
+                            size="lg"
+                            options={tsProjectFilterOptions}
+                            selected={tsProjectFilters}
+                            onChange={setTsProjectFilters}
+                          />
+                        </div>
+
+                        <div className="relative min-w-[10rem] flex-1 max-w-[13rem]">
+                          <FilterCheckboxGroup
+                            label="Status"
+                            placeholder="All Statuses"
+                            compact
+                            size="lg"
+                            options={tsStatusFilterOptions}
+                            selected={tsStatusFilters}
+                            onChange={setTsStatusFilters}
+                          />
+                        </div>
+
+                        {hasActiveTimesheetFilters ? (
+                          <button
+                            type="button"
+                            onClick={clearTimesheetFilters}
+                            className="shrink-0 whitespace-nowrap px-1 text-sm font-bold text-[var(--emerald-dark)] transition-colors hover:text-[var(--green-600)]"
+                          >
+                            Reset
+                          </button>
+                        ) : null}
+
+                        <div className="flex w-full shrink-0 items-center justify-end gap-2.5 sm:ml-auto sm:w-auto">
+                          <button
+                            type="button"
+                            onClick={() => openTimesheetExport('excel')}
+                            className="inline-flex h-11 min-w-[9.75rem] shrink-0 flex-row items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[rgba(38,107,28,0.25)] bg-white px-4 text-sm font-bold text-[var(--emerald-dark)] transition-all hover:bg-emerald-50"
+                          >
+                            <FileSpreadsheet className="h-4 w-4 shrink-0" />
+                            <span>Export Excel</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openTimesheetExport('pdf')}
+                            className="inline-flex h-11 min-w-[9.75rem] shrink-0 flex-row items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 px-4 text-sm font-bold text-white shadow-sm transition-all hover:shadow-md"
+                          >
+                            <FileDown className="h-4 w-4 shrink-0" />
+                            <span>PDF Report</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Analytics panels */}
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="projects-analytics-card">
+                        <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0 rounded-t-2xl">
+                          <h3 className="flex items-center gap-2 font-display text-[0.9375rem] font-extrabold text-white">
+                            <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/85" />
+                            Aggregated Hours by Project
+                          </h3>
+                          {derivedHoursByProject.length > 0 && (
+                            <span className="text-sm font-mono font-bold text-white/90">
+                              {derivedHoursByProject.length} project
+                              {derivedHoursByProject.length === 1 ? '' : 's'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="projects-analytics-body">
+                          {derivedHoursByProject.length > 0 ? (
+                            <div
+                              className={cn(
+                                'timesheet-panel-scroll pr-0.5',
+                                derivedHoursByProject.length >
+                                  TIMESHEET_AGGREGATED_SCROLL_THRESHOLD.projects &&
+                                  'max-h-[22rem] overflow-auto',
+                              )}
+                            >
+                              <ProjectHoursHoverCardProvider>
+                                <div
+                                  className={
+                                    derivedHoursByProject.length > 9
+                                      ? 'grid w-max min-w-full gap-3 p-0.5'
+                                      : 'grid w-full grid-cols-2 gap-3 sm:grid-cols-3'
+                                  }
+                                  style={
+                                    derivedHoursByProject.length > 9
+                                      ? {
+                                          gridTemplateRows: 'repeat(3, minmax(5.75rem, auto))',
+                                          gridAutoFlow: 'column',
+                                          gridAutoColumns: 'minmax(9rem, 10.5rem)',
+                                        }
+                                      : undefined
+                                  }
+                                >
+                                  {(() => {
+                                    const totalHours = derivedHoursByProject.reduce(
+                                      (sum, p) => sum + p.hours,
+                                      0,
+                                    )
+                                    const averageHours =
+                                      derivedHoursByProject.length > 0
+                                        ? totalHours / derivedHoursByProject.length
+                                        : 0
+
+                                    return derivedHoursByProject.map((project) => {
+                                      const isGreaterThanAverage = project.hours > averageHours
+                                      const percentage =
+                                        totalHours > 0
+                                          ? ((project.hours / totalHours) * 100).toFixed(2)
+                                          : '0.00'
+                                      const cardBg = 'bg-[#2f6b4f]'
+                                      const foundProject = allProjects.find(
+                                        (p) => p.name === project.name,
+                                      )
+
+                                      return (
+                                        <ProjectHoursHoverCard
+                                          key={project.name}
+                                          projectName={project.name}
+                                          hours={project.hours}
+                                          percentage={percentage}
+                                          isGreaterThanAverage={isGreaterThanAverage}
+                                          cardBg={cardBg}
+                                          client={foundProject?.client}
+                                          technologyNode={foundProject?.technologyNode}
+                                          accessType={foundProject?.accessType}
+                                          onCardClick={() => {
+                                            if (project.projectId) {
+                                              openAuditTrail(project.projectId, project.name)
+                                            } else if (foundProject) {
+                                              openAuditTrail(foundProject.id, foundProject.name)
+                                            } else {
+                                              openAuditTrail('', project.name)
+                                            }
+                                          }}
+                                        />
+                                      )
+                                    })
+                                  })()}
+                                </div>
+                              </ProjectHoursHoverCardProvider>
+                            </div>
+                          ) : (
+                            <div className="flex min-h-[8rem] items-center justify-center rounded-lg border border-dashed border-[rgba(38,107,28,0.2)] bg-white/60 px-4 py-8 text-base font-semibold text-slate-600">
+                              No data logs available in the chosen dates.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="projects-analytics-card">
+                        <div className="projects-analytics-head mb-0 flex items-center justify-between gap-2 border-b-0 pb-0 rounded-t-2xl">
+                          <h3 className="flex items-center gap-2 font-display text-[0.9375rem] font-extrabold text-white">
+                            <span className="h-3.5 w-1 shrink-0 rounded-full bg-white/85" />
+                            Aggregated Hours by Employee
+                          </h3>
+                          {derivedLeaderboardData.length > 0 && (
+                            <span className="text-sm font-mono font-bold text-white/90">
+                              {derivedLeaderboardData.length} employee
+                              {derivedLeaderboardData.length === 1 ? '' : 's'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="projects-analytics-body">
+                          <div
                             className={cn(
-                              'text-base font-semibold',
-                              t.logoutTime ? 'text-slate-800' : 'text-emerald-700',
+                              'timesheet-panel-scroll pr-0.5',
+                              derivedLeaderboardData.length >
+                                TIMESHEET_AGGREGATED_SCROLL_THRESHOLD.employees &&
+                                'max-h-[22rem] overflow-y-auto',
                             )}
                           >
-                            {t.logoutTime ? formatDateTime(t.logoutTime) : 'In progress'}
-                          </p>
-                        </td>
+                            <EmployeeLeaderboard data={derivedLeaderboardData} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-                        <td className="whitespace-nowrap px-5 py-4">
-                          <span className="inline-flex rounded-lg border border-border bg-[var(--bg-input)] px-3 py-1.5 font-mono text-sm font-bold text-slate-800">
-                            {formatBreakTime(t)}
-                          </span>
-                        </td>
+                    {/* Timesheet log table */}
+                    <div className="projects-ts-table-wrap">
+                      <div className="overflow-x-auto timesheet-panel-scroll">
+                        <table className="w-full min-w-[760px] border-collapse text-left">
+                          <thead className="sticky top-0 z-10">
+                            <tr className="border-b border-[rgba(38,107,28,0.12)]">
+                              <th className="w-8 px-2 py-3.5 font-bold" aria-label="Day group" />
+                              <th className="px-5 py-3.5 font-bold">Employee</th>
+                              <th className="px-5 py-3.5 font-bold">Project</th>
+                              <th className="px-5 py-3.5 font-bold">Login Time</th>
+                              <th className="px-5 py-3.5 font-bold">Logout Time</th>
+                              <th className="px-5 py-3.5 font-bold">Break Time</th>
+                              <th className="px-5 py-3.5 font-bold">Duration</th>
+                              <th className="px-5 py-3.5 font-bold">Day Total</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200/70 text-base">
+                            {timesheetsLoading && currentTimesheets.length === 0 ? (
+                              <tr>
+                                <td colSpan={8} className="px-5 py-12 text-center text-slate-600">
+                                  <Spinner className="mx-auto text-[var(--emerald-dark)]" />
+                                  <p className="mt-3 text-sm font-medium">
+                                    Loading timesheet logs…
+                                  </p>
+                                </td>
+                              </tr>
+                            ) : null}
+                            {currentTimesheets.map((t, rowIndex) => {
+                              const { key: displayEmployeeId, name: displayEmployeeName } =
+                                resolveTimesheetEmployeeKey(t, employees)
+                              const empInfo = employees.find(
+                                (e) =>
+                                  e.id === t.employeeId ||
+                                  e.employeeId === t.employeeId ||
+                                  e.employeeId === displayEmployeeId ||
+                                  employeeDisplayName(e) === displayEmployeeName,
+                              )
+                              const employeeColorKey =
+                                empInfo?.id ||
+                                empInfo?.employeeId ||
+                                displayEmployeeId ||
+                                displayEmployeeName
+                              const dayLayout = currentTimesheetDayLayout[rowIndex]
+                              const projectLabel =
+                                t.project && t.project !== '—'
+                                  ? t.project
+                                  : t.projects?.length === 1
+                                    ? t.projects[0]
+                                    : t.projects?.length > 1
+                                      ? 'Multiple'
+                                      : '—'
 
-                        <td className="px-5 py-4">
-                          <span className="inline-flex rounded-lg border border-border bg-[var(--bg-input)] px-3 py-1.5 text-ink font-mono text-sm font-bold">
-                            {formatWorkSessionDuration(t)}
-                          </span>
-                          {t.autoCheckedOut && (
-                            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-amber-500">
-                              Auto Checked-Out
-                            </p>
-                          )}
-                        </td>
+                              return (
+                                <tr
+                                  key={t.id}
+                                  className={cn(
+                                    'group transition-colors',
+                                    dayLayout?.isMulti && 'ts-day-group-row',
+                                  )}
+                                >
+                                  {dayLayout?.showSpanCell ? (
+                                    <td
+                                      rowSpan={dayLayout.rowSpan}
+                                      className="ts-day-group-bracket-cell"
+                                    >
+                                      <span className="ts-day-group-bracket-bar" aria-hidden />
+                                    </td>
+                                  ) : dayLayout?.isMulti ? null : (
+                                    <td className="w-8 px-2 py-0" />
+                                  )}
 
-                        {dayLayout?.showSpanCell ? (
-                          <td
-                            rowSpan={dayLayout.rowSpan}
-                            className="ts-day-group-total-cell whitespace-nowrap px-5 py-4 align-middle"
-                          >
-                            <div className="ts-day-group-total">
-                              <p className="font-mono text-sm font-bold text-ink">
-                                {formatDurationFromMs(dayLayout.dayGroup?.dayTotalWorkedMs || 0)}
-                              </p>
-                              <p className="text-[11px] font-semibold text-slate-500">
-                                Break {formatDurationFromMs(dayLayout.dayGroup?.dayTotalBreakMs || 0)}
-                              </p>
-                            </div>
-                          </td>
-                        ) : dayLayout?.isMulti ? null : (
-                          <td className="whitespace-nowrap px-5 py-4">
-                            <span className="text-slate-300">—</span>
-                          </td>
-                        )}
-                      </tr>
-                    )
-                  })}
-                  {filteredWorkSessions.length === 0 && (
-                    <tr>
-                      <td colSpan={8} className="py-12 text-center text-sm font-semibold text-slate-600">
-                        No work sessions correspond to selected range and filters.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                                  <td className="px-5 py-4">
+                                    <div className="flex items-center gap-3">
+                                      <Avatar
+                                        name={displayEmployeeName}
+                                        size="md"
+                                        color={stringToHueColor(employeeColorKey)}
+                                      />
+                                      <div className="min-w-0">
+                                        <p className="truncate text-base font-bold text-ink leading-tight">
+                                          {displayEmployeeName}
+                                        </p>
+                                        <p className="text-xs font-semibold text-slate-600 font-mono">
+                                          {displayEmployeeId}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  <td className="px-5 py-4">
+                                    {projectLabel === '—' ? (
+                                      <span className="text-base font-semibold text-slate-400">
+                                        —
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (t.projectId) {
+                                            openAuditTrail(t.projectId, projectLabel)
+                                          } else {
+                                            const found = allProjects.find(
+                                              (p) => p.name === projectLabel,
+                                            )
+                                            if (found) {
+                                              openAuditTrail(found.id, found.name)
+                                            } else {
+                                              toast.error(`Could not find project: ${projectLabel}`)
+                                            }
+                                          }
+                                        }}
+                                        className="group/btn block max-w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(38,107,28,0.22)] rounded-md"
+                                      >
+                                        <p className="flex items-center gap-1 text-base font-bold text-ink transition-colors group-hover/btn:text-[var(--emerald-dark)]">
+                                          <span className="truncate">{projectLabel}</span>
+                                          <ArrowUpRight className="h-4 w-4 shrink-0 opacity-0 text-[var(--emerald-dark)] transition-all group-hover/btn:opacity-100" />
+                                        </p>
+                                      </button>
+                                    )}
+                                  </td>
+
+                                  <td className="whitespace-nowrap px-5 py-4">
+                                    <p className="text-base font-semibold text-slate-800">
+                                      {formatDateTime(t.loginTime)}
+                                    </p>
+                                  </td>
+
+                                  <td className="whitespace-nowrap px-5 py-4">
+                                    <p
+                                      className={cn(
+                                        'text-base font-semibold',
+                                        t.logoutTime ? 'text-slate-800' : 'text-emerald-700',
+                                      )}
+                                    >
+                                      {t.logoutTime ? formatDateTime(t.logoutTime) : 'In progress'}
+                                    </p>
+                                  </td>
+
+                                  <td className="whitespace-nowrap px-5 py-4">
+                                    <span className="inline-flex rounded-lg border border-border bg-[var(--bg-input)] px-3 py-1.5 font-mono text-sm font-bold text-slate-800">
+                                      {formatBreakTime(t)}
+                                    </span>
+                                  </td>
+
+                                  <td className="px-5 py-4">
+                                    <span className="inline-flex rounded-lg border border-border bg-[var(--bg-input)] px-3 py-1.5 text-ink font-mono text-sm font-bold">
+                                      {formatWorkSessionDuration(t)}
+                                    </span>
+                                    {t.autoCheckedOut && (
+                                      <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-amber-500">
+                                        Auto Checked-Out
+                                      </p>
+                                    )}
+                                  </td>
+
+                                  {dayLayout?.showSpanCell ? (
+                                    <td
+                                      rowSpan={dayLayout.rowSpan}
+                                      className="ts-day-group-total-cell whitespace-nowrap px-5 py-4 align-middle"
+                                    >
+                                      <div className="ts-day-group-total">
+                                        <p className="font-mono text-sm font-bold text-ink">
+                                          {formatDurationFromMs(
+                                            dayLayout.dayGroup?.dayTotalWorkedMs || 0,
+                                          )}
+                                        </p>
+                                        <p className="text-[11px] font-semibold text-slate-500">
+                                          Break{' '}
+                                          {formatDurationFromMs(
+                                            dayLayout.dayGroup?.dayTotalBreakMs || 0,
+                                          )}
+                                        </p>
+                                      </div>
+                                    </td>
+                                  ) : dayLayout?.isMulti ? null : (
+                                    <td className="whitespace-nowrap px-5 py-4">
+                                      <span className="text-slate-300">—</span>
+                                    </td>
+                                  )}
+                                </tr>
+                              )
+                            })}
+                            {filteredWorkSessions.length === 0 && (
+                              <tr>
+                                <td
+                                  colSpan={8}
+                                  className="py-12 text-center text-sm font-semibold text-slate-600"
+                                >
+                                  No work sessions correspond to selected range and filters.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {totalTimesheetsPages > 1 && (
+                      <ProjectsPaginationBar
+                        currentPage={timesheetsCurrentPage}
+                        totalPages={totalTimesheetsPages}
+                        rangeStart={indexOfFirstTimesheet + 1}
+                        rangeEnd={Math.min(indexOfLastTimesheet, filteredWorkSessions.length)}
+                        totalItems={filteredWorkSessions.length}
+                        itemLabel="sessions"
+                        onPageChange={setTimesheetsCurrentPage}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+        </div>
 
-          {totalTimesheetsPages > 1 && (
-            <ProjectsPaginationBar
-              currentPage={timesheetsCurrentPage}
-              totalPages={totalTimesheetsPages}
-              rangeStart={indexOfFirstTimesheet + 1}
-              rangeEnd={Math.min(indexOfLastTimesheet, filteredWorkSessions.length)}
-              totalItems={filteredWorkSessions.length}
-              itemLabel="sessions"
-              onPageChange={setTimesheetsCurrentPage}
-            />
-          )}
-              </div>
-            </div>
-      )}
-    </div>
-  </div>
-</div>
-
-      {/* ================================================================
+        {/* ================================================================
            MODALS (Forms)
            ================================================================ */}
 
-      {/* ── CREATE / EDIT PROJECT MODAL ────────────────────── */}
-      <Modal
-        isOpen={modalOpen}
-        title={modalMode === 'create' ? 'Create New Project' : 'Edit Project Details'}
-        onClose={() => setModalOpen(false)}
-        size="lg"
-        className={cn(
-          'max-h-none overflow-y-visible p-5 [&>div:first-child]:mb-3',
-          modalMode === 'create' && 'projects-create-project-modal',
-        )}
-      >
-        <form onSubmit={handleSaveProject} className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input
-              label="Project Name"
-              placeholder="e.g. Project Apollo"
-              value={form.name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: e.target.value })}
-              required
-            />
-            <Input
-              label="Client Name"
-              placeholder="e.g. Globex Electronics"
-              value={form.client}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, client: e.target.value })}
-              required
-            />
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input
-              label="Technology Node"
-              placeholder="e.g. 7nm"
-              value={form.technologyNode}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setForm({ ...form, technologyNode: e.target.value })
-              }
-            />
-            <SelectField
-              label="Team Lead"
-              id="m-proj-team-lead"
-              value={form.teamLead}
-              onChange={(e) => setForm({ ...form, teamLead: e.target.value })}
-              options={[
-                { value: '', label: 'Select team lead...' },
-                ...allocatableEmployees.map((e) => ({
-                  value: employeeDisplayName(e),
-                  label: employeeDisplayName(e) + ` (${e.department})`,
-                })),
-              ]}
-            />
-          </div>
-
-          <SelectField
-            label="Access Control"
-            id="m-proj-access"
-            value={form.accessType}
-            onChange={(e) => {
-              const accessType = e.target.value as 'public' | 'private'
-              setForm({
-                ...form,
-                accessType,
-                visibleUsers: accessType === 'public' ? allEmployeeNames : [],
-              })
-            }}
-            options={[
-              { value: 'public', label: 'Public — all members can access' },
-              { value: 'private', label: 'Private — restricted to allotted members' },
-            ]}
-          />
-
-          <CheckboxList
-            label="Allotted Members"
-            items={allEmployeeNames}
-            selected={form.visibleUsers}
-            onChange={(next) => setForm({ ...form, visibleUsers: next })}
-          />
-
-          <div>
-            <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-700">
-              Project Description
-            </label>
-            <textarea
-              placeholder="Project scope, goals, and specifications..."
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              rows={2}
-              className="w-full rounded-xl border border-border bg-[var(--bg-input)] p-2.5 text-xs text-ink outline-none transition-all placeholder:text-slate-600 focus:border-[var(--emerald-dark)] focus:ring-2 focus:ring-[rgba(38,107,28,0.15)]"
-              required
-            />
-          </div>
-
-          {modalMode === 'edit' && (
-            <SelectField
-              label="Project Status"
-              id="m-proj-status"
-              value={form.status}
-              onChange={(e) =>
-                setForm({ ...form, status: e.target.value as 'Active' | 'Completed' | 'Cancelled' })
-              }
-              options={[
-                { value: 'Active', label: 'In Progress' },
-                { value: 'Completed', label: 'Completed' },
-                { value: 'Cancelled', label: 'Cancelled' },
-              ]}
-            />
+        {/* ── CREATE / EDIT PROJECT MODAL ────────────────────── */}
+        <Modal
+          isOpen={modalOpen}
+          title={modalMode === 'create' ? 'Create New Project' : 'Edit Project Details'}
+          onClose={() => setModalOpen(false)}
+          size="lg"
+          className={cn(
+            'max-h-none overflow-y-visible p-5 [&>div:first-child]:mb-3',
+            modalMode === 'create' && 'projects-create-project-modal',
           )}
+        >
+          <form onSubmit={handleSaveProject} className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                label="Project Name"
+                placeholder="e.g. Project Apollo"
+                value={form.name}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, name: e.target.value })
+                }
+                required
+              />
+              <Input
+                label="Client Name"
+                placeholder="e.g. Globex Electronics"
+                value={form.client}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, client: e.target.value })
+                }
+                required
+              />
+            </div>
 
-          <div className="flex justify-end gap-3 border-t border-border pt-3">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setModalOpen(false)}
-              disabled={loading}
-              className="rounded-xl font-bold py-2 px-4 border-border bg-surface/80 text-slate-800 hover:bg-emerald-50 hover:text-ink"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              loading={loading}
-              disabled={loading}
-              className="admin-dash-action-btn w-full rounded-xl py-2 px-4 font-bold border-0"
-            >
-              {modalMode === 'create' ? 'Create Project' : 'Save Changes'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                label="Technology Node"
+                placeholder="e.g. 7nm"
+                value={form.technologyNode}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, technologyNode: e.target.value })
+                }
+              />
+              <SelectField
+                label="Team Lead"
+                id="m-proj-team-lead"
+                value={form.teamLead}
+                onChange={(e) => setForm({ ...form, teamLead: e.target.value })}
+                options={[
+                  { value: '', label: 'Select team lead...' },
+                  ...allocatableEmployees.map((e) => ({
+                    value: employeeDisplayName(e),
+                    label: employeeDisplayName(e) + ` (${e.department})`,
+                  })),
+                ]}
+              />
+            </div>
 
-      <Modal
-        isOpen={exportFormatPending !== null}
-        title="Export Timesheet Report"
-        onClose={() => {
-          if (!exportingTimesheet) setExportFormatPending(null)
-        }}
-        size="sm"
-        modal
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-slate-600">
-            Include check-in work description in the{' '}
-            {exportFormatPending === 'excel' ? 'Excel' : 'PDF'} export?
-          </p>
-          <p className="text-xs text-slate-500">
-            Choosing <strong>With check-in entry</strong> adds a Work Description column using the
-            text entered when the employee checked out.
-          </p>
-          <div className="flex flex-col gap-2.5 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={exportingTimesheet}
-              onClick={() => void confirmTimesheetExport(false)}
-              className="rounded-xl font-bold"
-            >
-              Without check-in entry
-            </Button>
-            <Button
-              type="button"
-              loading={exportingTimesheet}
-              disabled={exportingTimesheet}
-              onClick={() => void confirmTimesheetExport(true)}
-              className="admin-dash-action-btn rounded-xl font-bold border-0"
-            >
-              With check-in entry
-            </Button>
-          </div>
-        </div>
-      </Modal>
+            <SelectField
+              label="Access Control"
+              id="m-proj-access"
+              value={form.accessType}
+              onChange={(e) => {
+                const accessType = e.target.value as 'public' | 'private'
+                setForm({
+                  ...form,
+                  accessType,
+                  visibleUsers: accessType === 'public' ? allEmployeeNames : [],
+                })
+              }}
+              options={[
+                { value: 'public', label: 'Public — all members can access' },
+                { value: 'private', label: 'Private — restricted to allotted members' },
+              ]}
+            />
 
-      {/* Project Audit Trail Modal */}
-      {selectedAuditProjectId && (
-        <ProjectAuditTrailModal
-          isOpen={auditTrailModalOpen}
+            <CheckboxList
+              label="Allotted Members"
+              items={allEmployeeNames}
+              selected={form.visibleUsers}
+              onChange={(next) => setForm({ ...form, visibleUsers: next })}
+            />
+
+            <div>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-700">
+                Project Description
+              </label>
+              <textarea
+                placeholder="Project scope, goals, and specifications..."
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                rows={2}
+                className="w-full rounded-xl border border-border bg-[var(--bg-input)] p-2.5 text-xs text-ink outline-none transition-all placeholder:text-slate-600 focus:border-[var(--emerald-dark)] focus:ring-2 focus:ring-[rgba(38,107,28,0.15)]"
+                required
+              />
+            </div>
+
+            {modalMode === 'edit' && (
+              <SelectField
+                label="Project Status"
+                id="m-proj-status"
+                value={form.status}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    status: e.target.value as 'Active' | 'Completed' | 'Cancelled',
+                  })
+                }
+                options={[
+                  { value: 'Active', label: 'In Progress' },
+                  { value: 'Completed', label: 'Completed' },
+                  { value: 'Cancelled', label: 'Cancelled' },
+                ]}
+              />
+            )}
+
+            <div className="flex justify-end gap-3 border-t border-border pt-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setModalOpen(false)}
+                disabled={loading}
+                className="rounded-xl font-bold py-2 px-4 border-border bg-surface/80 text-slate-800 hover:bg-emerald-50 hover:text-ink"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                loading={loading}
+                disabled={loading}
+                className="admin-dash-action-btn w-full rounded-xl py-2 px-4 font-bold border-0"
+              >
+                {modalMode === 'create' ? 'Create Project' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        <Modal
+          isOpen={exportFormatPending !== null}
+          title="Export Timesheet Report"
           onClose={() => {
-            setAuditTrailModalOpen(false)
-            setSelectedAuditProjectId(null)
-            setSelectedAuditProjectName('')
+            if (!exportingTimesheet) setExportFormatPending(null)
           }}
-          projectId={selectedAuditProjectId}
-          projectName={selectedAuditProjectName}
-        />
-      )}
+          size="sm"
+          modal
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              Include check-in work description in the{' '}
+              {exportFormatPending === 'excel' ? 'Excel' : 'PDF'} export?
+            </p>
+            <p className="text-xs text-slate-500">
+              Choosing <strong>With check-in entry</strong> adds a Work Description column using the
+              text entered when the employee checked out.
+            </p>
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={exportingTimesheet}
+                onClick={() => void confirmTimesheetExport(false)}
+                className="rounded-xl font-bold"
+              >
+                Without check-in entry
+              </Button>
+              <Button
+                type="button"
+                loading={exportingTimesheet}
+                disabled={exportingTimesheet}
+                onClick={() => void confirmTimesheetExport(true)}
+                className="admin-dash-action-btn rounded-xl font-bold border-0"
+              >
+                With check-in entry
+              </Button>
+            </div>
+          </div>
+        </Modal>
 
-      {/* Project Archive — step 1 confirmation */}
-      {projectToDelete && archiveConfirmStep === 1 ? (
-        <ConfirmModal
-          isOpen
-          title="Archive Project"
-          description={`Archive "${projectToDelete.name}"? The project and its history (tasks and timesheets) will move to Archived Projects. You can restore it later.`}
-          confirmLabel="Continue"
-          onClose={closeArchiveConfirm}
-          onConfirm={handleArchiveFirstConfirm}
-        />
-      ) : null}
+        {/* Project Audit Trail Modal */}
+        {selectedAuditProjectId && (
+          <ProjectAuditTrailModal
+            isOpen={auditTrailModalOpen}
+            onClose={() => {
+              setAuditTrailModalOpen(false)
+              setSelectedAuditProjectId(null)
+              setSelectedAuditProjectName('')
+            }}
+            projectId={selectedAuditProjectId}
+            projectName={selectedAuditProjectName}
+          />
+        )}
 
-      {/* Project Archive — step 2 final confirmation */}
-      {projectToDelete && archiveConfirmStep === 2 ? (
-        <ConfirmModal
-          isOpen
-          title="Confirm Archive"
-          description={`This is your final confirmation. Archive "${projectToDelete.name}" now? This cannot be undone from the active projects list.`}
-          confirmLabel="Yes, Archive Project"
-          danger
-          onClose={closeArchiveConfirm}
-          onConfirm={handleConfirmArchive}
-        />
-      ) : null}
+        {/* Project Archive — step 1 confirmation */}
+        {projectToDelete && archiveConfirmStep === 1 ? (
+          <ConfirmModal
+            isOpen
+            title="Archive Project"
+            description={`Archive "${projectToDelete.name}"? The project and its history (tasks and timesheets) will move to Archived Projects. You can restore it later.`}
+            confirmLabel="Continue"
+            onClose={closeArchiveConfirm}
+            onConfirm={handleArchiveFirstConfirm}
+          />
+        ) : null}
 
+        {/* Project Archive — step 2 final confirmation */}
+        {projectToDelete && archiveConfirmStep === 2 ? (
+          <ConfirmModal
+            isOpen
+            title="Confirm Archive"
+            description={`This is your final confirmation. Archive "${projectToDelete.name}" now? This cannot be undone from the active projects list.`}
+            confirmLabel="Yes, Archive Project"
+            danger
+            onClose={closeArchiveConfirm}
+            onConfirm={handleConfirmArchive}
+          />
+        ) : null}
       </PageWrapper>
     </div>
   )
@@ -4229,10 +4575,13 @@ const _ProjectArchiveConfirmModal = function ProjectArchiveConfirmModal({
 
       <div className="space-y-4">
         <p className="text-xs text-slate-800 font-bold leading-relaxed">
-          Are you sure you want to archive project <strong className="text-ink font-extrabold">"{projectName}"</strong>?
+          Are you sure you want to archive project{' '}
+          <strong className="text-ink font-extrabold">"{projectName}"</strong>?
         </p>
         <p className="text-xs text-slate-700 font-semibold leading-relaxed">
-          This will safely move the project and its complete history (assigned tasks and timesheet logs) to separate archived storage. Active dashboards stay clean. You can restore the project at any time.
+          This will safely move the project and its complete history (assigned tasks and timesheet
+          logs) to separate archived storage. Active dashboards stay clean. You can restore the
+          project at any time.
         </p>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
@@ -4256,4 +4605,3 @@ const _ProjectArchiveConfirmModal = function ProjectArchiveConfirmModal({
     </Modal>
   )
 }
-

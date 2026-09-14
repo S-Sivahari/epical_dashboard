@@ -123,7 +123,10 @@ export function DashboardLeftInsights({
         <header className="dashboard-insight-panel-header">
           <h3 className="dashboard-insight-panel-title">Project Reviews</h3>
           {pendingReviews.length > 0 ? (
-            <span className="dashboard-insight-panel-count" aria-label={`${pendingReviews.length} pending`}>
+            <span
+              className="dashboard-insight-panel-count"
+              aria-label={`${pendingReviews.length} pending`}
+            >
               {pendingReviews.length}
             </span>
           ) : null}
@@ -142,7 +145,10 @@ export function DashboardLeftInsights({
                       index < pendingReviews.length - 1 && 'dashboard-insight-row--bordered',
                     )}
                   >
-                    <span className="dashboard-deadline-dot dashboard-deadline-dot--amber" aria-hidden />
+                    <span
+                      className="dashboard-deadline-dot dashboard-deadline-dot--amber"
+                      aria-hidden
+                    />
                     <div className="min-w-0 flex-1">
                       <Link
                         to={ROUTES.PROJECT_CELL(review.projectId, review.cellId)}
@@ -166,7 +172,7 @@ export function DashboardLeftInsights({
 
       <section className="dashboard-insight-panel dashboard-insight-panel--mint">
         <header className="dashboard-insight-panel-header">
-          <h3 className="dashboard-insight-panel-title">Upcoming Holidays</h3>
+          <h3 className="dashboard-insight-panel-title">Upcomming Holidays and Events</h3>
         </header>
         <div className="dashboard-insight-panel-body">
           <div className="dashboard-insight-panel-scroll">
