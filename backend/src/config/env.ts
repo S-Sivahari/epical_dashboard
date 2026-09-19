@@ -52,7 +52,11 @@ export const env = {
   SMTP_FROM: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@company.com',
 
   // Auto-Checkout defaults (HH:mm 24-hour format)
-  DEFAULT_REMINDER_TIME: process.env.DEFAULT_REMINDER_TIME || '21:00',
+  // Two-tier auto-checkout: an intermediate checkout at 8:30 PM (warned 5 min before, at 8:25 PM)
+  // for anyone still checked in by then, and a final fallback checkout at 11:59 PM for anyone who
+  // checks in at/after 8:30 PM (they skip the intermediate tier entirely).
+  DEFAULT_REMINDER_TIME: process.env.DEFAULT_REMINDER_TIME || '20:25',
+  DEFAULT_INTERMEDIATE_CHECKOUT_TIME: process.env.DEFAULT_INTERMEDIATE_CHECKOUT_TIME || '20:30',
   DEFAULT_AUTO_CHECKOUT_TIME: process.env.DEFAULT_AUTO_CHECKOUT_TIME || '23:59',
 
   enableEmailNotifications: process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true',

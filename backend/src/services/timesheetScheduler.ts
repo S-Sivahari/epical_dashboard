@@ -6,6 +6,7 @@ import { env } from '../config/env';
 import { formatSchedulerDateTime } from '../utils/istClock';
 
 let reminderJob: ScheduledTask | null = null;
+let intermediateCheckoutJob: ScheduledTask | null = null;
 let autoCheckoutJob: ScheduledTask | null = null;
 let overdueSweepJob: ScheduledTask | null = null;
 let breakAutoResumeJob: ScheduledTask | null = null;
@@ -29,6 +30,11 @@ async function scheduleJobs() {
     console.log('[Scheduler] Stopping existing reminder job.');
     reminderJob.stop();
     reminderJob = null;
+  }
+  if (intermediateCheckoutJob) {
+    console.log('[Scheduler] Stopping existing intermediate checkout job.');
+    intermediateCheckoutJob.stop();
+    intermediateCheckoutJob = null;
   }
   if (autoCheckoutJob) {
     console.log('[Scheduler] Stopping existing auto-checkout job.');
@@ -66,6 +72,9 @@ async function scheduleJobs() {
   }
 
   const reminderCron = env.testCronTimings ? '* * * * *' : timeToCron(settings.reminderTime);
+  const intermediateCheckoutCron = env.testCronTimings
+    ? '* * * * *'
+    : timeToCron(settings.intermediateCheckoutTime);
   const autoCheckoutCron = env.testCronTimings ? '* * * * *' : timeToCron(settings.autoCheckoutTime);
   const overdueSweepCron = env.testCronTimings ? '* * * * *' : '*/5 * * * *';
 
@@ -73,7 +82,7 @@ async function scheduleJobs() {
     `[Scheduler] Configuring jobs (timezone=${env.schedulerTimezone}, testMode=${env.testCronTimings})`
   );
   console.log(
-    `[Scheduler] Reminder=${settings.reminderTime} (${reminderCron}), Auto-checkout=${settings.autoCheckoutTime} (${autoCheckoutCron}), Overdue sweep=${overdueSweepCron}`
+    `[Scheduler] Reminder=${settings.reminderTime} (${reminderCron}), Intermediate checkout=${settings.intermediateCheckoutTime} (${intermediateCheckoutCron}), Final auto-checkout=${settings.autoCheckoutTime} (${autoCheckoutCron}), Overdue sweep=${overdueSweepCron}`
   );
 
   reminderJob = cron.schedule(
@@ -85,6 +94,22 @@ async function scheduleJobs() {
         await processReminders();
       } catch (error) {
         console.error('[Scheduler] Reminder job error:', error);
+      }
+    },
+    cronOptions()
+  );
+
+  intermediateCheckoutJob = cron.schedule(
+    intermediateCheckoutCron,
+    async () => {
+      const tickAt = new Date();
+      console.log(
+        `[Scheduler] Intermediate checkout cron tick at ${tickAt.toISOString()} (${formatSchedulerDateTime(tickAt)} ${env.schedulerTimezone})`,
+      );
+      try {
+        await processAutoCheckouts();
+      } catch (error) {
+        console.error('[Scheduler] Intermediate checkout job error:', error);
       }
     },
     cronOptions()
@@ -156,6 +181,10 @@ export function stopScheduler() {
   if (reminderJob) {
     reminderJob.stop();
     reminderJob = null;
+  }
+  if (intermediateCheckoutJob) {
+    intermediateCheckoutJob.stop();
+    intermediateCheckoutJob = null;
   }
   if (autoCheckoutJob) {
     autoCheckoutJob.stop();

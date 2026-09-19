@@ -487,6 +487,11 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
     const map: Record<string, string> = {}
     if (!batch) return map
     for (const r of batch.results) {
+      if (r.employeeDbId) {
+        map[r.empId] = r.employeeDbId
+        continue
+      }
+      // Fallback for batches uploaded before employeeDbId was captured at upload time.
       const dbEmp = employees.find((e) => String(e.employeeId) === String(r.empId))
       if (dbEmp?.id) map[r.empId] = dbEmp.id
     }
@@ -784,6 +789,9 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
   const payrollRows: PayslipRow[] = batch
     ? batch.results
         .filter((r: PayslipResult) => {
+          // Prefer the status captured on the batch at upload time — it doesn't depend
+          // on whatever page/filter the Employee Directory happens to have loaded.
+          if (r.employeeStatus) return r.employeeStatus !== 'Deactivated'
           const dbEmp = employees.find((e) => String(e.employeeId) === String(r.empId))
           return dbEmp?.status !== 'Deactivated'
         })
@@ -797,7 +805,7 @@ export function PayslipManagement({ embedded: _embedded = false }: { embedded?: 
             fileName: r.fileName,
             error: r.error,
             sent: r.sent,
-            employeeDbId: dbEmp?.id,
+            employeeDbId: r.employeeDbId || dbEmp?.id,
           }
         })
     : []

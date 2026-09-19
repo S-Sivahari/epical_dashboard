@@ -19,7 +19,8 @@ import { sendCheckoutReminderEmail, sendAutoCheckoutConfirmationEmail } from './
 import { env } from '../config/env';
 import {
   formatSchedulerDateTime,
-  resolveSchedulerAutoCheckoutDeadline,
+  resolveTieredAutoCheckoutDeadline,
+  isInIntermediateCheckoutTier,
 } from '../utils/istClock';
 import {
   recordCompletedBreakDuration,
@@ -46,14 +47,18 @@ function isTransactionUnsupportedError(error: unknown): boolean {
 
 function resolveAutoCheckoutDeadline(
   attendance: { checkInTime: Date },
-  settings: { autoCheckoutTime: string },
+  settings: { intermediateCheckoutTime: string; autoCheckoutTime: string },
 ): Date {
-  return resolveSchedulerAutoCheckoutDeadline(attendance.checkInTime, settings.autoCheckoutTime);
+  return resolveTieredAutoCheckoutDeadline(
+    attendance.checkInTime,
+    settings.intermediateCheckoutTime,
+    settings.autoCheckoutTime,
+  );
 }
 
 function isAutoCheckoutDue(
   attendance: { checkInTime: Date; autoCheckoutTime?: Date | null },
-  settings: { autoCheckoutTime: string },
+  settings: { intermediateCheckoutTime: string; autoCheckoutTime: string },
   now: Date
 ): boolean {
   if (env.testCronTimings) {
@@ -106,18 +111,28 @@ export async function getAutoCheckoutSettings() {
   if (!settings) {
     settings = await AutoCheckoutSettingsModel.create({
       reminderTime: env.DEFAULT_REMINDER_TIME,
+      intermediateCheckoutTime: env.DEFAULT_INTERMEDIATE_CHECKOUT_TIME,
       autoCheckoutTime: env.DEFAULT_AUTO_CHECKOUT_TIME,
       enabled: true,
     });
-  } else if (settings.autoCheckoutTime === '00:00') {
-    settings.autoCheckoutTime = env.DEFAULT_AUTO_CHECKOUT_TIME;
-    await settings.save();
+  } else {
+    let dirty = false;
+    if (settings.autoCheckoutTime === '00:00') {
+      settings.autoCheckoutTime = env.DEFAULT_AUTO_CHECKOUT_TIME;
+      dirty = true;
+    }
+    if (!settings.intermediateCheckoutTime) {
+      settings.intermediateCheckoutTime = env.DEFAULT_INTERMEDIATE_CHECKOUT_TIME;
+      dirty = true;
+    }
+    if (dirty) await settings.save();
   }
   return settings;
 }
 
 export async function updateAutoCheckoutSettings(data: {
   reminderTime?: string;
+  intermediateCheckoutTime?: string;
   autoCheckoutTime?: string;
   enabled?: boolean;
 }) {
@@ -125,11 +140,13 @@ export async function updateAutoCheckoutSettings(data: {
   if (!settings) {
     settings = await AutoCheckoutSettingsModel.create({
       reminderTime: data.reminderTime || env.DEFAULT_REMINDER_TIME,
+      intermediateCheckoutTime: data.intermediateCheckoutTime || env.DEFAULT_INTERMEDIATE_CHECKOUT_TIME,
       autoCheckoutTime: data.autoCheckoutTime || env.DEFAULT_AUTO_CHECKOUT_TIME,
       enabled: data.enabled ?? true,
     });
   } else {
     if (data.reminderTime !== undefined) settings.reminderTime = data.reminderTime;
+    if (data.intermediateCheckoutTime !== undefined) settings.intermediateCheckoutTime = data.intermediateCheckoutTime;
     if (data.autoCheckoutTime !== undefined) settings.autoCheckoutTime = data.autoCheckoutTime;
     if (data.enabled !== undefined) settings.enabled = data.enabled;
     await settings.save();
@@ -162,10 +179,16 @@ export async function processReminders(): Promise<number> {
     const elapsedMs = now.getTime() - checkInTime.getTime();
     const elapsedMinutes = Math.floor(elapsedMs / (60 * 1000));
 
-    const isEligible = env.testCronTimings ? elapsedMinutes >= 2 : true;
+    // Only warn sessions that are actually headed for the intermediate checkout tier.
+    // Anyone who checked in at/after the intermediate cutoff skips this tier silently
+    // and is only handled by the final (11:59 PM) auto-checkout — no warning for them.
+    const inIntermediateTier = env.testCronTimings
+      ? true
+      : isInIntermediateCheckoutTier(checkInTime, settings.intermediateCheckoutTime);
+    const isEligible = inIntermediateTier && (env.testCronTimings ? elapsedMinutes >= 2 : true);
 
     console.log(
-      `[Reminder Job] Session: ID=${attendance._id}, EmployeeID=${attendance.employeeId}, EmployeeName=${attendance.employeeName}, Status=${attendance.sessionStatus}, Check-in=${checkInTime.toISOString()}, ElapsedMinutes=${elapsedMinutes}, ReminderEligible=${isEligible}`
+      `[Reminder Job] Session: ID=${attendance._id}, EmployeeID=${attendance.employeeId}, EmployeeName=${attendance.employeeName}, Status=${attendance.sessionStatus}, Check-in=${checkInTime.toISOString()}, ElapsedMinutes=${elapsedMinutes}, InIntermediateTier=${inIntermediateTier}, ReminderEligible=${isEligible}`
     );
 
     if (!isEligible) continue;
@@ -194,7 +217,7 @@ export async function processReminders(): Promise<number> {
       to: email,
       employeeName: attendance.employeeName,
       checkInTime: attendance.checkInTime,
-      autoCheckoutTime: settings.autoCheckoutTime,
+      autoCheckoutTime: settings.intermediateCheckoutTime,
       projectName: activeLog?.project || 'No active project',
       activeDurationMs,
     });
@@ -228,7 +251,7 @@ type AutoCheckoutResult = {
 async function performAutoCheckoutForAttendance(
   attendance: InstanceType<typeof EmployeeAttendanceModel>,
   now: Date,
-  settings: { autoCheckoutTime: string },
+  settings: { intermediateCheckoutTime: string; autoCheckoutTime: string },
   session?: ClientSession
 ): Promise<AutoCheckoutResult | null> {
   const checkoutTimestamp = resolveAutoCheckoutDeadline(attendance, settings);
@@ -377,7 +400,7 @@ async function performAutoCheckoutForAttendance(
 async function runAutoCheckoutWithOptionalTransaction(
   attendance: InstanceType<typeof EmployeeAttendanceModel>,
   now: Date,
-  settings: { autoCheckoutTime: string },
+  settings: { intermediateCheckoutTime: string; autoCheckoutTime: string },
 ): Promise<AutoCheckoutResult | null> {
   const session = await mongoose.startSession();
   try {
@@ -454,7 +477,7 @@ export async function processAutoCheckouts(): Promise<number> {
           totalDurationMs: result.totalDurationMs,
           projectName: result.projectName,
           workDescription: result.workDescription,
-          autoCheckoutReason: `Your session remained active past the scheduled auto-checkout time (${settings.autoCheckoutTime}).`,
+          autoCheckoutReason: `Your session remained active past the scheduled auto-checkout time (${formatSchedulerDateTime(result.checkOutTime)} ${env.schedulerTimezone}).`,
         });
         if (emailSent) {
           console.log(

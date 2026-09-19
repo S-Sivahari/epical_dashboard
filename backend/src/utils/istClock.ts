@@ -59,6 +59,42 @@ export function resolveSchedulerAutoCheckoutDeadline(
   return buildNextSchedulerClockTime(checkInTime, hours, minutes);
 }
 
+/**
+ * Two-tier auto-checkout deadline:
+ * - Checked in before the intermediate checkout time (same day) → that day's intermediate
+ *   checkout time is the deadline (e.g. 8:30 PM).
+ * - Checked in at/after the intermediate checkout time → the session skips that tier
+ *   entirely and falls back to the next occurrence of the final auto-checkout time
+ *   (e.g. 11:59 PM), same as before the intermediate tier existed.
+ */
+export function resolveTieredAutoCheckoutDeadline(
+  checkInTime: Date,
+  intermediateCheckoutTime: string,
+  autoCheckoutTime: string,
+): Date {
+  const dateKey = getSchedulerDateKey(checkInTime);
+  const { hours: iHours, minutes: iMinutes } = parseSchedulerClockTime(intermediateCheckoutTime);
+  const intermediateOnCheckInDay = buildClockTimeOnDate(dateKey, iHours, iMinutes);
+
+  if (checkInTime.getTime() < intermediateOnCheckInDay.getTime()) {
+    return intermediateOnCheckInDay;
+  }
+
+  return resolveSchedulerAutoCheckoutDeadline(checkInTime, autoCheckoutTime);
+}
+
+/** True while `now` still falls in the intermediate-checkout tier for this check-in
+ *  (i.e. the session hasn't yet skipped past the intermediate cutoff for its check-in day). */
+export function isInIntermediateCheckoutTier(
+  checkInTime: Date,
+  intermediateCheckoutTime: string,
+): boolean {
+  const dateKey = getSchedulerDateKey(checkInTime);
+  const { hours, minutes } = parseSchedulerClockTime(intermediateCheckoutTime);
+  const intermediateOnCheckInDay = buildClockTimeOnDate(dateKey, hours, minutes);
+  return checkInTime.getTime() < intermediateOnCheckInDay.getTime();
+}
+
 export function isSchedulerClockTimeReached(from: Date, hours: number, minutes: number): boolean {
   const dateKey = getSchedulerDateKey(from);
   const cutoff = buildClockTimeOnDate(dateKey, hours, minutes);

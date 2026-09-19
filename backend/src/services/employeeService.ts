@@ -326,8 +326,9 @@ export async function getAllEmployees(
   if (filters.status && filters.status !== 'all') {
     query.status = filters.status;
   } else {
-    // Default: keep deactivated accounts visible so they can be reactivated.
-    query.status = { $ne: 'Archived' };
+    // Default ("All statuses"): hide deactivated/archived accounts. They remain
+    // visible (and reactivatable) only when the Deactivated filter is chosen explicitly.
+    query.status = { $nin: ['Archived', 'Deactivated'] };
   }
 
   if (filters.view === 'Public') {

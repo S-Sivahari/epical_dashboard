@@ -38,8 +38,7 @@ import { computeTotalHoursDecimal } from '../utils/durationFormat';
 import { getAutoCheckoutSettings, updateAutoCheckoutSettings } from '../services/autoCheckoutService';
 import { env } from '../config/env';
 import { restartScheduler } from '../services/timesheetScheduler';
-import { sendCheckoutReminderEmail } from '../services/emailService';
-import { buildNextSchedulerClockTime, calendarDayBounds, getSchedulerDateKey, getSchedulerHourMinute, resolveSchedulerAutoCheckoutDeadline } from '../utils/istClock';
+import { buildNextSchedulerClockTime, calendarDayBounds, getSchedulerDateKey, resolveTieredAutoCheckoutDeadline, isInIntermediateCheckoutTier } from '../utils/istClock';
 import {
   closeProductiveSessionsForEmployee,
   resumeProductiveSessionsForEmployee,
@@ -823,8 +822,9 @@ export const employeeTimesheetController = {
 
       const settings = await getAutoCheckoutSettings();
       const now = new Date();
-      const { hours: istHour } = getSchedulerHourMinute(now);
-      const isLateCheckIn = istHour >= 21;
+      // Checking in at/after the intermediate checkout time skips that tier entirely —
+      // no 8:25 warning for them, they're only handled by the final auto-checkout.
+      const isLateCheckIn = !isInIntermediateCheckoutTier(now, settings.intermediateCheckoutTime);
 
       const buildExpectedCheckout = () => {
         if (isLateCheckIn) {
@@ -834,8 +834,9 @@ export const employeeTimesheetController = {
         return buildNextSchedulerClockTime(now, rh, rm);
       };
       const buildAutoCheckout = () => {
+        const intermediateClock = settings.intermediateCheckoutTime || env.DEFAULT_INTERMEDIATE_CHECKOUT_TIME;
         const checkoutClock = settings.autoCheckoutTime || env.DEFAULT_AUTO_CHECKOUT_TIME;
-        return resolveSchedulerAutoCheckoutDeadline(now, checkoutClock);
+        return resolveTieredAutoCheckoutDeadline(now, intermediateClock, checkoutClock);
       };
 
       if (openAttendance) {
@@ -1238,32 +1239,9 @@ export const employeeTimesheetController = {
           cellWorkError,
         });
 
-        // Trigger reminder email immediately if checking in late (9 PM IST or later)
-        const { hours: checkInHour } = getSchedulerHourMinute(now);
-        if (checkInHour >= 21 && attendance && !attendance.reminderSent) {
-          attendance.reminderSent = true;
-          await attendance.save();
-
-          const settings = await getAutoCheckoutSettings();
-          const autoCheckoutTimeStr = settings.autoCheckoutTime || env.DEFAULT_AUTO_CHECKOUT_TIME;
-          const [ah, am] = autoCheckoutTimeStr.split(':').map(Number);
-          const period = ah >= 12 ? 'PM' : 'AM';
-          const displayH = ah % 12 === 0 ? 12 : ah % 12;
-          const displayM = String(am).padStart(2, '0');
-          const displayAutoCheckout = `${displayH}:${displayM} ${period}`;
-
-          const checkoutEmail = employee.officialEmail || employee.email;
-          if (checkoutEmail) {
-            void sendCheckoutReminderEmail({
-              to: checkoutEmail,
-              employeeName: employee.employeeName || employee.name,
-              checkInTime: attendance.checkInTime,
-              autoCheckoutTime: displayAutoCheckout,
-              projectName: resolvedProject.projectName,
-              activeDurationMs: 0,
-            }).catch((err) => console.error('Failed to send immediate late checkout email:', err));
-          }
-        }
+        // Note: no immediate warning email for late check-ins here. Anyone checking in
+        // at/after the intermediate checkout time skips that tier entirely (see checkIn)
+        // and is only subject to the final auto-checkout, with no warning beforehand.
       } finally {
         session.endSession();
       }
@@ -1570,6 +1548,7 @@ export const employeeTimesheetController = {
       const settings = await getAutoCheckoutSettings();
       res.json({
         reminderTime: settings.reminderTime,
+        intermediateCheckoutTime: settings.intermediateCheckoutTime,
         autoCheckoutTime: settings.autoCheckoutTime,
         enabled: settings.enabled,
       });
@@ -1581,10 +1560,14 @@ export const employeeTimesheetController = {
 
   updateAutoCheckoutSettings: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { reminderTime, autoCheckoutTime, enabled } = req.body;
+      const { reminderTime, intermediateCheckoutTime, autoCheckoutTime, enabled } = req.body;
 
       if (reminderTime && !/^\d{2}:\d{2}$/.test(reminderTime)) {
         res.status(400).json({ error: 'reminderTime must be in HH:mm format' });
+        return;
+      }
+      if (intermediateCheckoutTime && !/^\d{2}:\d{2}$/.test(intermediateCheckoutTime)) {
+        res.status(400).json({ error: 'intermediateCheckoutTime must be in HH:mm format' });
         return;
       }
       if (autoCheckoutTime && !/^\d{2}:\d{2}$/.test(autoCheckoutTime)) {
@@ -1592,11 +1575,17 @@ export const employeeTimesheetController = {
         return;
       }
 
-      const settings = await updateAutoCheckoutSettings({ reminderTime, autoCheckoutTime, enabled });
+      const settings = await updateAutoCheckoutSettings({
+        reminderTime,
+        intermediateCheckoutTime,
+        autoCheckoutTime,
+        enabled,
+      });
       await restartScheduler();
 
       res.json({
         reminderTime: settings.reminderTime,
+        intermediateCheckoutTime: settings.intermediateCheckoutTime,
         autoCheckoutTime: settings.autoCheckoutTime,
         enabled: settings.enabled,
       });
@@ -1636,6 +1625,7 @@ export const employeeTimesheetController = {
         autoCheckoutEnabled: attendance.autoCheckoutEnabled,
         settings: {
           reminderTime: settings.reminderTime,
+          intermediateCheckoutTime: settings.intermediateCheckoutTime,
           autoCheckoutTime: settings.autoCheckoutTime,
           enabled: settings.enabled,
         },

@@ -17,6 +17,7 @@ import {
   clearSentPayslipsForBatch,
   removeSentPayslip,
   sendPayslipToEmployee,
+  findEmployeeByPayrollEmpId,
 } from './employeePayslipService'
 import { parsePayPeriodFromCompany, prepareEmployeeForPayslip } from './payrollYtdService'
 import { formatPayslipPersonName } from '../utils/personName'
@@ -38,6 +39,10 @@ export interface PayslipResult {
   error?: string
   sent?: boolean
   sentAt?: Date
+  /** Employee's HR directory status captured at upload time, so the UI never has to
+   *  re-look-up the (paginated) employee directory to decide whether to hide this row. */
+  employeeStatus?: string
+  employeeDbId?: string
 }
 
 export interface PayrollBatch {
@@ -248,6 +253,24 @@ function batchesCollection() {
   return getDB().collection<PayrollBatch>('payroll_batches')
 }
 
+/** Snapshot an employee's HR directory status/id at upload time so the payslip UI
+ *  never has to cross-reference the (paginated) employee directory to know it. */
+async function resolveEmployeeDirectoryInfo(
+  empId: string
+): Promise<{ employeeStatus?: string; employeeDbId?: string }> {
+  try {
+    const dbEmployee = await findEmployeeByPayrollEmpId(empId)
+    if (!dbEmployee) return {}
+    return {
+      employeeStatus: (dbEmployee as any).status,
+      employeeDbId: (dbEmployee as any).id,
+    }
+  } catch (error) {
+    console.warn(`Failed to resolve directory status for employee ${empId}:`, error)
+    return {}
+  }
+}
+
 export function getBatchDir(batchId: string): string {
   return join(UPLOADS_ROOT, batchId)
 }
@@ -323,6 +346,7 @@ export async function processPayrollUpload(
     for (const emp of employeesToAdd) {
       const empId = String(emp['Emp ID'] || 'Unknown')
       const name = formatPayslipPersonName(emp['Name'])
+      const directoryInfo = await resolveEmployeeDirectoryInfo(empId)
       try {
         const fileName = payslipFileNameForEmpId(empId)
         const prepared = await prepareEmployeeForPayslip(company, structure, emp, appendBatchId)
@@ -339,10 +363,10 @@ export async function processPayrollUpload(
           payPeriodKey: periodFields.payPeriodKey,
           pdfBuffer,
         })
-        newResults.push({ empId, name, status: 'success', fileName })
+        newResults.push({ empId, name, status: 'success', fileName, ...directoryInfo })
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Generation failed'
-        newResults.push({ empId, name, status: 'error', error: message })
+        newResults.push({ empId, name, status: 'error', error: message, ...directoryInfo })
       }
     }
 
@@ -405,6 +429,7 @@ export async function processPayrollUpload(
   for (const emp of employees) {
     const empId = String(emp['Emp ID'] || 'Unknown')
     const name = formatPayslipPersonName(emp['Name'])
+    const directoryInfo = await resolveEmployeeDirectoryInfo(empId)
     try {
       const fileName = payslipFileNameForEmpId(empId)
       const prepared = await prepareEmployeeForPayslip(company, structure, emp, id)
@@ -421,10 +446,10 @@ export async function processPayrollUpload(
         payPeriodKey: periodFields.payPeriodKey,
         pdfBuffer,
       })
-      results.push({ empId, name, status: 'success', fileName })
+      results.push({ empId, name, status: 'success', fileName, ...directoryInfo })
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Generation failed'
-      results.push({ empId, name, status: 'error', error: message })
+      results.push({ empId, name, status: 'error', error: message, ...directoryInfo })
     }
   }
 

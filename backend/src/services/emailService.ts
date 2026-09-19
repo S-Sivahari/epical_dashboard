@@ -75,6 +75,15 @@ function formatEmailTime(d: Date | string): string {
   });
 }
 
+/** Format a stored "HH:mm" clock time (e.g. "20:30") as "8:30 PM" for email copy. */
+function formatClockTimeLabel(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return hhmm;
+  const period = h >= 12 ? 'PM' : 'AM';
+  const displayHour = h % 12 === 0 ? 12 : h % 12;
+  return `${displayHour}:${String(m).padStart(2, '0')} ${period}`;
+}
+
 function formatEmailDateTime(d: Date | string): string {
   const dateObj = typeof d === 'string' || typeof (d as any).getMonth !== 'function' ? new Date(d) : d;
   return dateObj.toLocaleString('en-IN', {
@@ -165,12 +174,13 @@ function buildHrmsTimesheetEmailHtml(options: {
 
 export async function sendCheckoutReminderEmail(params: ReminderEmailParams): Promise<boolean> {
   const activeDuration = formatDurationFromMs(params.activeDurationMs, true);
+  const displayAutoCheckoutTime = formatClockTimeLabel(params.autoCheckoutTime);
   const html = buildHrmsTimesheetEmailHtml({
     eyebrow: 'Work Session Reminder',
     title: 'Active Work Session Pending Checkout',
     greetingName: params.employeeName,
     intro:
-      'You currently have an active work session that has not been checked out. Please complete checkout before midnight to keep your timesheet accurate.',
+      `You currently have an active work session that has not been checked out. Please complete checkout before ${displayAutoCheckoutTime} to keep your timesheet accurate.`,
     highlightTitle: 'Active Session Summary',
     accentColor: EMAIL_COLORS.primaryFresh,
     detailRows: [
@@ -178,7 +188,7 @@ export async function sendCheckoutReminderEmail(params: ReminderEmailParams): Pr
       { label: 'Project', value: params.projectName },
       { label: 'Check-in Time', value: formatEmailTime(params.checkInTime) },
       { label: 'Active Duration', value: activeDuration },
-      { label: 'Auto-Checkout At', value: params.autoCheckoutTime },
+      { label: 'Auto-Checkout At', value: displayAutoCheckoutTime },
     ],
     notice:
       'If you do not check out manually, the system will automatically close your session at the scheduled auto-checkout time.',

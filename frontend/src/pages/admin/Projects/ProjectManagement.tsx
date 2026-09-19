@@ -2451,6 +2451,14 @@ export function ProjectManagement() {
     [employees],
   )
 
+  // Names of currently-deactivated employees — their timesheet/work-session rows are hidden
+  // from the table/aggregates by default, but stay pickable via the employee filter dropdown
+  // so an admin can bring them back explicitly (mirrors the Employee Directory's status filter).
+  const deactivatedEmployeeNames = useMemo(
+    () => new Set(employees.filter((e) => e.status === 'Deactivated').map((e) => employeeDisplayName(e))),
+    [employees],
+  )
+
   // ── Work sessions filtering (one row per check-in / check-out) ──
   const filteredWorkSessions = useMemo(() => {
     const filtered = workSessions.filter((s) => {
@@ -2474,7 +2482,12 @@ export function ProjectManagement() {
         matchesMultiFilter(tsProjectFilters, s.project) ||
         s.projects.some((p) => matchesMultiFilter(tsProjectFilters, p))
 
-      return matchSearch && matchEmployee && matchProject
+      // Hide deactivated employees by default; only show their rows if explicitly
+      // picked in the employee filter (mirrors the Employee Directory's status filter).
+      const isDeactivated = deactivatedEmployeeNames.has(s.employeeName)
+      const matchDeactivated = !isDeactivated || tsEmployeeFilters.includes(s.employeeName)
+
+      return matchSearch && matchEmployee && matchProject && matchDeactivated
     })
     return attachWorkSessionDayGroups(filtered, employees)
   }, [
@@ -2485,6 +2498,7 @@ export function ProjectManagement() {
     tsEmployeeFilters,
     tsProjectFilters,
     employees,
+    deactivatedEmployeeNames,
   ])
 
   // ── Timesheets Filtering Implementation (task logs for analytics) ──
@@ -2509,7 +2523,12 @@ export function ProjectManagement() {
       const matchProject = matchesMultiFilter(tsProjectFilters, t.project)
       const matchStatus = matchesMultiFilter(tsStatusFilters, getTimesheetWorkflowStatus(t))
 
-      return matchSearch && matchEmployee && matchProject && matchStatus
+      // Hide deactivated employees by default; only show their rows if explicitly
+      // picked in the employee filter (mirrors the Employee Directory's status filter).
+      const isDeactivated = deactivatedEmployeeNames.has(t.employeeName)
+      const matchDeactivated = !isDeactivated || tsEmployeeFilters.includes(t.employeeName)
+
+      return matchSearch && matchEmployee && matchProject && matchStatus && matchDeactivated
     })
   }, [
     timesheets,
@@ -2520,6 +2539,7 @@ export function ProjectManagement() {
     tsProjectFilters,
     tsStatusFilters,
     getEmployeeTeam,
+    deactivatedEmployeeNames,
   ])
 
   // Derived Project Hours based on filteredTimesheets
@@ -3447,20 +3467,20 @@ export function ProjectManagement() {
 
   const tsEmployeeFilterOptions = useMemo(() => {
     const names = new Set<string>()
-    const deactivatedEmployeeNames = new Set(
-      employees.filter((e) => e.status === 'Deactivated').map((e) => employeeDisplayName(e)),
-    )
-    employees
-      .filter((e) => e.status !== 'Deactivated')
-      .forEach((e) => names.add(employeeDisplayName(e)))
+    employees.forEach((e) => names.add(employeeDisplayName(e)))
     timesheets.forEach((t) => {
-      if (t.employeeName && !deactivatedEmployeeNames.has(t.employeeName)) names.add(t.employeeName)
+      if (t.employeeName) names.add(t.employeeName)
     })
     workSessions.forEach((s) => {
-      if (s.employeeName && !deactivatedEmployeeNames.has(s.employeeName)) names.add(s.employeeName)
+      if (s.employeeName) names.add(s.employeeName)
     })
-    return [...names].sort().map((name) => ({ value: name, label: name }))
-  }, [timesheets, workSessions, employees])
+    return [...names]
+      .sort()
+      .map((name) => ({
+        value: name,
+        label: deactivatedEmployeeNames.has(name) ? `${name} (Deactivated)` : name,
+      }))
+  }, [timesheets, workSessions, employees, deactivatedEmployeeNames])
 
   const tsProjectFilterOptions = useMemo(
     () =>

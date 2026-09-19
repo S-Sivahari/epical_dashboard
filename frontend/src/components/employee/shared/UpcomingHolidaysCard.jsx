@@ -122,7 +122,7 @@ export function UpcomingHolidaysCard({ holidays = [], className, compact = false
             <div className="emp-dash-icon emp-dash-icon--sky h-7 w-7 shrink-0" aria-hidden>
               <CalendarDays className="h-3.5 w-3.5" />
             </div>
-            <h3 className="font-heading font-semibold text-foreground truncate">Upcoming holidays</h3>
+            <h3 className="font-heading font-semibold text-foreground truncate">Upcoming Holidays &amp; Events</h3>
           </div>
           <Link
             to="/employee/calendar"
@@ -162,7 +162,7 @@ export function UpcomingHolidaysCard({ holidays = [], className, compact = false
             <CalendarDays className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <h3 className="font-heading text-base font-semibold text-foreground">Upcoming holidays</h3>
+            <h3 className="font-heading text-base font-semibold text-foreground">Upcoming Holidays &amp; Events</h3>
           </div>
         </div>
         <Link

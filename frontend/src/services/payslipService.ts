@@ -15,6 +15,9 @@ export interface PayslipResult {
   fileName?: string
   error?: string
   sent?: boolean
+  /** Employee's HR directory status, captured at upload time. */
+  employeeStatus?: string
+  employeeDbId?: string
 }
 
 export interface EmployeeDashboardPayslip {
