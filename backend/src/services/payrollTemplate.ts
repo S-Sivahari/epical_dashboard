@@ -432,6 +432,7 @@ export async function generatePayrollTemplateBuffer(options?: { includeEmployeeD
   const deductionsComponents: [string, string, number | string, string][] = [
     ['Professional Tax', 'Deductions', 0, 'State-level tax'],
     ['Income Tax (TDS)', 'Deductions', 0, 'Tax deducted at source'],
+    ['Employee Provident Fund', 'Deductions', 0, "Employee's PF contribution"],
     ['LOP Deduction', 'Deductions', 0, 'Loss of pay — auto-calculated from LOP Days unless overridden'],
     ['Loan / Advance Recovery', 'Deductions', 0, 'EMI or one-time recovery'],
   ]

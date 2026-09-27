@@ -484,8 +484,8 @@ function drawCompanyFooter(
 /** Fit data + spacer rows in the band above totals and the fixed bottom block. */
 /** Default earnings row count in payroll master template (spare rows fill before table grows). */
 const PAYSLIP_EARNINGS_BASELINE_ROWS = 9
-/** PT, TDS, LOP Deduction, Loan Recovery */
-const PAYSLIP_DEDUCTIONS_BASELINE_ROWS = 4
+/** PT, TDS, EPF, LOP Deduction, Loan Recovery */
+const PAYSLIP_DEDUCTIONS_BASELINE_ROWS = 5
 
 function calcTableBodyRowCount(dataRows: number, baseline: number): number {
   const spareUsed = Math.max(0, dataRows - baseline)

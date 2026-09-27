@@ -16,7 +16,7 @@ export async function resolveNetPayForBatchPayslip(
   empId: string
 ): Promise<number | null> {
   try {
-    const buffer = readBatchExcel(batchId)
+    const buffer = await readBatchExcel(batchId)
     const parsed = await readMasterExcelFromBuffer(buffer)
 
     const rawBatch = await getDB().collection('payroll_batches').findOne({ id: batchId })

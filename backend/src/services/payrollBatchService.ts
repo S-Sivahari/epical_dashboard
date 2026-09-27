@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync, existsSync, readFileSync, unlinkSync, rmSync, readdirSync, statSync } from 'fs'
+import { mkdirSync, existsSync, readFileSync, unlinkSync, rmSync, readdirSync, statSync } from 'fs'
 import { join, resolve } from 'path'
 import { randomUUID } from 'crypto'
 import ExcelJS from 'exceljs'
@@ -29,6 +29,12 @@ import {
   deletePayslipsForBatch,
   upsertPayslipPdfFromFileIfMissing,
 } from './payslipStorageService'
+import {
+  deletePayrollFile,
+  payrollExcelKey,
+  readWithDiskCache,
+  writeWithDiskCache,
+} from './payrollFileStorageService'
 import { tmpdir } from 'os'
 
 export interface PayslipResult {
@@ -189,13 +195,21 @@ function findEmployeeWorksheet(wb: ExcelJS.Workbook): ExcelJS.Worksheet | undefi
 }
 
 async function appendEmployeesToStoredExcel(batchId: string, newBuffer: Buffer): Promise<void> {
-  const excelPath = getExcelPath(batchId)
-  if (!existsSync(excelPath)) {
-    writeFileSync(excelPath, newBuffer)
+  let existingBuffer: Buffer
+  try {
+    existingBuffer = await readBatchExcelAsync(batchId)
+  } catch (error: unknown) {
+    // Only a genuinely missing file means "nothing to merge, write fresh" — any other
+    // error (e.g. a transient Mongo failure) must propagate rather than silently
+    // discarding whatever employees were already uploaded for this batch.
+    const message = error instanceof Error ? error.message : ''
+    if (message !== 'Payroll file not found for this batch') {
+      throw error
+    }
+    await writeBatchExcel(batchId, newBuffer)
     return
   }
 
-  const existingBuffer = readFileSync(excelPath)
   const { employees: newEmployees } = await readMasterExcelFromBuffer(newBuffer)
   const { employees: existingEmployees } = await readMasterExcelFromBuffer(existingBuffer)
   const existingIds = new Set(
@@ -206,7 +220,7 @@ async function appendEmployeesToStoredExcel(batchId: string, newBuffer: Buffer):
   await wb.xlsx.load(existingBuffer as unknown as ExcelJS.Buffer)
   const sheet = findEmployeeWorksheet(wb)
   if (!sheet) {
-    writeFileSync(excelPath, newBuffer)
+    await writeBatchExcel(batchId, newBuffer)
     return
   }
 
@@ -230,7 +244,7 @@ async function appendEmployeesToStoredExcel(batchId: string, newBuffer: Buffer):
     existingIds.add(id)
   }
 
-  writeFileSync(excelPath, Buffer.from(await wb.xlsx.writeBuffer()))
+  await writeBatchExcel(batchId, Buffer.from(await wb.xlsx.writeBuffer()))
 }
 
 function clearPayslipPdfFiles(batchId: string): void {
@@ -277,6 +291,30 @@ export function getBatchDir(batchId: string): string {
 
 export function getExcelPath(batchId: string): string {
   return join(getBatchDir(batchId), 'payroll.xlsx')
+}
+
+/**
+ * Persist the uploaded payroll Excel for a batch. Writes to local disk as a fast-path
+ * cache for the lifetime of the current container, and to MongoDB as the durable copy —
+ * local disk is wiped on every redeploy, so Mongo is the source of truth for fallback reads.
+ */
+async function writeBatchExcel(batchId: string, buffer: Buffer): Promise<void> {
+  await writeWithDiskCache({
+    diskPath: getExcelPath(batchId),
+    mongoKey: payrollExcelKey(batchId),
+    fileName: 'payroll.xlsx',
+    contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    data: buffer,
+  })
+}
+
+/** Read the uploaded payroll Excel for a batch — local disk first, MongoDB fallback. */
+async function readBatchExcelAsync(batchId: string): Promise<Buffer> {
+  const buffer = await readWithDiskCache(getExcelPath(batchId), payrollExcelKey(batchId))
+  if (!buffer) {
+    throw new Error('Payroll file not found for this batch')
+  }
+  return buffer
 }
 
 export function getPayslipsDir(batchId: string): string {
@@ -421,7 +459,7 @@ export async function processPayrollUpload(
   }
 
   ensureBatchDirs(id)
-  writeFileSync(getExcelPath(id), buffer)
+  await writeBatchExcel(id, buffer)
 
   const results: PayslipResult[] = []
   const payslipsDir = getPayslipsDir(id)
@@ -549,12 +587,8 @@ export async function listPayrollBatches(limit = 100): Promise<PayrollBatch[]> {
   return Promise.all(raw.map((b) => enrichBatchWithSentStatus(b)))
 }
 
-export function readBatchExcel(batchId: string): Buffer {
-  const path = getExcelPath(batchId)
-  if (!existsSync(path)) {
-    throw new Error('Payroll file not found for this batch')
-  }
-  return readFileSync(path)
+export async function readBatchExcel(batchId: string): Promise<Buffer> {
+  return readBatchExcelAsync(batchId)
 }
 
 export async function sendAllPayslipsInBatch(
@@ -639,7 +673,7 @@ export async function ensurePayslipPdfExists(batchId: string, fileName: string):
 
   let excelBuffer: Buffer
   try {
-    excelBuffer = readBatchExcel(batchId)
+    excelBuffer = await readBatchExcel(batchId)
   } catch {
     throw new Error(
       'Payslip PDF is missing and the payroll Excel for this batch is no longer available. Re-upload the payroll file to regenerate payslips.'
@@ -747,6 +781,7 @@ async function removeBatchStorage(batchId: string): Promise<void> {
   await batchesCollection().deleteOne({ id: batchId })
   await getDB().collection('employee_payslips').deleteMany({ batchId })
   await deletePayslipsForBatch(batchId)
+  await deletePayrollFile(payrollExcelKey(batchId))
 }
 
 /** Remove uploaded Excel, all generated payslips, and batch record. */

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { COMPANY_LOGO_PATH, PAYROLL_TEMPLATE_DIR } from '../config/paths'
 import { resolveLogoPath } from '../services/payslipPdfGenerator'
@@ -43,6 +43,13 @@ import {
 import { getPayrollBatch as fetchBatch } from '../services/payrollBatchService'
 import { createNotification, notifyAllAdmins } from '../services/notificationService'
 import { getDB } from '../config/db'
+import {
+  getPayrollFileBuffer,
+  readWithDiskCache,
+  writeWithDiskCache,
+  CUSTOM_TEMPLATE_KEY,
+  COMPANY_LOGO_KEY,
+} from '../services/payrollFileStorageService'
 
 function getUserCollection() {
   return getDB().collection('users')
@@ -101,8 +108,8 @@ async function notifyAdminsAndEmployee(params: {
   const employeeType = regenerated ? 'PayslipRegenerated' : 'PayslipSent'
   const employeeTitle = regenerated ? 'Payslip Regenerated' : 'Payslip Received'
   const employeeMessage = regenerated
-    ? `Your payslip for ${payMonth} has been regenerated. Check your email for the updated PDF, or use Send to email on the Payslips page if you need another copy.`
-    : `Your payslip for ${payMonth} has been published. Check your email inbox for the PDF. You can request another copy from the Payslips section if needed.`
+    ? `Your payslip for ${payMonth} has been regenerated. View it in the Payslips section, or use Send to email if you'd like a copy in your inbox.`
+    : `Your payslip for ${payMonth} has been published. View it in the Payslips section, or use Send to email if you'd like a copy in your inbox.`
 
   await createNotification({
     recipientId: employeeDbId,
@@ -110,6 +117,9 @@ async function notifyAdminsAndEmployee(params: {
     type: employeeType,
     title: employeeTitle,
     message: employeeMessage,
+    // Payslips are never auto-emailed on send — employees see it on their dashboard and
+    // request an email copy themselves via "Send to email".
+    skipEmail: true,
     relatedData: {
       employeeId: employeeHrId,
       employeeName,
@@ -139,11 +149,24 @@ async function notifyAdminsAndEmployee(params: {
   })
 }
 
+/**
+ * Local disk is wiped on every redeploy, so the custom template / logo written there are
+ * only a fast-path cache. Restore from MongoDB (the durable copy) before any disk read.
+ */
+export async function restoreTemplateToDiskIfMissing(): Promise<void> {
+  await readWithDiskCache(TEMPLATE_PATH, CUSTOM_TEMPLATE_KEY)
+}
+
+export async function restoreLogoToDiskIfMissing(): Promise<void> {
+  await readWithDiskCache(COMPANY_LOGO_PATH, COMPANY_LOGO_KEY)
+}
+
 export const payslipController = {
   /** Download active template — custom if uploaded, else built-in demo */
   downloadTemplate: async (req: Request, res: Response): Promise<void> => {
     const includeEmployeeData = req.query.includeEmployeeData === 'true'
-    
+
+    await restoreTemplateToDiskIfMissing()
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     if (existsSync(TEMPLATE_PATH) && !includeEmployeeData) {
       const meta = await templateMetaCollection().findOne({}, { sort: { uploadedAt: -1 } })
@@ -166,10 +189,13 @@ export const payslipController = {
         res.status(400).json({ error: 'No Excel file uploaded' })
         return
       }
-      if (!existsSync(TEMPLATE_DIR)) {
-        mkdirSync(TEMPLATE_DIR, { recursive: true })
-      }
-      writeFileSync(TEMPLATE_PATH, file.buffer)
+      await writeWithDiskCache({
+        diskPath: TEMPLATE_PATH,
+        mongoKey: CUSTOM_TEMPLATE_KEY,
+        fileName: file.originalname,
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        data: file.buffer,
+      })
       await templateMetaCollection().deleteMany({})
       const meta = { name: file.originalname, uploadedAt: new Date(), size: file.size }
       await templateMetaCollection().insertOne(meta)
@@ -188,10 +214,13 @@ export const payslipController = {
         res.status(400).json({ error: 'No image file uploaded' })
         return
       }
-      if (!existsSync(TEMPLATE_DIR)) {
-        mkdirSync(TEMPLATE_DIR, { recursive: true })
-      }
-      writeFileSync(COMPANY_LOGO_PATH, file.buffer)
+      await writeWithDiskCache({
+        diskPath: COMPANY_LOGO_PATH,
+        mongoKey: COMPANY_LOGO_KEY,
+        fileName: file.originalname,
+        contentType: file.mimetype || 'image/png',
+        data: file.buffer,
+      })
       res.json({
         message: 'Company logo uploaded successfully',
         path: COMPANY_LOGO_PATH,
@@ -206,6 +235,7 @@ export const payslipController = {
   /** Serve active company logo for admin preview. */
   getCompanyLogo: async (_req: Request, res: Response): Promise<void> => {
     try {
+      await restoreLogoToDiskIfMissing()
       const logoPath = resolveLogoPath({})
       if (!logoPath) {
         res.status(404).json({ error: 'No company logo uploaded yet' })
@@ -230,6 +260,7 @@ export const payslipController = {
   /** Whether a payslip logo is configured. */
   getCompanyLogoMeta: async (_req: Request, res: Response): Promise<void> => {
     try {
+      await restoreLogoToDiskIfMissing()
       const logoPath = resolveLogoPath({})
       res.json({ hasLogo: !!logoPath, path: logoPath ?? undefined })
     } catch (error: unknown) {
@@ -241,10 +272,19 @@ export const payslipController = {
   /** Get active template metadata */
   getTemplateMeta: async (_req: Request, res: Response): Promise<void> => {
     try {
-      if (existsSync(TEMPLATE_PATH)) {
-        const meta = await templateMetaCollection().findOne({}, { sort: { uploadedAt: -1 } })
-        res.json({ hasCustom: true, name: meta?.name, uploadedAt: meta?.uploadedAt, size: meta?.size })
+      const [meta, storedBuffer] = await Promise.all([
+        templateMetaCollection().findOne({}, { sort: { uploadedAt: -1 } }),
+        getPayrollFileBuffer(CUSTOM_TEMPLATE_KEY),
+      ])
+      // A meta record only reflects a real, usable template when the Mongo blob (the
+      // durable copy) actually exists — otherwise the UI would claim a custom template
+      // is active while downloadTemplate silently falls back to the demo template.
+      if (meta && storedBuffer && storedBuffer.length > 0) {
+        res.json({ hasCustom: true, name: meta.name, uploadedAt: meta.uploadedAt, size: meta.size })
       } else {
+        if (meta && (!storedBuffer || storedBuffer.length === 0)) {
+          console.warn('[payslipController] Template metadata exists but no matching file is stored in MongoDB — reporting no custom template')
+        }
         res.json({ hasCustom: false, name: payrollMasterTemplateFileName() })
       }
     } catch (error: unknown) {
@@ -410,7 +450,7 @@ export const payslipController = {
       }
       
       try {
-        const buffer = readBatchExcel(req.params.batchId as string)
+        const buffer = await readBatchExcel(req.params.batchId as string)
         res.setHeader(
           'Content-Type',
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -623,7 +663,7 @@ export const payslipController = {
         return
       }
 
-      const buffer = readBatchExcel(batchId)
+      const buffer = await readBatchExcel(batchId)
       const { readMasterExcelFromBuffer } = await import('../services/payslipGenerator')
       const { company, structure, employees } = await readMasterExcelFromBuffer(buffer)
       const emp = employees.find((e) => String(e['Emp ID']) === String(empId))

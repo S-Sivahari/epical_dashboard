@@ -710,6 +710,7 @@ const COMPONENT_ALIASES: Record<string, string[]> = {
   'Leave Travel Allowance': ['LTA'],
   'Professional Tax': ['PT'],
   'Income Tax (TDS)': ['TDS'],
+  'Employee Provident Fund': ['EPF', 'PF', 'Provident Fund'],
   'Loan / Advance Recovery': ['Loan Recovery', 'Loan / Adv. Recovery'],
   'LOP Deduction': ['LOP', 'LOP Amount', 'Loss of Pay'],
   'Loss of Pay': ['LOP Deduction'],

@@ -456,6 +456,18 @@ export async function startServer() {
     );
     await ensurePayslipStorageIndexes();
 
+    const { ensurePayrollFileStorageIndexes } = await import(
+      './services/payrollFileStorageService'
+    );
+    await ensurePayrollFileStorageIndexes();
+
+    // Restore custom template / company logo to local disk from MongoDB —
+    // local disk is wiped on every redeploy, so these must be repopulated before payslip PDFs are generated.
+    const { restoreTemplateToDiskIfMissing, restoreLogoToDiskIfMissing } = await import(
+      './controllers/payslipController'
+    );
+    await Promise.all([restoreTemplateToDiskIfMissing(), restoreLogoToDiskIfMissing()]);
+
     const { ensureEmployeePayslipIndexes } = await import(
       './services/employeePayslipService'
     );
